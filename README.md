@@ -31,10 +31,22 @@ Data lives in `~/Library/Application Support/PomodoroCount/data.json`.
 Requires the Swift toolchain (Xcode or the Command Line Tools — `xcode-select
 --install`).
 
+With [`just`](https://github.com/casey/just) (`brew install just`):
+
+```bash
+just setup      # first time: build + install into /Applications + launch
+just install    # rebuild and move it over (replaces /Applications copy, relaunches)
+just run        # build and run from ./build without installing
+just test       # run the logic self-checks
+just            # list every recipe
+```
+
+Or without `just`:
+
 ```bash
 ./build-app.sh                      # produces build/Pomodoro Count.app
 open "build/Pomodoro Count.app"     # run it now (look top-right in the menu bar)
-cp -R "build/Pomodoro Count.app" /Applications/   # optional: install it
+cp -R "build/Pomodoro Count.app" /Applications/   # install it
 ```
 
 Once it's in `/Applications`, open **Settings → Launch at login** in the app so
