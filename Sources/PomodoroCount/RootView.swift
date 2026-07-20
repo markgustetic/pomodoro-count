@@ -74,21 +74,8 @@ struct RootView: View {
 
     private var logButton: some View {
         VStack(spacing: 6) {
-            Button {
-                model.logExternal()
-            } label: {
-                VStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 34, weight: .semibold))
-                    Text("Log completed pomodoro")
-                        .font(.title3.weight(.semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.red)
-            .help("Record a pomodoro you finished on external hardware")
+            LogButton { model.logExternal() }
+                .help("Record a pomodoro you finished on external hardware")
 
             if model.todayCount > 0 {
                 Button("Undo last", action: model.undoLast)
