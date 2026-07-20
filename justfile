@@ -57,6 +57,14 @@ dev:
 test:
     swift run {{exe}} --selftest
 
+# Render the popover UI to a PNG and open it (headless preview, no menu bar needed)
+preview:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out="$(mktemp -d)/pomodoro-panel.png"
+    swift run {{exe}} --preview "$out"
+    open "$out"
+
 # Regenerate the app icon (Resources/AppIcon.icns) from Tools/make-icon.swift
 icon:
     #!/usr/bin/env bash

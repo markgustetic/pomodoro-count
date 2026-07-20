@@ -10,8 +10,8 @@ struct RootView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            header
             logButton
+            header
 
             Picker("", selection: $tab) {
                 ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -73,15 +73,20 @@ struct RootView: View {
     // MARK: Headline external-log button
 
     private var logButton: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             Button {
                 model.logExternal()
             } label: {
-                Label("Log completed pomodoro", systemImage: "plus.circle.fill")
-                    .frame(maxWidth: .infinity)
+                VStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 34, weight: .semibold))
+                    Text("Log completed pomodoro")
+                        .font(.title3.weight(.semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.large)
             .tint(.red)
             .help("Record a pomodoro you finished on external hardware")
 
