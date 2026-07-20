@@ -92,6 +92,7 @@ final class AppModel: ObservableObject {
     private var endDate: Date?
     private var timer: Timer?
     private var hotKey: HotKeyManager?
+    private var dayChangeObserver: NSObjectProtocol?
     private let customStoreURL: URL?
 
     /// `storeURL` overrides the on-disk location (used by tests so they never
@@ -309,6 +310,23 @@ final class AppModel: ObservableObject {
     func setGlobalShortcut(_ enabled: Bool) {
         settings.globalShortcutEnabled = enabled
         syncGlobalShortcut()
+    }
+
+    // MARK: Daily rollover
+
+    /// Today's count is derived from dated records, so it is always 0 at the
+    /// start of a new day and older days stay in history. A long-running app,
+    /// though, won't recompute on its own — so refresh the UI when the calendar
+    /// day changes or the Mac wakes, rolling the visible count back to 0.
+    func startDayMonitoring() {
+        guard dayChangeObserver == nil else { return }
+        let refresh: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated { self?.objectWillChange.send() }
+        }
+        dayChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSCalendarDayChanged, object: nil, queue: .main, using: refresh)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: refresh)
     }
 
     func updateShortcut(_ shortcut: Shortcut) {

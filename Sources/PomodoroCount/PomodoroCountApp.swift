@@ -7,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         // Register the global hotkey now that the app event loop is up.
         AppModel.shared.syncGlobalShortcut()
+        // Roll today's count back to 0 when the calendar day changes.
+        AppModel.shared.startDayMonitoring()
     }
 }
 

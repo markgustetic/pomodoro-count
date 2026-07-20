@@ -113,6 +113,21 @@ enum SelfTest {
             check(m.totalCount == 4, "total counts all 4")
         }
 
+        // Daily rollover: yesterday's pomodoros don't count toward today,
+        // but they remain in history.
+        do {
+            let (m, _) = freshModel()
+            let cal = Calendar.current
+            let yesterday = cal.date(byAdding: .day, value: -1, to: Date())!
+            m.records = [
+                Record(at: yesterday, source: "manual"),
+                Record(at: yesterday, source: "timer"),
+            ]
+            check(m.todayCount == 0, "new day starts at 0 (yesterday excluded)")
+            check(m.totalCount == 2, "yesterday's pomodoros stay in history")
+            check(m.history().count == 1, "yesterday still appears in history")
+        }
+
         // Timer transitions
         do {
             let (m, _) = freshModel()
