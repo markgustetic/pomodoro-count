@@ -21,11 +21,13 @@ enum PreviewRenderer {
         }
         model.records = seeded
 
-        let view = RootView()
-            .environmentObject(model)
-            .frame(width: 300)
-            .padding(1)
-            .background(Color(nsColor: .windowBackgroundColor))
+        let view = HStack(alignment: .top, spacing: 18) {
+            RootView(initialTab: .focus).environmentObject(model)
+            RootView(initialTab: .history).environmentObject(model)
+            RootView(initialTab: .settings).environmentObject(model)
+        }
+        .padding(18)
+        .background(Color(nsColor: .windowBackgroundColor))
 
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2

@@ -4,20 +4,22 @@ import Charts
 
 struct RootView: View {
     @EnvironmentObject var model: AppModel
-    @State private var tab: Tab = .focus
+    @State private var tab: Tab
 
     enum Tab: String, CaseIterable { case focus = "Focus", history = "History", settings = "Settings" }
+
+    init(initialTab: Tab = .focus) {
+        _tab = State(initialValue: initialTab)
+    }
 
     var body: some View {
         VStack(spacing: 12) {
             logButton
             header
 
-            Picker("", selection: $tab) {
-                ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            SegmentedControl(
+                items: Tab.allCases.map { (value: $0, label: $0.rawValue) },
+                selection: $tab)
 
             switch tab {
             case .focus:    focusTab
@@ -79,7 +81,7 @@ struct RootView: View {
 
             if model.todayCount > 0 {
                 Button("Undo last", action: model.undoLast)
-                    .buttonStyle(.link)
+                    .buttonStyle(.plain)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -91,8 +93,16 @@ struct RootView: View {
     private var phaseColor: Color {
         switch model.phase {
         case .idle: return .secondary
-        case .work: return .red
-        case .breakTime: return .green
+        case .work: return .pomodoro
+        case .breakTime: return Color(red: 0.20, green: 0.52, blue: 0.24)
+        }
+    }
+
+    private var timerTint: ButtonTint {
+        switch model.phase {
+        case .idle: return .graphite
+        case .work: return .tomato
+        case .breakTime: return .grass
         }
     }
 
@@ -105,9 +115,9 @@ struct RootView: View {
     }
 
     private var focusTab: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             Text(AppModel.mmss(model.displayRemaining))
-                .font(.system(size: 46, weight: .semibold, design: .rounded))
+                .font(.system(size: 48, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(phaseColor)
             Text(phaseSubtitle)
@@ -116,13 +126,12 @@ struct RootView: View {
 
             HStack(spacing: 8) {
                 Button(model.primaryTitle) { model.toggle() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(GradientButtonStyle(tint: timerTint, cornerRadius: 12, vPadding: 9, elevation: 5))
 
                 Button { model.reset() } label: {
                     Image(systemName: "stop.fill")
                 }
-                .controlSize(.large)
+                .buttonStyle(SoftIconButtonStyle())
                 .disabled(model.phase == .idle)
                 .help("Stop and reset")
 
@@ -130,12 +139,18 @@ struct RootView: View {
                     Button { model.startBreak() } label: {
                         Image(systemName: "cup.and.saucer.fill")
                     }
-                    .controlSize(.large)
+                    .buttonStyle(SoftIconButtonStyle())
                     .help("Start a break now")
                 }
             }
         }
-        .padding(.top, 2)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.primary.opacity(0.05))
+        )
     }
 
     // MARK: Footer
@@ -147,8 +162,9 @@ struct RootView: View {
                 .foregroundStyle(.tertiary)
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }
-                .buttonStyle(.link)
+                .buttonStyle(.plain)
                 .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -167,11 +183,9 @@ struct HistoryTab: View {
     var body: some View {
         let stats = model.history()
         VStack(spacing: 10) {
-            Picker("", selection: $range) {
-                ForEach(ChartRange.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            SegmentedControl(
+                items: ChartRange.allCases.map { (value: $0, label: $0.rawValue) },
+                selection: $range)
 
             chart
 
@@ -196,7 +210,7 @@ struct HistoryTab: View {
                                     .frame(width: 84, alignment: .leading)
                                 GeometryReader { geo in
                                     Capsule()
-                                        .fill(Color.red.opacity(0.7))
+                                        .fill(Color.pomodoro.opacity(0.8))
                                         .frame(width: max(4, geo.size.width * CGFloat(s.count) / CGFloat(maxCount)))
                                         .frame(maxHeight: .infinity, alignment: .center)
                                 }
@@ -220,8 +234,8 @@ struct HistoryTab: View {
                 x: .value("Day", day.date, unit: .day),
                 y: .value("Pomodoros", day.count)
             )
-            .cornerRadius(2)
-            .foregroundStyle(Color.red.gradient)
+            .cornerRadius(3)
+            .foregroundStyle(Color.pomodoro.gradient)
         }
         .chartYAxis {
             AxisMarks(position: .leading, values: .automatic(desiredCount: 3))
