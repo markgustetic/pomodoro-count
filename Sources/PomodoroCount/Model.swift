@@ -253,6 +253,7 @@ final class AppModel: ObservableObject {
 
         if finished == .work {
             records.append(Record(at: Date(), source: "timer"))
+            play(.sessionDone)
             notify("Pomodoro complete", "Nice — that's \(todayCount) today.")
             if settings.autoStartBreak {
                 startBreak()
@@ -260,6 +261,7 @@ final class AppModel: ObservableObject {
                 phase = .idle
             }
         } else {
+            play(.breakOver)
             notify("Break over", "Ready for the next one?")
             phase = .idle
         }
@@ -272,10 +274,9 @@ final class AppModel: ObservableObject {
     /// since the panel may not be open to show the count change.
     func logExternal(announce: Bool = false) {
         records.append(Record(at: Date(), source: "manual"))
+        play(.countUp)
         if announce {
             notify("Pomodoro logged", "That's \(todayCount) today.")
-        } else if settings.soundEnabled {
-            NSSound(named: "Pop")?.play()
         }
     }
 
@@ -283,6 +284,7 @@ final class AppModel: ObservableObject {
     func undoLast() {
         guard let idx = records.indices.max(by: { records[$0].at < records[$1].at }) else { return }
         records.remove(at: idx)
+        play(.countDown)
     }
 
     // MARK: Launch at login
@@ -346,8 +348,21 @@ final class AppModel: ObservableObject {
 
     // MARK: Notifications & sound
 
+    /// System sounds used for feedback. Verified to exist by `--selftest`.
+    enum Sound: String {
+        case countUp = "Pop"        // a pomodoro was added
+        case countDown = "Bottle"   // a pomodoro was removed (undo)
+        case sessionDone = "Glass"  // a focus session finished
+        case breakOver = "Tink"     // a break ended (no count change)
+    }
+
+    /// Plays a short feedback sound, unless the user turned sounds off.
+    func play(_ sound: Sound) {
+        guard settings.soundEnabled else { return }
+        NSSound(named: sound.rawValue)?.play()
+    }
+
     private func notify(_ title: String, _ body: String) {
-        if settings.soundEnabled { NSSound(named: "Glass")?.play() }
         guard isBundled else { return }   // UNUserNotificationCenter needs a real bundle
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             guard granted else { return }

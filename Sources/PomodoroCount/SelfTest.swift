@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Carbon.HIToolbox
 
 /// Lightweight in-process checks against the real `AppModel`. Run with
@@ -138,6 +139,15 @@ enum SelfTest {
             check(m.todayCount == 0, "new day starts at 0 (yesterday excluded)")
             check(m.totalCount == 2, "yesterday's pomodoros stay in history")
             check(m.history().count == 1, "yesterday still appears in history")
+        }
+
+        // Every feedback sound must actually resolve on this system, or the
+        // count would change silently.
+        do {
+            for sound in [AppModel.Sound.countUp, .countDown, .sessionDone, .breakOver] {
+                check(NSSound(named: sound.rawValue) != nil,
+                      "sound '\(sound.rawValue)' exists")
+            }
         }
 
         // Timer transitions

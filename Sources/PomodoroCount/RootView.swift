@@ -330,7 +330,7 @@ struct SettingsTab: View {
                 Text("Break: **\(model.settings.breakMinutes)** min")
             }
             Toggle("Auto-start break after focus", isOn: $model.settings.autoStartBreak)
-            Toggle("Play sound on complete", isOn: $model.settings.soundEnabled)
+            Toggle("Sound effects", isOn: $model.settings.soundEnabled)
 
             VStack(alignment: .leading, spacing: 6) {
                 Toggle(isOn: Binding(
