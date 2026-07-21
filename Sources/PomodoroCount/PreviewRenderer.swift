@@ -20,6 +20,10 @@ enum PreviewRenderer {
             for _ in 0..<count { seeded.append(Record(at: stamp, source: "manual")) }
         }
         model.records = seeded
+        if let theme = PreviewOverrides.theme { model.settings.theme = theme }
+        let bg: Color = model.settings.theme == .synthwave
+            ? Color(hex: 0x0B0616)
+            : Color(nsColor: .windowBackgroundColor)
 
         let view = HStack(alignment: .top, spacing: 18) {
             RootView(initialTab: .focus).environmentObject(model)
@@ -27,7 +31,7 @@ enum PreviewRenderer {
             RootView(initialTab: .settings).environmentObject(model)
         }
         .padding(18)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(bg)
 
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2

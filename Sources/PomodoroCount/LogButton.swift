@@ -5,6 +5,7 @@ import SwiftUI
 /// springy press) built on the shared `GradientButtonStyle`.
 struct LogButton: View {
     var action: () -> Void
+    @Environment(\.palette) private var palette
 
     var body: some View {
         Button(action: action) {
@@ -21,6 +22,6 @@ struct LogButton: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .buttonStyle(GradientButtonStyle(tint: .tomato, cornerRadius: 17, vPadding: 18, elevation: 7))
+        .buttonStyle(GradientButtonStyle(tint: palette.hero, cornerRadius: 17, vPadding: 18, elevation: 7))
     }
 }

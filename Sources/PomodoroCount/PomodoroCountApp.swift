@@ -23,6 +23,9 @@ enum Entry {
         // Add --hover to render buttons in their hover state.
         if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {
             PreviewOverrides.forceHover = args.contains("--hover")
+            if let t = args.firstIndex(of: "--theme"), t + 1 < args.count {
+                PreviewOverrides.theme = ThemeChoice(rawValue: args[t + 1].capitalized)
+            }
             MainActor.assumeIsolated { PreviewRenderer.render(to: args[i + 1]) }
         }
         // --store <path> points the app at an alternate data file (for testing

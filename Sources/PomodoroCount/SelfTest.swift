@@ -91,6 +91,18 @@ enum SelfTest {
             check(m.settings.workMinutes == 25, "old settings survive schema change")
             check(m.settings.shortcut.display == "⌃⌥⌘P", "missing shortcut key defaults")
             check(m.settings.globalShortcutEnabled == true, "missing flag defaults to true")
+            check(m.settings.theme == .classic, "missing theme defaults to classic")
+        }
+
+        // Theme choice persists
+        do {
+            let (m, url) = freshModel()
+            check(m.settings.theme == .classic, "theme starts on classic")
+            m.settings.theme = .synthwave
+            let reloaded = AppModel(storeURL: url)
+            check(reloaded.settings.theme == .synthwave, "theme choice survives reload")
+            check(reloaded.settings.theme.palette.neon, "synthwave palette is neon")
+            check(!ThemeChoice.classic.palette.neon, "classic palette is not neon")
         }
 
         // History grouping & weekly window

@@ -37,6 +37,14 @@ struct Shortcut: Codable, Equatable {
     }
 }
 
+/// Which colour palette the UI uses.
+enum ThemeChoice: String, Codable, CaseIterable {
+    case classic = "Classic"
+    case synthwave = "Synthwave"
+
+    var palette: Palette { self == .synthwave ? .synthwave : .classic }
+}
+
 struct Settings: Codable {
     var workMinutes = 50
     var breakMinutes = 10
@@ -44,6 +52,7 @@ struct Settings: Codable {
     var soundEnabled = true
     var globalShortcutEnabled = true
     var shortcut = Shortcut.default
+    var theme: ThemeChoice = .classic
 
     init() {}
 
@@ -57,6 +66,7 @@ struct Settings: Codable {
         soundEnabled          = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         globalShortcutEnabled = try c.decodeIfPresent(Bool.self, forKey: .globalShortcutEnabled) ?? true
         shortcut              = try c.decodeIfPresent(Shortcut.self, forKey: .shortcut) ?? .default
+        theme                 = try c.decodeIfPresent(ThemeChoice.self, forKey: .theme) ?? .classic
     }
 }
 
