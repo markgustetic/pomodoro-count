@@ -44,22 +44,42 @@ struct RootView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             Text("\(model.todayCount)")
-                .font(.system(size: 38, weight: .bold, design: .rounded))
+                .font(.system(size: 40, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(palette.neon ? palette.accent : palette.text)
                 .neonGlow(palette.accent, enabled: palette.neon, radius: 10, opacity: 0.7)
+
             VStack(alignment: .leading, spacing: 1) {
                 Text(model.todayCount == 1 ? "pomodoro" : "pomodoros")
-                    .font(.headline)
-                Text(model.todayDateString)
-                    .font(.caption)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                Text(model.shortDateString)
+                    .font(.caption2)
                     .foregroundStyle(palette.textDim)
             }
-            Spacer()
-            statusBadge
+
+            Spacer(minLength: 6)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                statusBadge
+                Sparkline(values: model.dailySeries(days: 7).map(\.count),
+                          accent: palette.accent,
+                          accent2: palette.accent2,
+                          neon: palette.neon)
+                    .frame(width: 78)
+            }
         }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(palette.cardFill)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(palette.cardStroke, lineWidth: 1)
+                }
+        )
     }
 
     @ViewBuilder private var statusBadge: some View {

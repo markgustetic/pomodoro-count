@@ -162,6 +162,35 @@ struct HoverTextButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Sparkline
+
+/// A compact bar strip of recent daily counts. The last bar (today) is
+/// full-strength; earlier days recede.
+struct Sparkline: View {
+    let values: [Int]
+    var accent: Color
+    var accent2: Color
+    var neon: Bool
+    var height: CGFloat = 22
+
+    var body: some View {
+        let peak = max(1, values.max() ?? 1)
+        HStack(alignment: .bottom, spacing: 3) {
+            ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                let isToday = index == values.count - 1
+                Capsule(style: .continuous)
+                    .fill(LinearGradient(colors: [accent, accent2],
+                                         startPoint: .top, endPoint: .bottom))
+                    .opacity(isToday ? 1.0 : 0.40)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: max(3, CGFloat(value) / CGFloat(peak) * height))
+            }
+        }
+        .frame(height: height, alignment: .bottom)
+        .neonGlow(accent, enabled: neon, radius: 4, opacity: 0.45)
+    }
+}
+
 // MARK: - Segmented control
 
 /// A rounded pill segmented control with an animated selection chip.

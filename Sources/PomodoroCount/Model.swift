@@ -442,4 +442,12 @@ final class AppModel: ObservableObject {
     }
 
     var todayDateString: String { Self.todayFormatter.string(from: Date()) }
+
+    private static let shortDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE, MMM d"
+        return f
+    }()
+
+    var shortDateString: String { Self.shortDateFormatter.string(from: Date()) }
 }
