@@ -81,9 +81,8 @@ struct RootView: View {
 
             if model.todayCount > 0 {
                 Button("Undo last", action: model.undoLast)
-                    .buttonStyle(.plain)
+                    .buttonStyle(HoverTextButtonStyle())
                     .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -162,9 +161,8 @@ struct RootView: View {
                 .foregroundStyle(.tertiary)
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }
-                .buttonStyle(.plain)
+                .buttonStyle(HoverTextButtonStyle())
                 .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 }
