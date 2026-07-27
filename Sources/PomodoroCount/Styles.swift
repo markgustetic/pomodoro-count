@@ -173,9 +173,17 @@ struct Sparkline: View {
     var neon: Bool
     var height: CGFloat = 22
 
+    /// The bars carry no information a screen reader can get at, so state the
+    /// trend as one value instead of exposing seven unlabelled shapes.
+    private var spokenValue: String {
+        guard !values.isEmpty else { return "no data" }
+        let total = values.reduce(0, +)
+        return "\(total) in the last \(values.count) days, today \(values.last ?? 0)"
+    }
+
     var body: some View {
         let peak = max(1, values.max() ?? 1)
-        HStack(alignment: .bottom, spacing: 3) {
+        return HStack(alignment: .bottom, spacing: 3) {
             ForEach(Array(values.enumerated()), id: \.offset) { index, value in
                 let isToday = index == values.count - 1
                 Capsule(style: .continuous)
@@ -188,15 +196,25 @@ struct Sparkline: View {
         }
         .frame(height: height, alignment: .bottom)
         .neonGlow(accent, enabled: neon, radius: 4, opacity: 0.45)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Recent activity")
+        .accessibilityValue(spokenValue)
     }
 }
 
 // MARK: - Segmented control
 
 /// A rounded pill segmented control with an animated selection chip.
+///
+/// Each segment is a real `Button` rather than a tappable `Text`. That costs
+/// nothing visually — `.plain` adds no chrome — and it is the difference between
+/// the app's main navigation being reachable by VoiceOver and the keyboard, and
+/// being invisible to both.
 struct SegmentedControl<Value: Hashable>: View {
     let items: [(value: Value, label: String)]
     @Binding var selection: Value
+    /// Describes the group as a whole, e.g. "View" or "Appearance".
+    var accessibilityLabel: String?
     @Environment(\.palette) private var palette
     @Namespace private var ns
     @State private var hovered: Value?
@@ -206,23 +224,28 @@ struct SegmentedControl<Value: Hashable>: View {
             ForEach(items, id: \.value) { item in
                 let selected = item.value == selection
                 let hovering = hovered == item.value && !selected
-                Text(item.label)
-                    .font(.system(.subheadline, design: .rounded).weight(selected ? .semibold : .medium))
-                    .foregroundStyle(selected ? palette.text
-                                              : (hovering ? (palette.neon ? palette.cool : palette.text)
-                                                          : palette.textDim))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
-                    .background { chip(selected: selected, hovering: hovering) }
-                    .contentShape(Rectangle())
-                    .onHover { hovered = $0 ? item.value : (hovered == item.value ? nil : hovered) }
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
-                            selection = item.value
-                        }
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                        selection = item.value
                     }
+                } label: {
+                    Text(item.label)
+                        .font(.system(.subheadline, design: .rounded).weight(selected ? .semibold : .medium))
+                        .foregroundStyle(selected ? palette.text
+                                                  : (hovering ? (palette.neon ? palette.cool : palette.text)
+                                                              : palette.textDim))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background { chip(selected: selected, hovering: hovering) }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+                .onHover { hovered = $0 ? item.value : (hovered == item.value ? nil : hovered) }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(accessibilityLabel ?? "")
         .padding(3)
         .background(
             RoundedRectangle(cornerRadius: 11, style: .continuous)

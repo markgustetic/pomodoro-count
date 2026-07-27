@@ -20,6 +20,10 @@ struct ShortcutRecorder: View {
         .buttonStyle(.bordered)
         .tint(recording ? .accentColor : nil)
         .onDisappear(perform: stop)
+        .accessibilityLabel("Global shortcut")
+        .accessibilityValue(recording ? "Recording. Press a key combination, or Escape to cancel."
+                                      : shortcut.spokenDisplay)
+        .accessibilityHint(recording ? "" : "Activate to record a new key combination")
     }
 
     private func toggle() { recording ? stop() : start() }

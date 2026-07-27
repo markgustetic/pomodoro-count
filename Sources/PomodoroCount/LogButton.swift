@@ -16,6 +16,7 @@ struct LogButton: View {
                         .font(.system(size: 18, weight: .heavy))
                 }
                 .frame(width: 38, height: 38)
+                .accessibilityHidden(true)   // decorative; the text carries the label
 
                 Text("Log completed pomodoro")
                     .font(.system(.title3, design: .rounded).weight(.bold))

@@ -21,7 +21,8 @@ struct RootView: View {
 
             SegmentedControl(
                 items: Tab.allCases.map { (value: $0, label: $0.rawValue) },
-                selection: $tab)
+                selection: $tab,
+                accessibilityLabel: "View")
 
             switch tab {
             case .focus:    focusTab
@@ -50,6 +51,8 @@ struct RootView: View {
                 .monospacedDigit()
                 .foregroundStyle(palette.neon ? palette.accent : palette.text)
                 .neonGlow(palette.accent, enabled: palette.neon, radius: 10, opacity: 0.7)
+                .accessibilityLabel("Today, \(model.shortDateString)")
+                .accessibilityValue("\(model.todayCount) \(model.todayCount == 1 ? "pomodoro" : "pomodoros")")
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(model.todayCount == 1 ? "pomodoro" : "pomodoros")
@@ -58,6 +61,10 @@ struct RootView: View {
                     .font(.caption2)
                     .foregroundStyle(palette.textDim)
             }
+            // Otherwise VoiceOver reads "4", "pomodoros", "Mon, Jul 27" as three
+            // unrelated stops.
+            .accessibilityElement(children: .ignore)
+            .accessibilityHidden(true)
 
             Spacer(minLength: 6)
 
@@ -157,9 +164,13 @@ struct RootView: View {
                 .monospacedDigit()
                 .foregroundStyle(phaseColor)
                 .neonGlow(phaseColor, enabled: palette.neon, radius: 12, opacity: 0.65)
+                // "50:00" is read as digits; say it in words instead.
+                .accessibilityLabel(phaseSubtitle)
+                .accessibilityValue(AppModel.spokenDuration(model.displayRemaining))
             Text(phaseSubtitle)
                 .font(.caption)
                 .foregroundStyle(palette.textDim)
+                .accessibilityHidden(true)
 
             HStack(spacing: 8) {
                 Button(model.primaryTitle) { model.toggle() }
@@ -171,6 +182,7 @@ struct RootView: View {
                 .buttonStyle(SoftIconButtonStyle())
                 .disabled(model.phase == .idle)
                 .help("Stop and reset")
+                .accessibilityLabel("Stop and reset")
 
                 if model.phase != .breakTime {
                     Button { model.startBreak() } label: {
@@ -178,6 +190,7 @@ struct RootView: View {
                     }
                     .buttonStyle(SoftIconButtonStyle())
                     .help("Start a break now")
+                    .accessibilityLabel("Start a break now")
                 }
             }
         }
@@ -226,7 +239,8 @@ struct HistoryTab: View {
         VStack(spacing: 10) {
             SegmentedControl(
                 items: ChartRange.allCases.map { (value: $0, label: $0.rawValue) },
-                selection: $range)
+                selection: $range,
+                accessibilityLabel: "Chart range")
 
             chart
 
@@ -264,6 +278,10 @@ struct HistoryTab: View {
                                     .font(.caption.monospacedDigit())
                                     .frame(width: 24, alignment: .trailing)
                             }
+                            // One stop per day rather than label, bar, number.
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(model.dayLabel(s.date))
+                            .accessibilityValue("\(s.count) \(s.count == 1 ? "pomodoro" : "pomodoros")")
                         }
                     }
                 }
@@ -290,6 +308,7 @@ struct HistoryTab: View {
                 AxisValueLabel().foregroundStyle(palette.textDim)
             }
         }
+        .accessibilityLabel("Pomodoros per day, last \(range.days) days")
         .chartXAxis {
             if range == .week {
                 AxisMarks(values: .stride(by: .day)) { _ in
@@ -328,6 +347,9 @@ struct HistoryTab: View {
                         .strokeBorder(palette.cardStroke, lineWidth: 1)
                 }
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue("\(value) \(value == 1 ? "pomodoro" : "pomodoros")")
     }
 }
 
@@ -345,7 +367,8 @@ struct SettingsTab: View {
                     .foregroundStyle(palette.textDim)
                 SegmentedControl(
                     items: ThemeChoice.allCases.map { (value: $0, label: $0.rawValue) },
-                    selection: $model.settings.theme)
+                    selection: $model.settings.theme,
+                    accessibilityLabel: "Appearance")
             }
 
             Stepper(value: $model.settings.workMinutes, in: 1...180) {
@@ -377,6 +400,7 @@ struct SettingsTab: View {
                         }
                         .buttonStyle(SoftIconButtonStyle(width: 34, height: 26))
                         .help("Reset to ⌃⌥⌘P")
+                        .accessibilityLabel("Reset shortcut to control option command P")
                     }
                 }
                 Text("Logs a pomodoro from any app.")

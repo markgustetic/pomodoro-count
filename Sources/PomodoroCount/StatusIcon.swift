@@ -4,7 +4,10 @@ import AppKit
 /// template image so macOS tints it correctly in light/dark and on click.
 enum StatusIcon {
 
-    static func render(phase: Phase, running: Bool, text: String) -> NSImage {
+    /// `description` is what VoiceOver announces; the drawn text alone ("3") is
+    /// meaningless read aloud.
+    static func render(phase: Phase, running: Bool, text: String,
+                       description: String? = nil) -> NSImage {
         let font = NSFont.systemFont(ofSize: 13, weight: .medium)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
@@ -25,6 +28,7 @@ enum StatusIcon {
             return true
         }
         image.isTemplate = true
+        image.accessibilityDescription = description ?? text
         return image
     }
 

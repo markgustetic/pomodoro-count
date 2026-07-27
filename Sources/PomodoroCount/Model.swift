@@ -35,6 +35,18 @@ struct Shortcut: Codable, Equatable {
         if carbonModifiers & UInt32(cmdKey)     != 0 { s += "⌘" }
         return s + label
     }
+
+    /// `display` in words. VoiceOver reads the modifier symbols inconsistently
+    /// or not at all, so "⌃⌥⌘P" needs spelling out.
+    var spokenDisplay: String {
+        var parts: [String] = []
+        if carbonModifiers & UInt32(controlKey) != 0 { parts.append("control") }
+        if carbonModifiers & UInt32(optionKey)  != 0 { parts.append("option") }
+        if carbonModifiers & UInt32(shiftKey)   != 0 { parts.append("shift") }
+        if carbonModifiers & UInt32(cmdKey)     != 0 { parts.append("command") }
+        parts.append(label)
+        return parts.joined(separator: " ")
+    }
 }
 
 /// Which colour palette the UI uses.
@@ -159,7 +171,8 @@ final class AppModel: ObservableObject {
 
     /// The full menu bar item: custom icon + text, rendered as one template image.
     var statusImage: NSImage {
-        StatusIcon.render(phase: phase, running: isRunning, text: statusText)
+        StatusIcon.render(phase: phase, running: isRunning, text: statusText,
+                          description: statusDescription)
     }
 
     /// Exactly `days` consecutive days ending today, zero-filled, oldest first —
@@ -434,6 +447,30 @@ final class AppModel: ObservableObject {
     static func mmss(_ t: TimeInterval) -> String {
         let s = max(0, Int(ceil(t)))
         return String(format: "%d:%02d", s / 60, s % 60)
+    }
+
+    /// The same duration in words, for VoiceOver — "50:00" would otherwise be
+    /// read as bare digits.
+    static func spokenDuration(_ t: TimeInterval) -> String {
+        let total = max(0, Int(ceil(t)))
+        let minutes = total / 60, seconds = total % 60
+        let m = "\(minutes) \(minutes == 1 ? "minute" : "minutes")"
+        let s = "\(seconds) \(seconds == 1 ? "second" : "seconds")"
+        if minutes == 0 { return s }
+        if seconds == 0 { return m }
+        return "\(m) \(s)"
+    }
+
+    /// What VoiceOver announces for the menu bar item.
+    var statusDescription: String {
+        switch phase {
+        case .idle:
+            return "Pomodoro Count: \(todayCount) \(todayCount == 1 ? "pomodoro" : "pomodoros") today"
+        case .work:
+            return "Focus\(isRunning ? "" : ", paused"): \(Self.spokenDuration(remaining)) remaining"
+        case .breakTime:
+            return "Break\(isRunning ? "" : ", paused"): \(Self.spokenDuration(remaining)) remaining"
+        }
     }
 
     private static let dayFormatter: DateFormatter = {
