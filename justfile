@@ -105,6 +105,17 @@ release:
         echo "Tag v$version already exists. Bump VERSION for a new release."
         exit 1
     fi
+    # A pushed tag is awkward to retract, and with the workflow off it would
+    # publish nothing at all — so check before tagging, not after.
+    if command -v gh >/dev/null 2>&1; then
+        state="$(gh workflow list --all --json name,state \
+            --jq '.[] | select(.name=="Release") | .state' 2>/dev/null || true)"
+        if [ "$state" = "disabled_manually" ]; then
+            echo "The Release workflow is disabled, so pushing v$version would publish nothing."
+            echo "Re-enable it first:  gh workflow enable Release"
+            exit 1
+        fi
+    fi
     just test
     git tag -a "v$version" -m "Pomodoro Count $version"
     git push origin "v$version"

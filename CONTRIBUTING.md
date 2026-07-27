@@ -106,5 +106,16 @@ Maintainers only:
 
 1. Update `VERSION` and add a `CHANGELOG.md` section for it.
 2. Merge to `main`; CI checks the two agree.
-3. Tag `vX.Y.Z` and push the tag. The release workflow builds, zips, checksums,
-   and publishes the GitHub Release, then updates the Homebrew cask.
+3. Run `just release`. It re-checks those, runs the tests, tags `vX.Y.Z`, and
+   pushes the tag. The release workflow then builds, zips, checksums, and
+   publishes the GitHub Release, and updates the Homebrew cask.
+
+> **CI and Release are currently disabled.** GitHub Actions can't run on this
+> account while the repo is private, so both workflows are switched off rather
+> than failing on every push. `just release` refuses to tag while they're off.
+> To turn them back on:
+>
+> ```bash
+> gh workflow enable CI
+> gh workflow enable Release
+> ```
