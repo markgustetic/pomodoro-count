@@ -108,8 +108,13 @@ struct RootView: View {
 
     private var logButton: some View {
         VStack(spacing: 6) {
-            LogButton { model.logExternal() }
-                .help("Record a pomodoro you finished on external hardware")
+            // Logging is a one-tap errand: record it and get the panel out of
+            // the way. The menu bar count updates behind it as confirmation.
+            LogButton {
+                model.logExternal()
+                MenuBarPanel.dismiss()
+            }
+            .help("Record a pomodoro you finished on external hardware")
 
             if model.todayCount > 0 {
                 Button("Undo last", action: model.undoLast)

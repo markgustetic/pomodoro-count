@@ -51,3 +51,36 @@ struct PomodoroCountApp: App {
         .menuBarExtraStyle(.window)
     }
 }
+
+/// The panel the menu bar item drops down.
+///
+/// SwiftUI offers no public way to close a `.window`-style `MenuBarExtra` from
+/// inside its own content — `@Environment(\.dismiss)` does nothing there. The
+/// obvious AppKit workaround, closing the panel window directly, does close it
+/// but leaves SwiftUI still believing the panel is presented, so the next click
+/// on the menu bar item is swallowed toggling that stale state and it takes two
+/// clicks to reopen. (`orderOut` and `NSApp.hide` are worse: measurably stuck or
+/// no-ops.) So dismiss the way the user would: find the status item's own button
+/// and click it. That runs SwiftUI's real toggle, and the panel reopens on the
+/// very next click.
+@MainActor
+enum MenuBarPanel {
+    static func dismiss() {
+        statusItemButton?.performClick(nil)
+    }
+
+    /// The `NSStatusBarButton` behind our menu bar item. SwiftUI keeps the status
+    /// item private, but its window is a normal `NSStatusBarWindow` in `NSApp.windows`
+    /// (the button sits some way down that window's view tree, not at its root).
+    private static var statusItemButton: NSStatusBarButton? {
+        func search(_ view: NSView) -> NSStatusBarButton? {
+            if let button = view as? NSStatusBarButton { return button }
+            return view.subviews.lazy.compactMap(search).first
+        }
+        return NSApp.windows
+            .filter { $0.className.contains("NSStatusBarWindow") }
+            .lazy
+            .compactMap { $0.contentView.flatMap(search) }
+            .first
+    }
+}
