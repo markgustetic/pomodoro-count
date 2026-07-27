@@ -8,10 +8,10 @@ import Sparkle
 /// business phoning home, so `isSupported` is false there and the UI hides the
 /// controls rather than offering something that can't work.
 @MainActor
-final class Updater: ObservableObject {
+final class Updater: NSObject, ObservableObject, SPUStandardUserDriverDelegate {
     static let shared = Updater()
 
-    private let controller: SPUStandardUpdaterController?
+    private var controller: SPUStandardUpdaterController?
 
     /// Mirrors Sparkle's own setting so SwiftUI can bind to it.
     @Published var checksAutomatically: Bool {
@@ -25,12 +25,32 @@ final class Updater: ObservableObject {
     /// two questions are kept apart.
     var isSupported: Bool { Self.isConfigured }
 
-    private init() {
-        controller = (Self.isConfigured && !PreviewOverrides.isRendering)
-            ? SPUStandardUpdaterController(
-                startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-            : nil
+    private override init() {
+        checksAutomatically = true
+        super.init()
+
+        guard Self.isConfigured, !PreviewOverrides.isRendering else { return }
+        controller = SPUStandardUpdaterController(
+            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: self)
         checksAutomatically = controller?.updater.automaticallyChecksForUpdates ?? true
+    }
+
+    // MARK: SPUStandardUserDriverDelegate
+
+    /// This app has no Dock icon and is never the active application, so
+    /// Sparkle's windows would otherwise open behind whatever the user is
+    /// working in — an update prompt nobody sees is an update nobody installs.
+    nonisolated func standardUserDriverWillShowModalAlert() {
+        MainActor.assumeIsolated { NSApp.activate(ignoringOtherApps: true) }
+    }
+
+    nonisolated func standardUserDriverWillHandleShowingUpdate(
+        _ handleShowingUpdate: Bool,
+        forUpdate update: SUAppcastItem,
+        state: SPUUserUpdateState
+    ) {
+        guard handleShowingUpdate else { return }
+        MainActor.assumeIsolated { NSApp.activate(ignoringOtherApps: true) }
     }
 
     private static var isConfigured: Bool { isConfigured(Bundle.main.infoDictionary) }
