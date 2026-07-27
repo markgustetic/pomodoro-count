@@ -8,7 +8,9 @@ cd "$(dirname "$0")"
 APP_NAME="Pomodoro Count"
 EXE="PomodoroCount"
 BUNDLE_ID="com.markg.pomodorocount"
-VERSION="1.0"
+# VERSION is the single source of truth for the released version number; the
+# release workflow tags from it and the app shows it in its footer.
+VERSION="$(tr -d '[:space:]' < VERSION)"
 
 echo "Building release binary…"
 swift build -c release

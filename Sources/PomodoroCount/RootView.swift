@@ -198,7 +198,7 @@ struct RootView: View {
 
     private var footer: some View {
         HStack {
-            Text("Pomodoro Count")
+            Text("Pomodoro Count \(model.versionString)")
                 .font(.caption2)
                 .foregroundStyle(palette.textDim.opacity(0.7))
             Spacer()

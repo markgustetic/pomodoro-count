@@ -304,6 +304,19 @@ final class AppModel: ObservableObject {
 
     var isBundled: Bool { Bundle.main.bundleIdentifier != nil }
 
+    // MARK: Version
+
+    /// Shown in the panel footer so a bug report can name a version. Built app
+    /// bundles carry the number from `VERSION`; running from source has no
+    /// bundle to read, so it reports "dev".
+    var versionString: String { Self.version(from: Bundle.main.infoDictionary) }
+
+    static func version(from info: [String: Any]?) -> String {
+        guard let version = info?["CFBundleShortVersionString"] as? String,
+              !version.isEmpty else { return "dev" }
+        return version
+    }
+
     // MARK: Global keyboard shortcut (⌃⌥⌘P → log a pomodoro)
 
     /// Tears down any existing hotkey and re-registers it for the current
