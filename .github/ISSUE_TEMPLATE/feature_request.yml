@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest something the app should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        This app deliberately does one thing: count pomodoros you finish
+        elsewhere. Small ideas that fit that are very welcome; bigger ones are
+        worth talking through before anyone writes code.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What are you trying to do that the app makes hard today?
+      placeholder: I use two machines and my counts don't line up.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you've tried instead?
