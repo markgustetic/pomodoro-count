@@ -8,3 +8,6 @@ build/
 packaging/sparkle/public-key.txt
 # Never, under any circumstances.
 sparkle-private-key.txt
+
+# Brainstorming companion scratch files
+.superpowers/
