@@ -33,13 +33,7 @@ enum PreviewRenderer {
         .padding(18)
         .background(bg)
 
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = 2
-
-        guard let image = renderer.nsImage,
-              let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else {
+        guard let png = rasterize(view, scale: 2) else {
             print("Preview render failed")
             exit(1)
         }
@@ -51,5 +45,52 @@ enum PreviewRenderer {
             print("Write failed: \(error)")
             exit(1)
         }
+    }
+
+    /// Draws a SwiftUI view to PNG data.
+    ///
+    /// This hosts the view in an offscreen window and draws the real AppKit view
+    /// hierarchy, rather than using `ImageRenderer`. `ImageRenderer` cannot
+    /// rasterize NSView-backed controls — the switches and steppers in Settings
+    /// come out as yellow "unrenderable" placeholders — so it would misreport
+    /// what the panel actually looks like.
+    @MainActor
+    private static func rasterize(_ view: some View, scale: CGFloat) -> Data? {
+        let hosting = NSHostingView(rootView: view)
+        hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
+
+        // Controls only lay out and draw once they belong to a window.
+        let window = NSWindow(
+            contentRect: hosting.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false)
+        window.contentView = hosting
+        window.layoutIfNeeded()
+        hosting.layoutSubtreeIfNeeded()
+
+        let bounds = hosting.bounds
+        guard bounds.width > 0, bounds.height > 0,
+              let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: Int(bounds.width * scale),
+                pixelsHigh: Int(bounds.height * scale),
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0)
+        else { return nil }
+
+        rep.size = bounds.size   // points, so the context scales to `scale`
+        guard let context = NSGraphicsContext(bitmapImageRep: rep) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        hosting.displayIgnoringOpacity(bounds, in: context)
+        NSGraphicsContext.restoreGraphicsState()
+
+        return rep.representation(using: .png, properties: [:])
     }
 }

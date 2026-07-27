@@ -1,78 +1,145 @@
-# Pomodoro Count
+<h1 align="center">Pomodoro Count</h1>
 
-A tiny macOS **menu bar** app for running pomodoros and — the main reason it
-exists — **counting pomodoros you complete on external hardware** (a physical
-timer, a cube, etc.) that doesn't keep a running total.
+<p align="center">
+  A tiny macOS menu bar app that counts the pomodoros you finish
+  <em>somewhere else</em>.
+</p>
 
-Click the menu bar icon, hit **Log completed pomodoro**, and it's counted toward
-your day and history. That's it.
+<p align="center">
+  <a href="https://github.com/markgustetic/pomodoro-count/actions/workflows/ci.yml"><img src="https://github.com/markgustetic/pomodoro-count/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/markgustetic/pomodoro-count/releases/latest"><img src="https://img.shields.io/github/v/release/markgustetic/pomodoro-count" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-black" alt="macOS 14+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+</p>
 
-## Features
+<p align="center">
+  <img src="docs/panel-classic.png" alt="The Focus, History, and Settings tabs" width="900">
+</p>
 
-- **Menu bar only** — no Dock icon. A custom tomato icon shows today's count when
-  idle, or a live countdown (with a cup glyph on breaks, a pause glyph when paused)
-  while a session runs.
-- **Log completed pomodoro** — one click to record a pomodoro finished outside
-  the app, with **Undo last** for mis-taps.
-- **Global shortcut** — log a completed pomodoro from any app, without opening
-  the panel. Defaults to **⌃⌥⌘P**; click-to-record your own combo (or toggle it
-  off) in Settings.
-- **Built-in timer** — configurable, defaults to **50 min focus / 10 min break**,
-  with optional auto-start break, completion sound, and notification.
-- **Daily count** front and center.
-- **History** — a **Week / Month** bar chart plus a per-day list, with this-week
-  and all-time totals.
-- **Launch at login** toggle (when run as an installed app).
+## Why
 
-Data lives in `~/Library/Application Support/PomodoroCount/data.json`.
+Physical pomodoro timers are lovely — a cube you twist, a dial you turn, no
+screen involved. What they don't do is remember. Turn the cube twenty times in a
+week and you have no idea you did.
 
-## Build & install
+Pomodoro Count is the tally that hardware is missing. Finish a pomodoro on your
+timer, hit one button (or one keystroke), and it's counted. It has a built-in
+timer too, if you want one, but that's not the point of it.
 
-Requires the Swift toolchain (Xcode or the Command Line Tools — `xcode-select
---install`).
+## Install
 
-With [`just`](https://github.com/casey/just) (`brew install just`):
+### Homebrew
 
 ```bash
-just setup      # first time: build + install into /Applications + launch
-just install    # rebuild and move it over (replaces /Applications copy, relaunches)
-just run        # build and run from ./build without installing
-just test       # run the logic self-checks
+brew install --cask --no-quarantine markgustetic/tap/pomodoro-count
+```
+
+`--no-quarantine` is needed because the app isn't signed with an Apple Developer
+ID — see [below](#about-that-unsigned-warning).
+
+### Download
+
+Grab the zip from the [latest release](https://github.com/markgustetic/pomodoro-count/releases/latest),
+unzip it, and drag **Pomodoro Count.app** to `/Applications`.
+
+Each release ships a `.sha256` file. Since the app isn't signed, checking it is
+the way to confirm your download is intact:
+
+```bash
+shasum -a 256 -c PomodoroCount-1.0.0.zip.sha256
+```
+
+### From source
+
+Needs the Swift toolchain (Xcode or `xcode-select --install`) and
+[`just`](https://github.com/casey/just):
+
+```bash
+git clone https://github.com/markgustetic/pomodoro-count.git
+cd pomodoro-count
+just setup     # build, install to /Applications, launch
+```
+
+### About that unsigned warning
+
+Releases are **not** signed with an Apple Developer ID and **not** notarized —
+that needs a paid Apple developer account, which this project doesn't have. So
+macOS refuses the first launch.
+
+Clear it once and macOS stops asking:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Pomodoro Count.app"
+```
+
+Or right-click the app, choose **Open**, then **Open** again in the dialog.
+
+The app is menu-bar-only and has no Dock icon — after launching, **look at the
+top-right of your screen**, not the Dock.
+
+## Using it
+
+**Log a pomodoro.** Click the menu bar icon and hit **Log completed pomodoro**.
+The panel closes and the count goes up. Mis-tapped? **Undo last**.
+
+**Without opening anything.** <kbd>⌃</kbd><kbd>⌥</kbd><kbd>⌘</kbd><kbd>P</kbd>
+logs one from any app. Record your own combo in Settings, or turn it off.
+
+**The menu bar shows** today's count when idle, or a live countdown while a
+session runs — with a cup glyph on breaks and a pause glyph when paused.
+
+**Run a timer** if you want one. 50 / 10 minutes by default, configurable, with
+optional auto-start break, a completion sound, and a notification.
+
+**History** gives you a Week / Month chart, a per-day list, and this-week and
+all-time totals. Today's count resets at midnight; past days stay in history.
+
+**Two themes** — Classic and Synthwave.
+
+<p align="center">
+  <img src="docs/panel-synthwave.png" alt="The same three tabs in the Synthwave theme" width="900">
+</p>
+
+## Your data
+
+One plain-text JSON file:
+
+```
+~/Library/Application Support/PomodoroCount/data.json
+```
+
+Timestamps of your pomodoros and your settings. That's everything. The app makes
+**no network requests** — no telemetry, no analytics, no update check — and has
+**no third-party dependencies**. Back it up or edit it as you like.
+
+## Uninstall
+
+```bash
+brew uninstall --cask --zap pomodoro-count      # Homebrew, removes data too
+```
+
+Or drag the app to the Trash and, if you want the history gone as well:
+
+```bash
+rm -rf ~/Library/Application\ Support/PomodoroCount
+```
+
+Turn off **Launch at login** in Settings first, or macOS keeps a stale login item.
+
+## Development
+
+```bash
 just            # list every recipe
+just dev        # run from source
+just test       # run the test suite
+just preview    # render all three tabs to a PNG, no menu bar needed
+just build      # build the .app into ./build
 ```
 
-Or without `just`:
+Tests need full Xcode — the Command Line Tools ship no test framework — but
+`just test` finds it for you. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+details, project layout, and what kinds of changes fit.
 
-```bash
-./build-app.sh                      # produces build/Pomodoro Count.app
-open "build/Pomodoro Count.app"     # run it now (look top-right in the menu bar)
-cp -R "build/Pomodoro Count.app" /Applications/   # install it
-```
+## License
 
-Once it's in `/Applications`, open **Settings → Launch at login** in the app so
-it starts with your Mac.
-
-## Develop
-
-```bash
-swift run PomodoroCount             # run straight from source
-just test                           # run the test suite
-```
-
-## Layout
-
-| File | Purpose |
-|------|---------|
-| `Sources/PomodoroCount/Model.swift` | Data model, timer engine, persistence |
-| `Sources/PomodoroCount/PomodoroCountApp.swift` | App entry + `MenuBarExtra` |
-| `Sources/PomodoroCount/RootView.swift` | The popover UI (Focus / History / Settings) |
-| `Sources/PomodoroCount/StatusIcon.swift` | Custom menu bar icon + text rendering |
-| `Sources/PomodoroCount/HotKey.swift` | Global hotkey (Carbon `RegisterEventHotKey`) |
-| `Sources/PomodoroCount/ShortcutRecorder.swift` | Click-to-record shortcut control |
-| `Tests/PomodoroCountTests/` | Test suite (swift-testing) |
-| `Tools/make-icon.swift` | Renders the app icon (`Resources/AppIcon.icns`) |
-| `build-app.sh` | Compiles and assembles the `.app` bundle |
-
-The app is menu-bar-only (`LSUIElement`), so it doesn't sit in the Dock while
-running — but it now has a proper tomato icon in Finder, Get Info, and Spotlight.
-To regenerate the icon, delete `Resources/AppIcon.icns` and rerun `build-app.sh`.
+[MIT](LICENSE).

@@ -58,11 +58,40 @@ Match the surrounding code. Some conventions worth knowing:
 - Colours come from `Palette` so both themes stay in sync. Don't hardcode one.
 - Anything touching `AppModel` is `@MainActor`.
 
+## Project layout
+
+| Path | Purpose |
+|------|---------|
+| `Sources/PomodoroCount/Model.swift` | Data model, timer engine, persistence |
+| `Sources/PomodoroCount/PomodoroCountApp.swift` | App entry, `MenuBarExtra`, panel dismissal |
+| `Sources/PomodoroCount/RootView.swift` | The panel UI (Focus / History / Settings) |
+| `Sources/PomodoroCount/Theme.swift` | `Palette` — every colour in both themes |
+| `Sources/PomodoroCount/Styles.swift` | Shared button and control styles |
+| `Sources/PomodoroCount/StatusIcon.swift` | Menu bar icon + text rendering |
+| `Sources/PomodoroCount/HotKey.swift` | Global hotkey (Carbon `RegisterEventHotKey`) |
+| `Sources/PomodoroCount/ShortcutRecorder.swift` | Click-to-record shortcut control |
+| `Sources/PomodoroCount/PreviewRenderer.swift` | `--preview` headless panel render |
+| `Tests/PomodoroCountTests/` | The test suite |
+| `Tools/make-icon.swift` | Draws the app icon (`Resources/AppIcon.icns`) |
+| `build-app.sh` | Compiles and assembles the `.app` bundle |
+| `packaging/homebrew/` | Cask template and tap setup |
+
 ## Testing UI behaviour
 
 Logic is covered by the test suite. The panel itself is a `MenuBarExtra`, which
 no test framework drives well — for that, `just preview` renders all three tabs
-to a PNG without needing a menu bar, which catches layout problems quickly.
+to a PNG without needing a menu bar, which catches layout problems quickly. CI
+runs the same render on every PR as a crash check.
+
+The renderer hosts the view in an offscreen window and draws the real AppKit
+hierarchy rather than using SwiftUI's `ImageRenderer`, which cannot rasterize
+NSView-backed controls — with `ImageRenderer` the switches and steppers came out
+as yellow placeholder blocks and the History day-list vanished entirely. If you
+add a control that renders oddly in a preview, suspect that boundary first.
+
+One honest limitation: the offscreen window is never key, so controls draw in
+their inactive state. Switches look grey in a preview and accent-tinted in the
+running app. That's the renderer, not your change.
 
 ## Releasing
 
