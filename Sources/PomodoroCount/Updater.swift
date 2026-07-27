@@ -33,11 +33,13 @@ final class Updater: ObservableObject {
         checksAutomatically = controller?.updater.automaticallyChecksForUpdates ?? true
     }
 
+    private static var isConfigured: Bool { isConfigured(Bundle.main.infoDictionary) }
+
     /// Sparkle needs both a feed to read and a public key to verify what it
     /// downloads. Without the key it would refuse every update anyway, so the
     /// app hides the controls — better no button than one that always fails.
-    private static var isConfigured: Bool {
-        guard let info = Bundle.main.infoDictionary,
+    static func isConfigured(_ info: [String: Any]?) -> Bool {
+        guard let info,
               let feed = info["SUFeedURL"] as? String, !feed.isEmpty,
               let key = info["SUPublicEDKey"] as? String, !key.isEmpty
         else { return false }
