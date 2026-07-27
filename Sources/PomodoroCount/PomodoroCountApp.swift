@@ -13,6 +13,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // scheduled background checks would never run for anyone who doesn't
         // open Settings — which is most people.
         _ = Updater.shared
+
+        // A menu-bar-only app launches to no window, no Dock icon, and no sign
+        // it did anything. Open the panel once so a new user sees where it went.
+        if AppModel.shared.isFirstLaunch {
+            AppModel.shared.markLaunched()
+            MenuBarPanel.present()
+        }
     }
 }
 
@@ -69,6 +76,29 @@ struct PomodoroCountApp: App {
 enum MenuBarPanel {
     static func dismiss() {
         statusItemButton?.performClick(nil)
+    }
+
+    /// Opens the panel shortly after launch.
+    ///
+    /// SwiftUI builds the status item asynchronously as the scene comes up, so
+    /// at `applicationDidFinishLaunching` there is usually nothing to click yet.
+    /// Retry briefly rather than guessing a delay, and give up quietly — a
+    /// missing welcome is a far smaller problem than a click landing later on a
+    /// panel the user has already opened themselves.
+    static func present(retries: Int = 25) {
+        if let button = statusItemButton {
+            // Load-bearing, not belt-and-braces: without it the panel opens and
+            // then closes a few seconds later as focus drifts back to whatever
+            // was frontmost, because the panel dismisses when the app stops
+            // being active. Measured, not assumed.
+            NSApp.activate(ignoringOtherApps: true)
+            button.performClick(nil)
+            return
+        }
+        guard retries > 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            MainActor.assumeIsolated { present(retries: retries - 1) }
+        }
     }
 
     /// The `NSStatusBarButton` behind our menu bar item. SwiftUI keeps the status

@@ -16,19 +16,23 @@ enum StatusIcon {
         let textSize = (text as NSString).size(withAttributes: attrs)
 
         let iconSize: CGFloat = 15
-        let gap: CGFloat = 3
         let height: CGFloat = 18
+        // No text means no gap either, or the item keeps padding it can't use —
+        // the whole point of icon-only is giving the width back to the menu bar.
+        let gap: CGFloat = text.isEmpty ? 0 : 3
         let width = ceil(iconSize + gap + textSize.width)
 
         let image = NSImage(size: NSSize(width: width, height: height), flipped: false) { _ in
             let iconRect = NSRect(x: 0, y: (height - iconSize) / 2, width: iconSize, height: iconSize)
             drawIcon(phase: phase, running: running, in: iconRect)
-            let textY = (height - textSize.height) / 2
-            (text as NSString).draw(at: NSPoint(x: iconSize + gap, y: textY), withAttributes: attrs)
+            if !text.isEmpty {
+                let textY = (height - textSize.height) / 2
+                (text as NSString).draw(at: NSPoint(x: iconSize + gap, y: textY), withAttributes: attrs)
+            }
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = description ?? text
+        image.accessibilityDescription = description ?? (text.isEmpty ? "Pomodoro Count" : text)
         return image
     }
 

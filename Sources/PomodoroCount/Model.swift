@@ -65,6 +65,9 @@ struct Settings: Codable {
     var globalShortcutEnabled = true
     var shortcut = Shortcut.default
     var theme: ThemeChoice = .classic
+    /// When off, the menu bar item is just the icon while idle. The countdown
+    /// still appears during a session — that's when the width earns its place.
+    var showsCountInMenuBar = true
 
     init() {}
 
@@ -79,6 +82,7 @@ struct Settings: Codable {
         globalShortcutEnabled = try c.decodeIfPresent(Bool.self, forKey: .globalShortcutEnabled) ?? true
         shortcut              = try c.decodeIfPresent(Shortcut.self, forKey: .shortcut) ?? .default
         theme                 = try c.decodeIfPresent(ThemeChoice.self, forKey: .theme) ?? .classic
+        showsCountInMenuBar   = try c.decodeIfPresent(Bool.self, forKey: .showsCountInMenuBar) ?? true
     }
 }
 
@@ -121,7 +125,21 @@ final class AppModel: ObservableObject {
     /// touch the user's real data). Defaults to Application Support.
     init(storeURL: URL? = nil) {
         self.customStoreURL = storeURL ?? Self.overrideStoreURL
+        // Checked before load(), which creates the containing directory.
+        isFirstLaunch = !FileManager.default.fileExists(atPath: self.storeURL.path)
         load()
+    }
+
+    /// True when no data file exists yet, i.e. a brand-new install. Used once, to
+    /// open the panel so launching the app does something visible.
+    private(set) var isFirstLaunch = false
+
+    /// Writes the store even though nothing has changed, so the next launch is
+    /// not also a first launch. Without this the welcome would repeat until the
+    /// user happened to log a pomodoro or change a setting.
+    func markLaunched() {
+        isFirstLaunch = false
+        save()
     }
 
     // MARK: Derived values
@@ -162,9 +180,11 @@ final class AppModel: ObservableObject {
     }
 
     /// Text shown next to the icon in the menu bar (count when idle, else clock).
+    /// Empty means icon-only — see `Settings.showsCountInMenuBar`. The count is
+    /// still announced to VoiceOver either way; this hides it visually only.
     var statusText: String {
         switch phase {
-        case .idle:            return "\(todayCount)"
+        case .idle:             return settings.showsCountInMenuBar ? "\(todayCount)" : ""
         case .work, .breakTime: return Self.mmss(remaining)
         }
     }

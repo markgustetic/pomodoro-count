@@ -86,7 +86,9 @@ The panel closes and the count goes up. Mis-tapped? **Undo last**.
 logs one from any app. Record your own combo in Settings, or turn it off.
 
 **The menu bar shows** today's count when idle, or a live countdown while a
-session runs — with a cup glyph on breaks and a pause glyph when paused.
+session runs — with a cup glyph on breaks and a pause glyph when paused. If your
+menu bar is crowded, turn off **Show count in menu bar** and it shrinks to just
+the icon while idle, still showing the timer during a session.
 
 **Run a timer** if you want one. 50 / 10 minutes by default, configurable, with
 optional auto-start break, a completion sound, and a notification.

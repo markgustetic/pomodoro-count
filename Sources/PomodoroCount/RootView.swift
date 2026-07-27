@@ -400,6 +400,15 @@ struct SettingsTab: View {
                     accessibilityLabel: "Appearance")
             }
 
+            VStack(alignment: .leading, spacing: 2) {
+                Toggle("Show count in menu bar", isOn: $model.settings.showsCountInMenuBar)
+                if !model.settings.showsCountInMenuBar {
+                    Text("Icon only while idle; the timer still shows during a session.")
+                        .font(.caption2)
+                        .foregroundStyle(palette.textDim)
+                }
+            }
+
             Stepper(value: $model.settings.workMinutes, in: 1...180) {
                 Text("Focus: **\(model.settings.workMinutes)** min")
             }

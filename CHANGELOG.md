@@ -26,6 +26,10 @@ First public release.
 - **VoiceOver support** throughout, including the menu bar item, which announces
   today's count or the time remaining in the current session.
 - **Themes** — switchable Classic and Synthwave palettes.
+- **Icon-only menu bar option** — hides the idle count to give the width back to
+  a crowded menu bar. The countdown still shows during a session.
+- The panel opens by itself the first time the app runs, so a menu-bar-only app
+  doesn't launch to nothing at all.
 - **Launch at login** toggle when installed as an app.
 - **Automatic updates** via Sparkle, verified against a signing key built into
   the app. Checks daily; can be turned off, or run on demand, in Settings.
