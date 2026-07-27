@@ -385,6 +385,7 @@ struct HistoryTab: View {
 
 struct SettingsTab: View {
     @EnvironmentObject var model: AppModel
+    @ObservedObject private var updater = Updater.shared
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -441,6 +442,15 @@ struct SettingsTab: View {
                     get: { model.launchAtLogin },
                     set: { model.launchAtLogin = $0 }
                 ))
+            }
+
+            if updater.isSupported {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("Check for updates automatically", isOn: $updater.checksAutomatically)
+                    Button("Check for updates now…") { updater.checkForUpdates() }
+                        .buttonStyle(HoverTextButtonStyle())
+                        .font(.caption)
+                }
             }
         }
         .toggleStyle(.switch)

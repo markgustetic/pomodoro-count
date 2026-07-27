@@ -9,6 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppModel.shared.syncGlobalShortcut()
         // Roll today's count back to 0 when the calendar day changes.
         AppModel.shared.startDayMonitoring()
+        // Start Sparkle now rather than lazily from the Settings tab, or its
+        // scheduled background checks would never run for anyone who doesn't
+        // open Settings — which is most people.
+        _ = Updater.shared
     }
 }
 
@@ -19,6 +23,7 @@ enum Entry {
         // --preview <path> renders the popover UI to a PNG and exits (no window).
         // Add --hover to render buttons in their hover state.
         if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {
+            PreviewOverrides.isRendering = true
             PreviewOverrides.forceHover = args.contains("--hover")
             if let t = args.firstIndex(of: "--theme"), t + 1 < args.count {
                 PreviewOverrides.theme = ThemeChoice(rawValue: args[t + 1].capitalized)

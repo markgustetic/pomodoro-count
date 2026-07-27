@@ -17,6 +17,8 @@ jobs:
       # an `if:`, so they're reduced to booleans here.
       HAS_SIGNING: ${{ secrets.DEVELOPER_ID_P12 != '' }}
       HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+      HAS_SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
+      SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +45,9 @@ jobs:
       - name: Run tests before releasing
         run: swift test
 
+      # SPARKLE_PUBLIC_KEY comes from a repository variable (it isn't secret).
+      # Without it the app builds with its updater disabled rather than shipping
+      # one that can't verify anything.
       - name: Build the .app
         run: ./build-app.sh
 
@@ -101,6 +106,52 @@ jobs:
           shasum -a 256 "$ZIP" | tee "$ZIP.sha256"
           echo "sha256=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
+      # Sparkle verifies every update against the public key baked into the app,
+      # so an unsigned appcast means clients correctly refuse to install. Skipped
+      # when the key isn't configured — see packaging/sparkle/README.md.
+      - name: Build the Sparkle appcast
+        if: env.HAS_SPARKLE_KEY == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.version.outputs.zip }}
+        run: |
+          set -euo pipefail
+          keyfile="$RUNNER_TEMP/sparkle_ed_key"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$keyfile"
+          trap 'rm -f "$keyfile"' EXIT
+          chmod 600 "$keyfile"
+
+          sign_update="$(find .build/artifacts -name sign_update -type f | head -1)"
+          # Prints: sparkle:edSignature="…" length="…"
+          attrs="$("$sign_update" "$ZIP" --ed-key-file "$keyfile")"
+
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/v$VERSION/$ZIP"
+          pubdate="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+
+          # Only the newest item is needed; Sparkle picks the highest version it
+          # finds, and older builds are still downloadable from their releases.
+          {
+            echo '<?xml version="1.0" encoding="utf-8"?>'
+            echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">'
+            echo '  <channel>'
+            echo '    <title>Pomodoro Count</title>'
+            echo "    <item>"
+            echo "      <title>Version $VERSION</title>"
+            echo "      <pubDate>$pubdate</pubDate>"
+            echo "      <sparkle:version>$VERSION</sparkle:version>"
+            echo "      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>"
+            echo "      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>"
+            echo "      <sparkle:releaseNotesLink>https://github.com/${GITHUB_REPOSITORY}/releases/tag/v$VERSION</sparkle:releaseNotesLink>"
+            echo "      <enclosure url=\"$url\" type=\"application/octet-stream\" $attrs />"
+            echo "    </item>"
+            echo '  </channel>'
+            echo '</rss>'
+          } > appcast.xml
+
+          xmllint --noout appcast.xml
+          echo "appcast.xml built for $VERSION"
+
       - name: Extract release notes from the changelog
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -147,10 +198,15 @@ jobs:
           set -euo pipefail
           tag="$TAG"
           [ "$GITHUB_REF_TYPE" = "tag" ] || tag="v$VERSION"
+          assets=("$ZIP" "$ZIP.sha256")
+          # The app's feed URL is releases/latest/download/appcast.xml, so this
+          # asset must ride along with every release or updates stop resolving.
+          [ -f appcast.xml ] && assets+=(appcast.xml)
+
           gh release create "$tag" \
             --title "Pomodoro Count $VERSION" \
             --notes-file notes.md \
-            "$ZIP" "$ZIP.sha256"
+            "${assets[@]}"
 
       # Needs a HOMEBREW_TAP_TOKEN secret (a PAT with contents:write on the tap
       # repo) — GITHUB_TOKEN can't push to a different repository.

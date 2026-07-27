@@ -45,7 +45,14 @@ only the Command Line Tools installed, everything except `just test` still works
 - **Not** a rewrite, a new architecture, or a dependency that could be twenty
   lines of AppKit.
 
-The app deliberately has **zero third-party dependencies**. Please keep it that way.
+### Dependencies
+
+There is exactly one: [Sparkle](https://sparkle-project.org), which handles
+updates. It earns its place — macOS ships no updater, and a hand-rolled one
+means implementing signature verification for downloaded executables, which is
+precisely the code you do not want to write yourself.
+
+That's the bar for a second one. Please open an issue before adding anything.
 
 ## Style
 

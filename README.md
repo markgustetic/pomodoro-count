@@ -113,9 +113,13 @@ One plain-text JSON file:
 ~/Library/Application Support/PomodoroCount/data.json
 ```
 
-Timestamps of your pomodoros and your settings. That's everything. The app makes
-**no network requests** — no telemetry, no analytics, no update check — and has
-**no third-party dependencies**. Back it up or edit it as you like.
+Timestamps of your pomodoros and your settings. That's everything. Back it up or
+edit it as you like.
+
+The app talks to the network for exactly one reason: checking whether a newer
+version exists. No telemetry, no analytics, nothing about your usage leaves your
+machine — and you can turn the check off in Settings. Updates are verified
+against a signing key built into the app, so a tampered download is refused.
 
 ## Uninstall
 

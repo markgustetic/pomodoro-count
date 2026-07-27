@@ -27,6 +27,8 @@ First public release.
   today's count or the time remaining in the current session.
 - **Themes** — switchable Classic and Synthwave palettes.
 - **Launch at login** toggle when installed as an app.
+- **Automatic updates** via Sparkle, verified against a signing key built into
+  the app. Checks daily; can be turned off, or run on demand, in Settings.
 - Daily rollover: the visible count returns to zero at midnight and when the Mac
   wakes, while past days stay in history.
 - The panel closes as soon as a pomodoro is logged, so logging is a single click.

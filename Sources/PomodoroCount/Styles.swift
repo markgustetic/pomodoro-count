@@ -7,6 +7,9 @@ enum PreviewOverrides {
     nonisolated(unsafe) static var forceHover = false
     /// Overrides the persisted theme when rendering a preview.
     nonisolated(unsafe) static var theme: ThemeChoice?
+    /// True while `--preview` is rendering. A screenshot run must not start the
+    /// updater or reach the network.
+    nonisolated(unsafe) static var isRendering = false
 }
 
 private func applyCursor(_ inside: Bool) {

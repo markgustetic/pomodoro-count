@@ -2,3 +2,9 @@
 build/
 .DS_Store
 *.xcodeproj
+
+# The Sparkle public key is not secret, but the repository variable is the
+# source of truth — a checked-in copy would silently drift from it.
+packaging/sparkle/public-key.txt
+# Never, under any circumstances.
+sparkle-private-key.txt
