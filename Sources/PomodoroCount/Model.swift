@@ -293,6 +293,34 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: Export
+
+    /// The whole history as CSV, one row per pomodoro, oldest first. Lossless,
+    /// so a spreadsheet can group it however the reader likes.
+    func csvExport() -> String {
+        let formatter = ISO8601DateFormatter()
+        var lines = ["timestamp,source"]
+        for record in records.sorted(by: { $0.at < $1.at }) {
+            lines.append([formatter.string(from: record.at), record.source]
+                .map(Self.csvField)
+                .joined(separator: ","))
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// `source` comes from a file the user can edit by hand, so quote defensively.
+    private static func csvField(_ value: String) -> String {
+        guard value.contains(where: { ",\"\n\r".contains($0) }) else { return value }
+        return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+
+    /// Suggested filename for an export.
+    var csvFilename: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return "pomodoro-count-\(formatter.string(from: Date())).csv"
+    }
+
     /// Removes the most recently added record (undo a mis-tap).
     func undoLast() {
         guard let idx = records.indices.max(by: { records[$0].at < records[$1].at }) else { return }
@@ -402,9 +430,28 @@ final class AppModel: ObservableObject {
 
     // MARK: Persistence
 
+    /// Bumped only for changes an older build could not read correctly. Additive
+    /// fields don't need it — `Settings` decodes field-by-field with defaults.
+    nonisolated static let currentSchemaVersion = 1
+
     private struct Persisted: Codable {
+        var schemaVersion: Int
         var records: [Record]
         var settings: Settings
+
+        init(records: [Record], settings: Settings) {
+            self.schemaVersion = AppModel.currentSchemaVersion
+            self.records = records
+            self.settings = settings
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            // Files written before versioning existed are version 1 by definition.
+            schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+            records = try c.decodeIfPresent([Record].self, forKey: .records) ?? []
+            settings = try c.decodeIfPresent(Settings.self, forKey: .settings) ?? Settings()
+        }
     }
 
     private var storeURL: URL {
@@ -429,6 +476,17 @@ final class AppModel: ObservableObject {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let persisted = try? decoder.decode(Persisted.self, from: data) else { return }
+
+        // A newer build wrote this file. We'll read what we understand and then
+        // save in our own older format, which would drop whatever we don't — so
+        // keep a copy first. Downgrading should never cost anyone their history.
+        if persisted.schemaVersion > Self.currentSchemaVersion {
+            let backup = storeURL.deletingLastPathComponent()
+                .appendingPathComponent("data-v\(persisted.schemaVersion)-backup.json")
+            try? data.write(to: backup, options: .atomic)
+            NSLog("data.json is schema v\(persisted.schemaVersion); backed up to \(backup.lastPathComponent)")
+        }
+
         records = persisted.records
         settings = persisted.settings
     }

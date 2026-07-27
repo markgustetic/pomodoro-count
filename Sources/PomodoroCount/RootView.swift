@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Charts
+import UniformTypeIdentifiers
 
 struct RootView: View {
     @EnvironmentObject var model: AppModel
@@ -249,6 +250,13 @@ struct HistoryTab: View {
                 statTile("All time", model.totalCount)
             }
 
+            if model.totalCount > 0 {
+                Button("Export CSV…", action: exportCSV)
+                    .buttonStyle(HoverTextButtonStyle())
+                    .font(.caption)
+                    .accessibilityHint("Saves your whole history as a spreadsheet file")
+            }
+
             if stats.isEmpty {
                 Text("No pomodoros logged yet.")
                     .font(.caption)
@@ -287,6 +295,26 @@ struct HistoryTab: View {
                 }
                 .frame(maxHeight: 190)
             }
+        }
+    }
+
+    private func exportCSV() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = model.csvFilename
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.canCreateDirectories = true
+
+        // A menu-bar-only app is never the active app, so without this the save
+        // sheet opens behind whatever the user was looking at.
+        NSApp.activate(ignoringOtherApps: true)
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try model.csvExport().write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.messageText = "Couldn't save the export"
+            alert.runModal()
         }
     }
 

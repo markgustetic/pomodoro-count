@@ -93,6 +93,11 @@ optional auto-start break, a completion sound, and a notification.
 
 **History** gives you a Week / Month chart, a per-day list, and this-week and
 all-time totals. Today's count resets at midnight; past days stay in history.
+**Export CSV…** writes the lot to a spreadsheet — one row per pomodoro, so you
+can group it however you like.
+
+**VoiceOver** works throughout. The menu bar item announces today's count, or
+the phase and time remaining while a session runs.
 
 **Two themes** — Classic and Synthwave.
 

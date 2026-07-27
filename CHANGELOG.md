@@ -22,7 +22,9 @@ First public release.
 - **Built-in timer** — configurable focus and break lengths, defaulting to
   50 / 10 minutes, with optional auto-start break, sound, and notification.
 - **History** — Week / Month bar chart, per-day list, and this-week and all-time
-  totals.
+  totals, with **CSV export** of the whole history.
+- **VoiceOver support** throughout, including the menu bar item, which announces
+  today's count or the time remaining in the current session.
 - **Themes** — switchable Classic and Synthwave palettes.
 - **Launch at login** toggle when installed as an app.
 - Daily rollover: the visible count returns to zero at midnight and when the Mac
