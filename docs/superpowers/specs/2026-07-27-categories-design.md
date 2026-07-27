@@ -24,9 +24,12 @@ Deliberately excluded to keep the panel compact and the scope shippable:
 
 - Weekly or monthly goals. Daily only.
 - Per-category colours or emoji. Rows use the active theme's accent.
-- A per-category breakdown in the History tab.
 - Per-category menu bar display.
 - Editing a pomodoro's category after logging it.
+- A stacked-by-category chart. Stacking needs a colour per category, which the
+  no-colours decision rules out. The chart stays a daily total.
+- Goal attainment across a range ("hit Work on 5 of 7 days"). The breakdown shows
+  counts; goals are a daily idea and belong on the Focus tab.
 
 ## Decisions
 
@@ -38,6 +41,7 @@ Deliberately excluded to keep the panel compact and the scope shippable:
 | Aiming a focus session | A target pill in the timer card | The destination is visible before the session starts |
 | What is a category? | Name and daily goal only | No configuration to get wrong, nothing to clash with either theme |
 | Deleting a category | Archive — history stays intact | One rule shared with the fallback bucket |
+| History breakdown | A By day / By category switch over the existing list | Reuses the list area instead of adding a block, so the tab doesn't grow |
 
 ## Data model
 
@@ -222,6 +226,40 @@ Rows drag to reorder; that order is the panel order, with the fallback bucket
 always last. With the fallback off, its block becomes a picker for
 `defaultCategoryName`.
 
+### History tab
+
+A second segmented control switches what the existing list shows, reusing the
+scrollable area rather than adding a block, so the tab does not grow:
+
+```
+[ Week │ Month ]
+      ▁▃▂▅▃▁▃              daily totals, unchanged
+[ 25 This week ] [ 25 All time ]
+         Export CSV…
+[ By day │ By category ]
+Work        ▇▇▇▇▇▇▇▇       12
+AI study    ▇▇              4
+Music       ▇▇▇▇▇▇▇▇▇▇     30
+```
+
+- The **Week / Month range applies to both groupings**, so "By category" answers
+  "what did I spend this week on".
+- The **chart stays a daily total**. Stacking it by category would need a colour
+  each, which the no-colours decision rules out.
+- Rows reuse the day list's label / proportional bar / count rendering, with the
+  bar scaled to the largest value currently in view.
+- **Which categories appear:** every current category, including any with zero in
+  the range — a neglected category should be visible, not absent — followed by
+  any archived names that still have records in the range.
+- **Order:** current categories in their display order, then archived names
+  alphabetically. The fallback bucket appears under its name.
+- With categories disabled the grouping control is hidden entirely and History
+  behaves exactly as it does today.
+
+The control costs about 30pt. A low-chrome text toggle would save that, but the
+segmented control is the app's established pattern for switching a view and is
+already accessible.
+
 ### Menu bar
 
 Unchanged — the icon plus today's total across all categories. Showing progress
@@ -262,7 +300,7 @@ unrelated refactoring.
 | File | Now | Change |
 |---|---|---|
 | `Model.swift` | 581 lines | Extract `Category.swift`: the type, goal/progress maths, routing and archive rules |
-| `RootView.swift` | 469 lines | Move `HistoryTab` and `SettingsTab` to their own files — a pure move of existing structs |
+| `RootView.swift` | 469 lines | Move `HistoryTab` and `SettingsTab` to their own files. `SettingsTab` is a pure move; `HistoryTab` moves and then gains the grouping control |
 | `CategoryRows.swift` | new | The tappable row list and its empty state |
 
 ## Testing
@@ -282,7 +320,12 @@ Roughly 30 tests on top of the existing 104:
 - **Rename** — rewrites its records and orphans nothing.
 - **Uniqueness** — collisions between categories, and with the fallback name,
   case-insensitively and with whitespace trimmed.
-- **Feature off** — `statusText` and panel content identical to today.
+- **History breakdown** — totals per category respect the Week/Month range;
+  current categories with zero in range still appear; archived names with records
+  in range appear; the bucket appears under its name; ordering follows display
+  order then archived alphabetically.
+- **Feature off** — `statusText`, panel content, and the History tab identical to
+  today, including the grouping control being absent.
 - **Export** — the category column, including a name containing a comma.
 - **Accessibility** — row label and value strings, including a met goal.
 
