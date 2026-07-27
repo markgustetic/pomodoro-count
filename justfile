@@ -88,6 +88,28 @@ icon:
     ./build-app.sh >/dev/null
     echo "Regenerated Resources/AppIcon.icns"
 
+# Tag the current VERSION and push it, which publishes a release
+release:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(tr -d '[:space:]' < VERSION)"
+    if ! grep -q "^## \[$version\]" CHANGELOG.md; then
+        echo "CHANGELOG.md has no '## [$version]' section — write the release notes first."
+        exit 1
+    fi
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "Working tree is dirty; commit or stash first."
+        exit 1
+    fi
+    if git rev-parse "v$version" >/dev/null 2>&1; then
+        echo "Tag v$version already exists. Bump VERSION for a new release."
+        exit 1
+    fi
+    just test
+    git tag -a "v$version" -m "Pomodoro Count $version"
+    git push origin "v$version"
+    echo "Pushed v$version. Follow the build with:  gh run watch"
+
 # Remove build artifacts (.build and ./build)
 clean:
     rm -rf .build build

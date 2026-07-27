@@ -1,0 +1,41 @@
+# Template for the Homebrew cask. The release workflow substitutes __VERSION__
+# and __SHA256__ and pushes the result to markgustetic/homebrew-tap as
+# Casks/pomodoro-count.rb. Don't edit the copy in the tap by hand — edit this.
+cask "pomodoro-count" do
+  version "__VERSION__"
+  sha256 "__SHA256__"
+
+  url "https://github.com/markgustetic/pomodoro-count/releases/download/v#{version}/PomodoroCount-#{version}.zip"
+  name "Pomodoro Count"
+  desc "Menu bar app that counts pomodoros you finish on external hardware"
+  homepage "https://github.com/markgustetic/pomodoro-count"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  depends_on macos: ">= :sonoma"
+
+  app "Pomodoro Count.app"
+
+  uninstall quit: "com.markg.pomodorocount"
+
+  zap trash: [
+    "~/Library/Application Support/PomodoroCount",
+  ]
+
+  caveats <<~EOS
+    Pomodoro Count is not signed with an Apple Developer ID, so macOS quarantines
+    it and refuses the first launch. Clear the quarantine flag once:
+
+      xattr -dr com.apple.quarantine "/Applications/Pomodoro Count.app"
+
+    Or install without quarantine in the first place:
+
+      brew install --cask --no-quarantine markgustetic/tap/pomodoro-count
+
+    The app lives in the menu bar and has no Dock icon — look top-right after
+    launching it.
+  EOS
+end

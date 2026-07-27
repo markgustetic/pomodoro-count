@@ -1,0 +1,177 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-latest
+    env:
+      # Presence checks for optional secrets. Secrets can't be used directly in
+      # an `if:`, so they're reduced to booleans here.
+      HAS_SIGNING: ${{ secrets.DEVELOPER_ID_P12 != '' }}
+      HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+
+          # A workflow_dispatch run has no tag; a tag push must agree with VERSION
+          # so the bundle, the release, and the cask can never disagree.
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            [ "$TAG" = "v$version" ] \
+              || { echo "Tag $TAG does not match VERSION $version"; exit 1; }
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "zip=PomodoroCount-$version.zip" >> "$GITHUB_OUTPUT"
+          echo "Releasing $version"
+
+      - name: Run tests before releasing
+        run: swift test
+
+      - name: Build the .app
+        run: ./build-app.sh
+
+      # Inert until a Developer ID is available. Add these repository secrets to
+      # turn it on, with no other change needed:
+      #   DEVELOPER_ID_P12         base64 of the exported .p12
+      #   DEVELOPER_ID_P12_PASSWORD
+      #   DEVELOPER_ID_IDENTITY    e.g. "Developer ID Application: Name (TEAMID)"
+      #   NOTARY_APPLE_ID, NOTARY_PASSWORD (app-specific), NOTARY_TEAM_ID
+      - name: Sign and notarize
+        if: env.HAS_SIGNING == 'true'
+        env:
+          P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          APP: build/Pomodoro Count.app
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/build.keychain"
+          password="$(uuidgen)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 900 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$P12_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$password" "$keychain" >/dev/null
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+          codesign --force --deep --options runtime --timestamp \
+            --sign "$IDENTITY" "$APP"
+          codesign --verify --strict --verbose=2 "$APP"
+
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --password "$NOTARY_PASSWORD" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$APP"
+
+      - name: Package
+        id: package
+        env:
+          ZIP: ${{ steps.version.outputs.zip }}
+        run: |
+          set -euo pipefail
+          # ditto, not zip: it preserves the bundle's symlinks and metadata.
+          ditto -c -k --keepParent "build/Pomodoro Count.app" "$ZIP"
+          shasum -a 256 "$ZIP" | tee "$ZIP.sha256"
+          echo "sha256=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Extract release notes from the changelog
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # The section for this version, without its own heading. Stops at the
+          # next version heading, or at the link-reference block that follows the
+          # oldest section — otherwise the very first release would trail the
+          # "[1.0.0]: https://..." definitions into its notes.
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { grab = 1; next }
+            grab && /^## \[/       { exit }
+            grab && /^\[[^]]+\]: / { exit }
+            grab                   { print }
+          ' CHANGELOG.md > notes.md
+
+          if [ ! -s notes.md ]; then
+            echo "No CHANGELOG section for $VERSION"; exit 1
+          fi
+
+          cat >> notes.md <<'FOOTER'
+
+          ---
+
+          ### Installing
+
+          ```
+          brew install --cask markgustetic/tap/pomodoro-count
+          ```
+
+          Or download the zip below and drag **Pomodoro Count.app** to
+          `/Applications`. This build is **unsigned**, so the first launch needs a
+          one-time confirmation: right-click the app, choose **Open**, then
+          **Open** again. Verify the download with the `.sha256` file attached.
+          FOOTER
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.version.outputs.zip }}
+        run: |
+          set -euo pipefail
+          tag="$TAG"
+          [ "$GITHUB_REF_TYPE" = "tag" ] || tag="v$VERSION"
+          gh release create "$tag" \
+            --title "Pomodoro Count $VERSION" \
+            --notes-file notes.md \
+            "$ZIP" "$ZIP.sha256"
+
+      # Needs a HOMEBREW_TAP_TOKEN secret (a PAT with contents:write on the tap
+      # repo) — GITHUB_TOKEN can't push to a different repository.
+      - name: Update the Homebrew cask
+        if: env.HAS_TAP_TOKEN == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA256: ${{ steps.package.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 \
+            "https://x-access-token:$GH_TOKEN@github.com/markgustetic/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          sed -e "s/__VERSION__/$VERSION/g" -e "s/__SHA256__/$SHA256/g" \
+            packaging/homebrew/pomodoro-count.rb.template > tap/Casks/pomodoro-count.rb
+
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/pomodoro-count.rb
+          git diff --staged --quiet && { echo "Cask already current"; exit 0; }
+          git commit -m "pomodoro-count $VERSION"
+          git push
