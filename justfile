@@ -53,9 +53,24 @@ run: build
 dev:
     swift run {{exe}}
 
-# Run the in-process logic self-checks
+# Run the test suite
 test:
-    swift run {{exe}} --selftest
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # swift-testing and XCTest ship with Xcode, not the Command Line Tools. If the
+    # active toolchain is the CLT, borrow Xcode for this command only — that needs
+    # no sudo, unlike switching the toolchain with `xcode-select -s`.
+    xctest_path="Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework"
+    if [ ! -d "$(xcode-select -p)/$xctest_path" ]; then
+        if [ -d "/Applications/Xcode.app/Contents/Developer/$xctest_path" ]; then
+            export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+        else
+            echo "Tests need the full Xcode (the Command Line Tools ship no test framework)."
+            echo "Install Xcode from the App Store, then rerun.  Everything else works without it."
+            exit 1
+        fi
+    fi
+    swift test
 
 # Render the popover UI to a PNG and open it (headless preview, no menu bar needed)
 preview:

@@ -16,9 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 enum Entry {
     static func main() {
         let args = CommandLine.arguments
-        if args.contains("--selftest") {
-            MainActor.assumeIsolated { SelfTest.run() }   // runs checks, then exits
-        }
         // --preview <path> renders the popover UI to a PNG and exits (no window).
         // Add --hover to render buttons in their hover state.
         if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {

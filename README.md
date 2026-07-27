@@ -56,7 +56,7 @@ it starts with your Mac.
 
 ```bash
 swift run PomodoroCount             # run straight from source
-swift run PomodoroCount --selftest  # run the logic self-checks
+just test                           # run the test suite
 ```
 
 ## Layout
@@ -69,7 +69,7 @@ swift run PomodoroCount --selftest  # run the logic self-checks
 | `Sources/PomodoroCount/StatusIcon.swift` | Custom menu bar icon + text rendering |
 | `Sources/PomodoroCount/HotKey.swift` | Global hotkey (Carbon `RegisterEventHotKey`) |
 | `Sources/PomodoroCount/ShortcutRecorder.swift` | Click-to-record shortcut control |
-| `Sources/PomodoroCount/SelfTest.swift` | `--selftest` logic checks |
+| `Tests/PomodoroCountTests/` | Test suite (swift-testing) |
 | `Tools/make-icon.swift` | Renders the app icon (`Resources/AppIcon.icns`) |
 | `build-app.sh` | Compiles and assembles the `.app` bundle |
 

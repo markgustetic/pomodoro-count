@@ -348,7 +348,7 @@ final class AppModel: ObservableObject {
 
     // MARK: Notifications & sound
 
-    /// System sounds used for feedback. Verified to exist by `--selftest`.
+    /// System sounds used for feedback. Verified to exist by the test suite.
     enum Sound: String {
         case countUp = "Pop"        // a pomodoro was added
         case countDown = "Bottle"   // a pomodoro was removed (undo)
