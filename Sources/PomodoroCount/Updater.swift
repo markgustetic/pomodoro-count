@@ -18,22 +18,26 @@ final class Updater: ObservableObject {
         didSet { controller?.updater.automaticallyChecksForUpdates = checksAutomatically }
     }
 
-    var isSupported: Bool { controller != nil }
+    /// Whether to show the updater controls at all.
+    ///
+    /// Deliberately not `controller != nil`: a preview render should draw the
+    /// real UI without starting an updater that would reach the network, so the
+    /// two questions are kept apart.
+    var isSupported: Bool { Self.isConfigured }
 
     private init() {
-        controller = Self.isConfigured
+        controller = (Self.isConfigured && !PreviewOverrides.isRendering)
             ? SPUStandardUpdaterController(
                 startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
             : nil
-        checksAutomatically = controller?.updater.automaticallyChecksForUpdates ?? false
+        checksAutomatically = controller?.updater.automaticallyChecksForUpdates ?? true
     }
 
     /// Sparkle needs both a feed to read and a public key to verify what it
-    /// downloads. Without the key it would refuse the update anyway, so don't
-    /// start it — better no button than a button that always fails.
+    /// downloads. Without the key it would refuse every update anyway, so the
+    /// app hides the controls — better no button than one that always fails.
     private static var isConfigured: Bool {
-        guard !PreviewOverrides.isRendering,
-              let info = Bundle.main.infoDictionary,
+        guard let info = Bundle.main.infoDictionary,
               let feed = info["SUFeedURL"] as? String, !feed.isEmpty,
               let key = info["SUPublicEDKey"] as? String, !key.isEmpty
         else { return false }
