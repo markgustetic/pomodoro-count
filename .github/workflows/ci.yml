@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch makes the in-flight run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Build
+        run: swift build
+
+      # Runners select a full Xcode by default, so the test framework is present
+      # without the DEVELOPER_DIR dance `just test` does for local CLT setups.
+      - name: Test
+        run: swift test
+
+  bundle:
+    name: App bundle
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the .app
+        run: ./build-app.sh
+
+      - name: Verify the bundle is well formed
+        run: |
+          set -euo pipefail
+          APP="build/Pomodoro Count.app"
+          test -x "$APP/Contents/MacOS/PomodoroCount"      || { echo "missing executable"; exit 1; }
+          test -f "$APP/Contents/Resources/AppIcon.icns"   || { echo "missing icon"; exit 1; }
+          plutil -lint "$APP/Contents/Info.plist"
+          codesign --verify --strict "$APP"
+
+          # The bundle must carry the version from VERSION, not a stale literal.
+          want="$(tr -d '[:space:]' < VERSION)"
+          got="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+          [ "$want" = "$got" ] || { echo "VERSION is $want but the bundle says $got"; exit 1; }
+          echo "Bundle OK at version $got"
+
+      # Renders the whole panel headlessly. Cheap end-to-end proof that the UI
+      # layer still builds and runs, which no unit test covers.
+      - name: Smoke-test the UI
+        run: |
+          set -euo pipefail
+          "build/Pomodoro Count.app/Contents/MacOS/PomodoroCount" --preview /tmp/panel.png
+          test -s /tmp/panel.png || { echo "preview render produced nothing"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: panel-preview
+          path: /tmp/panel.png
+          if-no-files-found: error
+
+  consistency:
+    name: Version and changelog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: VERSION has a matching CHANGELOG section
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "VERSION must be MAJOR.MINOR.PATCH, got '$version'"; exit 1 ;;
+          esac
+          grep -q "^## \[$version\]" CHANGELOG.md \
+            || { echo "CHANGELOG.md has no '## [$version]' section"; exit 1; }
+          echo "VERSION $version is documented"
