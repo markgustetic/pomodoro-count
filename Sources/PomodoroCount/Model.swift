@@ -166,11 +166,19 @@ final class AppModel: ObservableObject {
     }
 
     /// Exactly `days` consecutive days ending today, zero-filled, oldest first —
-    /// for the weekly / monthly bar chart.
+    /// for the weekly / monthly bar chart and the header sparkline.
+    ///
+    /// Filters to the window with a cheap date comparison before doing any
+    /// per-record calendar work, like `history` and `categoryTotals`. It used
+    /// to bucket the entire history by `startOfDay` to read out `days` values —
+    /// and the sparkline sits on the Focus tab, re-rendered on every 0.5s tick
+    /// of a running session, so that cost was paid twice a second and grew
+    /// with the age of the store.
     func dailySeries(days: Int) -> [DayStat] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let counts = Dictionary(grouping: records) { cal.startOfDay(for: $0.at) }
+        let cutoff = windowStart(days: days, calendar: cal)
+        let counts = Dictionary(grouping: records.filter { $0.at >= cutoff }) { cal.startOfDay(for: $0.at) }
             .mapValues { $0.count }
         return (0..<days).reversed().compactMap { offset in
             guard let d = cal.date(byAdding: .day, value: -offset, to: today) else { return nil }
