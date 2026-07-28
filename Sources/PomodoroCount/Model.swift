@@ -69,6 +69,21 @@ struct Settings: Codable {
     /// still appears during a session — that's when the width earns its place.
     var showsCountInMenuBar = true
 
+    // MARK: Categories (all opt-in; defaults reproduce today's behaviour exactly)
+
+    /// The whole feature is off until the user turns it on.
+    var categoriesEnabled = false
+    /// The user's categories, in display order.
+    var categories: [Category] = []
+    /// The always-present bucket that catches untapped pomodoros.
+    var usesFallbackBucket = true
+    var fallbackName = "General"
+    var fallbackGoal = 0
+    /// Destination for untapped pomodoros when the bucket is switched off.
+    var defaultCategoryName: String?
+    /// Remembered target for the built-in timer. nil means the bucket.
+    var sessionTargetName: String?
+
     init() {}
 
     // Decode field-by-field so a data.json written by an older version (missing
@@ -83,6 +98,13 @@ struct Settings: Codable {
         shortcut              = try c.decodeIfPresent(Shortcut.self, forKey: .shortcut) ?? .default
         theme                 = try c.decodeIfPresent(ThemeChoice.self, forKey: .theme) ?? .classic
         showsCountInMenuBar   = try c.decodeIfPresent(Bool.self, forKey: .showsCountInMenuBar) ?? true
+        categoriesEnabled     = try c.decodeIfPresent(Bool.self, forKey: .categoriesEnabled) ?? false
+        categories            = try c.decodeIfPresent([Category].self, forKey: .categories) ?? []
+        usesFallbackBucket    = try c.decodeIfPresent(Bool.self, forKey: .usesFallbackBucket) ?? true
+        fallbackName          = try c.decodeIfPresent(String.self, forKey: .fallbackName) ?? "General"
+        fallbackGoal          = try c.decodeIfPresent(Int.self, forKey: .fallbackGoal) ?? 0
+        defaultCategoryName   = try c.decodeIfPresent(String.self, forKey: .defaultCategoryName)
+        sessionTargetName     = try c.decodeIfPresent(String.self, forKey: .sessionTargetName)
     }
 }
 
