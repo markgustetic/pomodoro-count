@@ -99,7 +99,12 @@ struct SettingsTab: View {
                         .buttonStyle(HoverTextButtonStyle())
                         .font(.caption)
                         .popover(isPresented: $addingCategory, arrowEdge: .bottom) {
+                            // A popover is its own window, so it has to be told
+                            // the palette's chrome appearance explicitly —
+                            // otherwise its light system background lands under
+                            // Synthwave's near-white body text.
                             AddCategoryForm(model: model, isPresented: $addingCategory)
+                                .themed(palette)
                         }
 
                         Divider()
@@ -265,7 +270,9 @@ struct CategorySettingsRow: View {
             } label: {
                 Image(systemName: "minus.circle")
             }
-            .buttonStyle(.borderless)
+            // Not `.borderless`: that draws in AppKit's own control grey, which
+            // no palette can reach, and it vanished into the Synthwave panel.
+            .buttonStyle(HoverTextButtonStyle(emphasis: .destructive))
             .help("Remove — its pomodoros stay in your history")
             .accessibilityLabel("Remove \(category.name)")
         }

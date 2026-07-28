@@ -56,6 +56,18 @@ import AppKit
         #expect(ThemeChoice.synthwave.palette.paintsBackground)
     }
 
+    /// A palette that paints its own dark background has to pin the appearance
+    /// of the AppKit-backed controls too. Without this, a light-mode Mac drew
+    /// white text fields and near-black stepper arrows on Synthwave's near-black
+    /// panel — SwiftUI can't restyle those controls, only pick their variant.
+    @Test func aPaletteThatPaintsItsOwnBackgroundPinsTheControlAppearance() {
+        #expect(Palette.synthwave.chrome == .dark)
+        // Classic paints nothing of its own, so its controls should keep
+        // following whatever the user set system-wide.
+        #expect(Palette.classic.chrome == nil)
+        #expect(!Palette.classic.paintsBackground)
+    }
+
     @Test func themeChoicePersists() {
         let (m, url) = makeModel()
         #expect(m.settings.theme == .classic)

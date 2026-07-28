@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Right-clicking the menu bar icon** shows a menu with **Quit**, so the app can
   be quit without opening the panel first.
 
+### Fixed
+
+- **Synthwave is readable again.** On a Mac set to Light appearance, the
+  switches, steppers, text fields and popovers in the Synthwave theme kept
+  drawing their light-mode selves on top of its near-black panel — white text
+  fields and all-but-invisible stepper arrows. They now follow the theme rather
+  than the system. Alongside that, Synthwave's secondary text, card edges,
+  unfilled goal dots and rules were all lifted out of the background, and its
+  text buttons (Undo last, Export CSV…, Add category, Quit) and icon buttons no
+  longer rest in the same colour as the caption text beside them.
+
 ### Changed
 
 - The History day list now respects the Week / Month range, instead of always

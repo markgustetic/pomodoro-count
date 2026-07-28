@@ -38,7 +38,7 @@ struct RootView: View {
         .frame(width: 300)
         .foregroundStyle(palette.text)
         .background { if palette.paintsBackground { palette.background } }
-        .environment(\.palette, palette)
+        .themed(palette)
     }
 
     // MARK: Header

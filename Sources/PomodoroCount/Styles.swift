@@ -119,11 +119,15 @@ struct SoftIconButtonStyle: ButtonStyle {
             let neon = palette.neon
             let base = palette.cool
             let fill = pressed ? (neon ? 0.15 : 0.16) : (hovering ? (neon ? 0.12 : 0.14) : (neon ? 0.07 : 0.08))
-            let stroke = neon ? base.opacity(hovering ? 0.65 : 0.28) : Color.primary.opacity(0.06)
+            let stroke = neon ? base.opacity(hovering ? 0.65 : 0.45) : Color.primary.opacity(0.06)
+            // Neon rests on a dimmed accent rather than `textDim`: these sit
+            // beside the hero button as peers, and a muted purple glyph in a
+            // faintly-outlined well didn't read as a control at all.
+            let glyph = neon ? base.opacity(0.85) : palette.textDim
 
             configuration.label
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(hovering ? base : palette.textDim)
+                .foregroundStyle(hovering ? base : glyph)
                 .frame(width: width, height: height)
                 .background {
                     shape
@@ -141,23 +145,46 @@ struct SoftIconButtonStyle: ButtonStyle {
 
 // MARK: - Text / link button
 
-/// Low-chrome text button (Undo, Quit) that brightens on hover.
+/// Low-chrome text button (Undo, Quit, Export) that brightens on hover.
 struct HoverTextButtonStyle: ButtonStyle {
+    enum Emphasis {
+        /// Carries the palette's interactive colour at rest. In a neon palette
+        /// these labels used to rest at `textDim` — the same colour as the
+        /// caption text beside them, on a panel of a closely related hue — so
+        /// nothing marked them as clickable until the pointer was already on
+        /// them.
+        case action
+        /// Quiet until hovered, then warns. For destructive controls, which
+        /// shouldn't advertise themselves.
+        case destructive
+    }
+
+    var emphasis: Emphasis = .action
+
     func makeBody(configuration: Configuration) -> some View {
-        StyleBody(configuration: configuration)
+        StyleBody(configuration: configuration, emphasis: emphasis)
     }
 
     private struct StyleBody: View {
         let configuration: Configuration
+        let emphasis: Emphasis
         @Environment(\.palette) private var palette
         @State private var hover = false
 
         var body: some View {
             let hovering = hover || PreviewOverrides.forceHover
-            let active = palette.neon ? palette.cool : palette.text
+            let neon = palette.neon
+            let active = switch emphasis {
+            case .action:      neon ? palette.cool : palette.text
+            case .destructive: palette.accent
+            }
+            let resting = switch emphasis {
+            case .action:      neon ? palette.cool.opacity(0.8) : palette.textDim
+            case .destructive: palette.textDim
+            }
             configuration.label
-                .foregroundStyle(hovering ? active : palette.textDim)
-                .neonGlow(active, enabled: palette.neon && hovering, radius: 6, opacity: 0.6)
+                .foregroundStyle(hovering ? active : resting)
+                .neonGlow(active, enabled: neon && hovering, radius: 6, opacity: 0.6)
                 .opacity(configuration.isPressed ? 0.6 : 1)
                 .animation(.easeOut(duration: 0.12), value: hover)
                 .onHover { hover = $0; applyCursor($0) }

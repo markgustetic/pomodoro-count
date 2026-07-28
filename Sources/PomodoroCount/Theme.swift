@@ -56,6 +56,13 @@ struct Palette {
     var neon: Bool
 
     // Chrome
+    /// The appearance AppKit-backed controls should draw in — switches,
+    /// steppers, text fields, pickers, popovers and `Divider`. SwiftUI can't
+    /// restyle those, it can only tell them which variant to draw, and they
+    /// otherwise follow the *system* setting. On a light-mode Mac that put
+    /// white text fields and near-black stepper arrows on Synthwave's
+    /// near-black panel. `nil` follows the system, which is what Classic wants.
+    var chrome: ColorScheme?
     var paintsBackground: Bool
     var bgTop: Color
     var bgBottom: Color
@@ -85,6 +92,7 @@ struct Palette {
 
     static let classic = Palette(
         neon: false,
+        chrome: nil,
         paintsBackground: false,
         bgTop: .clear, bgBottom: .clear,
         cardFill: Color.primary.opacity(0.05),
@@ -107,15 +115,21 @@ struct Palette {
 
     static let synthwave = Palette(
         neon: true,
+        chrome: .dark,
         paintsBackground: true,
         bgTop: Color(hex: 0x2B1B4D), bgBottom: Color(hex: 0x140A26),
         cardFill: Color(hex: 0x241640).opacity(0.65),
-        cardStroke: Color(hex: 0x6A4A9E).opacity(0.35),
+        cardStroke: Color(hex: 0x8B68CC).opacity(0.55),
         trackFill: Color(hex: 0x1B0F33),
-        trackStroke: Color(hex: 0x6A4A9E).opacity(0.35),
-        hairline: Color(hex: 0x6A4A9E).opacity(0.30),
+        trackStroke: Color(hex: 0x8B68CC).opacity(0.50),
+        // Also the unfilled progress dot and the empty half of a progress bar,
+        // so it has to stay visible against a card, not just against the panel.
+        hairline: Color(hex: 0x8B68CC).opacity(0.55),
         text: Color(hex: 0xF3EAFF),
-        textDim: Color(hex: 0xA48FC9),
+        // Purple-on-purple loses more legibility to the shared hue than the
+        // luminance ratio suggests, so this sits brighter than a nominal
+        // "secondary" would: ~8.5:1 on a card, against 6:1 before.
+        textDim: Color(hex: 0xC0ABE6),
         accent: Color(hex: 0xFF2A6D),
         accent2: Color(hex: 0xB026FF),
         cool: Color(hex: 0x05D9E8),
@@ -146,6 +160,20 @@ extension EnvironmentValues {
 }
 
 extension View {
+    /// Hands a subtree the palette *and* the appearance its AppKit-backed
+    /// controls need. Anything presented in its own window — a popover, a menu —
+    /// must apply this itself; it inherits the environment but not the window's
+    /// appearance.
+    @ViewBuilder
+    func themed(_ palette: Palette) -> some View {
+        let themed = environment(\.palette, palette)
+        if let chrome = palette.chrome {
+            themed.environment(\.colorScheme, chrome)
+        } else {
+            themed
+        }
+    }
+
     /// Neon bloom — a no-op unless the palette is a neon one.
     @ViewBuilder
     func neonGlow(_ color: Color, enabled: Bool, radius: CGFloat = 8, opacity: Double = 0.7) -> some View {
