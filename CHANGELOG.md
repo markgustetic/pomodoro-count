@@ -7,56 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+Nothing yet.
 
-- **Removing a category now asks first.** The minus button opened no
-  confirmation, so a single mis-click on a control the size of a full stop took
-  a category off the panel. It now names the category and says what survives —
-  its pomodoros stay in your history, and adding the name back reunites it with
-  them.
-- **Categories with daily goals.** Optional named categories, each with a daily
-  goal. Tapping a category's row logs a pomodoro to it, focus sessions can be
-  aimed at one, and History gains a By category breakdown. Deleting a category
-  archives it — its pomodoros stay in your history, totals, and CSV export.
-- CSV export gains a `category` column.
-- **Right-clicking the menu bar icon** shows a menu with **Quit**, so the app can
-  be quit without opening the panel first.
-
-### Fixed
-
-- **The Focus tab could name the wrong category.** With the fallback bucket
-  switched off, the panel read "towards General" while outlining a different
-  row and filing the pomodoro there. The label is now derived from the same
-  routing the record goes through, so it cannot disagree with it.
-- **Synthwave is readable again.** On a Mac set to Light appearance, the
-  switches, steppers, text fields and popovers in the Synthwave theme kept
-  drawing their light-mode selves on top of its near-black panel — white text
-  fields and all-but-invisible stepper arrows. They now follow the theme rather
-  than the system. Alongside that, Synthwave's secondary text, card edges,
-  unfilled goal dots and rules were all lifted out of the background, and its
-  text buttons (Undo last, Export CSV…, Add category, Quit) and icon buttons no
-  longer rest in the same colour as the caption text beside them.
-
-### Changed
-
-- **The fallback category is always on, and hidden until you use categories.**
-  The "Fallback category" toggle and the default-category picker are gone. The
-  bucket is where a pomodoro that belongs to no category goes — several paths
-  still produced one with the toggle off, so switching it off never removed the
-  bucket, it only made routing harder to predict. It stays out of sight
-  entirely while categories are switched off. Settings loses two controls.
-- **History and Settings are their own pages.** Today's count and the category
-  log rows now appear on Focus only. They sat above every tab, so opening
-  Settings meant scrolling past a count card and four log buttons to reach the
-  first setting; the panel is roughly 250pt shorter on both tabs now. The
-  Focus / History / Settings strip stays where it is.
-- The History day list now respects the Week / Month range, instead of always
-  showing up to 30 populated days regardless of the selected range. This
-  changes History's behaviour even with categories switched off.
-- CSV export gains a `category` column, appended after the existing columns.
-  Anything that parses the export should account for the new column.
-
-## [1.0.0] - 2026-07-27
+## [1.0.0] - 2026-07-28
 
 First public release.
 
@@ -68,10 +21,20 @@ First public release.
   <kbd>⌃⌥⌘P</kbd>; record your own combo or turn it off in Settings.
 - **Menu bar item** — a custom tomato icon showing today's count when idle, or a
   live countdown with a cup glyph on breaks and a pause glyph when paused.
+  Right-click it for a menu with **Quit**, so the app can be quit without
+  opening the panel first.
 - **Built-in timer** — configurable focus and break lengths, defaulting to
   50 / 10 minutes, with optional auto-start break, sound, and notification.
-- **History** — Week / Month bar chart, per-day list, and this-week and all-time
-  totals, with **CSV export** of the whole history.
+- **Categories with daily goals** — optional named categories, each with a daily
+  goal. Tapping a category's row logs a pomodoro to it, and focus sessions can
+  be aimed at one. Anything not aimed at a category lands in a catch-all bucket,
+  named **General** by default, which you can rename and give a goal of its own.
+  Removing a category asks first, and archives rather than deletes: its
+  pomodoros stay in your history, totals and CSV export, and adding the name
+  back reunites it with them.
+- **History** — Week / Month bar chart, per-day list, a **By category**
+  breakdown, and this-week and all-time totals, with **CSV export** of the whole
+  history.
 - **VoiceOver support** throughout, including the menu bar item, which announces
   today's count or the time remaining in the current session.
 - **Themes** — switchable Classic and Synthwave palettes.
