@@ -248,6 +248,11 @@ struct CategoryList: View {
     @State private var rowHeight: CGFloat = 0
     @State private var drag: DragState?
 
+    /// Which grip the pointer is over. An id rather than a `Bool` because every
+    /// row's grip is built by the same function — a shared flag would light all
+    /// of them at once.
+    @State private var hoveredGrip: UUID?
+
     /// True only while a drag is actually live. `@GestureState` resets itself
     /// when a gesture is cancelled as well as when it ends, and a cancelled
     /// drag is the one case `onEnded` never reports — so this, not `drag`
@@ -333,12 +338,15 @@ struct CategoryList: View {
     /// clicked, and button semantics would promise one. The reorder actions for
     /// VoiceOver and the keyboard live on the row instead.
     private func grip(for category: Category, at index: Int) -> some View {
-        Image(systemName: "line.3.horizontal")
+        let lit = drag?.id == category.id || hoveredGrip == category.id
+        return Image(systemName: "line.3.horizontal")
             .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(drag?.id == category.id ? palette.text : palette.textDim)
+            .foregroundStyle(lit ? palette.text : palette.textDim)
+            .animation(.easeOut(duration: 0.12), value: hoveredGrip)
             .frame(width: 12, height: 22)
             .contentShape(Rectangle())
             .onHover { inside in
+                hoveredGrip = inside ? category.id : (hoveredGrip == category.id ? nil : hoveredGrip)
                 // The open hand is the macOS convention for "this can be
                 // dragged"; the gesture swaps it for the closed one while a drag
                 // is actually running.
