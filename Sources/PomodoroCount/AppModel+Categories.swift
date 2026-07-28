@@ -55,11 +55,22 @@ extension AppModel {
         let targetName = sessionRunning ? resolve(sessionTarget) : nil
         let normalizedTarget = targetName.map(Category.normalized)
 
+        // One tally pass over the records, not one full scan per category:
+        // this sits on the Focus tab, re-rendered on every 0.5s tick of a
+        // running session, and the per-category scans grew with both the
+        // category count and the age of the store. Bucketless records tally
+        // under "" — same convention `categoryTotals` uses.
+        let cal = Calendar.current
+        var doneToday: [String: Int] = [:]
+        for record in records where cal.isDateInToday(record.at) {
+            doneToday[record.category.map(Category.normalized) ?? "", default: 0] += 1
+        }
+
         var rows = settings.categories.map { category in
             CategoryProgress(
                 id: category.id.uuidString,
                 name: category.name,
-                done: todayCount(inCategory: category.name),
+                done: doneToday[Category.normalized(category.name)] ?? 0,
                 goal: category.dailyGoal,
                 isFallback: false,
                 isSessionTarget: sessionRunning && normalizedTarget == Category.normalized(category.name))
@@ -70,7 +81,7 @@ extension AppModel {
         rows.append(CategoryProgress(
             id: "fallback",
             name: settings.fallbackName,
-            done: todayCount(inCategory: nil),
+            done: doneToday[""] ?? 0,
             goal: settings.fallbackGoal,
             isFallback: true,
             isSessionTarget: sessionRunning && targetName == nil))
