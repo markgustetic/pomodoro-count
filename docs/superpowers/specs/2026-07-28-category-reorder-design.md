@@ -54,8 +54,12 @@ typed.
 Today's `List` gives VoiceOver a reorder action and gives keyboard users
 nothing — macOS list reordering is mouse-only. Replacing it must not lose the
 former, so each row gets "Move up" and "Move down" accessibility actions, which
-reach both. The grip itself is decorative to VoiceOver: the actions live on the
-row, which already carries the category's name.
+reach VoiceOver. On macOS, custom accessibility actions are exposed through the
+accessibility API only — a keyboard-only user with Full Keyboard Access and no
+screen reader has no generic way to invoke them. Reaching that audience would
+need a real key handler, which this change does not add. The grip itself is
+decorative to VoiceOver: the actions live on the row, which already carries the
+category's name.
 
 ## Architecture
 
@@ -114,9 +118,12 @@ The drag needs the row-to-row distance. `SettingsTab.swift` currently hardcodes
 re-measured by hand if the row's font or padding changes. Rather than keep that,
 a row reports its real height through a `GeometryReader` in its background,
 published to state by `.task(id:)` — which runs after the layout that produced
-the height, so the write cannot land mid-update. Pitch is that height plus the
-`VStack` spacing. `onGeometryChange` would be tidier but is macOS 15, and the
-package targets macOS 14.
+the height, so the write cannot land mid-update. Pitch is zero until a row has
+been measured, and that height plus the `VStack` spacing once it has — zero
+rather than just the spacing, so that `Reorder.destination`'s guard against an
+unmeasured row is actually reachable, not a positive number that would slip
+past it. `onGeometryChange` would be tidier but is macOS 15, and the package
+targets macOS 14.
 
 This is possible because the `List` goes away, replaced by a plain `VStack`.
 That also removes the nested-scroller problem — a `List` inside the Settings
