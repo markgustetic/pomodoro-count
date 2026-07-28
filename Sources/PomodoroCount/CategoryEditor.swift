@@ -326,7 +326,13 @@ struct CategoryList: View {
     private func dragGesture(for category: Category, at index: Int) -> some Gesture {
         DragGesture(minimumDistance: 3, coordinateSpace: .local)
             .onChanged { value in
-                if drag == nil {
+                // Initialize or reinitialize drag state if this is a fresh drag or a stale
+                // drag left behind by an interrupted gesture. `onEnded` is not guaranteed to
+                // fire — if the view is torn out of the hierarchy mid-gesture, the drag state
+                // persists. Checking identity ensures we start fresh whenever the drag moves
+                // to a different row, so stale `startIndex` or `currentIndex` cannot drive a
+                // move on the wrong category.
+                if drag?.id != category.id {
                     drag = DragState(id: category.id, startIndex: index, currentIndex: index)
                     NSCursor.closedHand.set()
                 }
