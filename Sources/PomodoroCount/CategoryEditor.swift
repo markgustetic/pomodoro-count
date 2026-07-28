@@ -316,6 +316,13 @@ struct CategoryList: View {
         // Lifted clear of its neighbours, so it passes over them rather than
         // under while it is being dragged.
         .zIndex(dragging ? 1 : 0)
+        // A drag is the only way to reorder with a mouse, so VoiceOver and the
+        // keyboard get these instead. They sit on the row, which already carries
+        // the category's name, rather than on the grip, which is a bare glyph.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(category.name)
+        .accessibilityAction(named: "Move up") { nudge(category, by: -1) }
+        .accessibilityAction(named: "Move down") { nudge(category, by: 1) }
     }
 
     /// The drag handle. Deliberately not a `Button`: it performs no action when
@@ -373,5 +380,14 @@ struct CategoryList: View {
                 NSCursor.openHand.set()
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { drag = nil }
             }
+    }
+
+    /// Animates a one-slot nudge, so a keyboard move reads the same as a drag.
+    /// A row at either end stays put — `nudgeCategory` ignores a destination off
+    /// the end, so there is no special case here.
+    private func nudge(_ category: Category, by delta: Int) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+            model.nudgeCategory(id: category.id, by: delta)
+        }
     }
 }
