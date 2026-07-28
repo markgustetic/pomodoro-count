@@ -9,7 +9,10 @@ extension AppModel {
     /// fields don't need it — `Settings` decodes field-by-field with defaults.
     nonisolated static let currentSchemaVersion = 1
 
-    private struct Persisted: Codable {
+    /// Internal rather than private so `StoreSeed` can write a store in the
+    /// app's own format, instead of a JSON fixture in the test target that
+    /// would drift the first time this changed.
+    struct Persisted: Codable {
         var schemaVersion: Int
         var records: [Record]
         var settings: Settings

@@ -128,3 +128,16 @@ clean:
 # Stop the running app
 stop:
     -pkill -x "{{exe}}"
+
+# Run the UI tests (drives the real app through its menu bar item)
+uitest:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v xcodegen >/dev/null; then
+        echo "UI tests need XcodeGen:  brew install xcodegen"
+        exit 1
+    fi
+    export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+    xcodegen generate
+    xcodebuild -project PomodoroCountUITests.xcodeproj -scheme UITests \
+        -destination 'platform=macOS' test

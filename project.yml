@@ -1,0 +1,65 @@
+# XcodeGen input for the UI test project.
+#
+# The app itself is built by SPM (`just build`) and always will be — this
+# project exists only because XCUITest needs a UI-testing bundle, which SPM
+# cannot produce. Generated rather than checked in, so there is no .pbxproj to
+# hand-maintain: run `just uitest` and it is rebuilt from this file.
+name: PomodoroCountUITests
+options:
+  bundleIdPrefix: com.markg
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.4
+
+targets:
+  PomodoroCount:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/PomodoroCount
+    dependencies:
+      - package: Sparkle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markg.pomodorocount.uitest
+        PRODUCT_NAME: PomodoroCount
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES
+        # Menu-bar app: no Dock icon. Matches the real bundle's Info.plist.
+        INFOPLIST_KEY_LSUIElement: YES
+        # The UI test drives this build directly; it is never distributed, so
+        # it is signed to run locally and nothing more.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: YES
+        CODE_SIGNING_ALLOWED: YES
+
+  UITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: PomodoroCount
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markg.pomodorocount.uitests
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+
+schemes:
+  UITests:
+    build:
+      targets:
+        PomodoroCount: all
+        UITests: [test]
+    test:
+      targets:
+        - UITests

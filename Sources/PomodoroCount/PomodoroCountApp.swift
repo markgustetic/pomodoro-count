@@ -44,6 +44,12 @@ enum Entry {
         if let i = args.firstIndex(of: "--store"), i + 1 < args.count {
             AppModel.overrideStoreURL = URL(fileURLWithPath: args[i + 1])
         }
+        // --seed-store <path> writes a store with known categories and exits,
+        // so a UI test can start from a fixed state. See `StoreSeed`.
+        if let i = args.firstIndex(of: "--seed-store"), i + 1 < args.count {
+            StoreSeed.write(to: args[i + 1])
+            return
+        }
         PomodoroCountApp.main()
     }
 }
