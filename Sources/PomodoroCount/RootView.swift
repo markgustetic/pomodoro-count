@@ -194,6 +194,12 @@ struct RootView: View {
                             .frame(width: 7, height: 7)
                         Text("towards \(sessionTargetLabel)")
                             .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            // The Menu below is `.fixedSize()`, so without a cap
+                            // here a long category name would push the pill past
+                            // the panel's edge instead of truncating.
+                            .frame(maxWidth: 160, alignment: .leading)
                     }
                 }
                 .menuStyle(.borderlessButton)

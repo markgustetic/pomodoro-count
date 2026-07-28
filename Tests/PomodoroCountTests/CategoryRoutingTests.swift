@@ -89,4 +89,21 @@ import Foundation
         m.undoLast()
         #expect(m.records.map(\.category) == ["Work"])
     }
+
+    // MARK: resolve(.named:)
+
+    /// A non-canonical spelling must never enter a record — `resolve` returns
+    /// the category's own stored name whenever one matches.
+    @Test func resolveNamedReturnsTheCanonicalStoredSpelling() {
+        let m = configured()   // "Work" is the stored spelling
+        #expect(m.resolve(.named("wORk")) == "Work")
+        #expect(m.resolve(.named("  work  ")) == "Work")
+    }
+
+    @Test func resolveNamedWithTheFeatureOffResolvesToNil() {
+        let (m, _) = makeModel()
+        m.settings.categories = [Category(name: "Work", dailyGoal: 4)]
+        // categoriesEnabled left at its default (false).
+        #expect(m.resolve(.named("Work")) == nil)
+    }
 }

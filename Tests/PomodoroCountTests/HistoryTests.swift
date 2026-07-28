@@ -16,33 +16,11 @@ import Foundation
         return m
     }
 
-    @Test func groupsRecordsByDay() {
-        #expect(seeded().history().count == 3)
-    }
-
-    @Test func mostRecentDayComesFirst() {
-        let history = seeded().history()
-        #expect(history.first?.count == 2)
-        #expect(Calendar.current.isDateInToday(history.first!.date))
-    }
-
-    @Test func historyIsSortedNewestFirst() {
-        let dates = seeded().history().map(\.date)
-        #expect(dates == dates.sorted(by: >))
-    }
-
     @Test func talliesUseTheRightWindows() {
         let m = seeded()
         #expect(m.todayCount == 2)
         #expect(m.weekCount == 3)     // excludes the 10-day-old one
         #expect(m.totalCount == 4)    // counts everything
-    }
-
-    @Test func historyRespectsItsLimit() {
-        let (m, _) = makeModel()
-        m.records = (0..<40).map { Record(at: .daysAgo($0), source: "manual") }
-        #expect(m.history().count == 30)          // default limit
-        #expect(m.history(limit: 5).count == 5)
     }
 
     /// Yesterday's pomodoros must not count toward today, but must stay in history —
@@ -55,7 +33,7 @@ import Foundation
         ]
         #expect(m.todayCount == 0)
         #expect(m.totalCount == 2)
-        #expect(m.history().count == 1)
+        #expect(m.history(days: 30).count == 1)
     }
 
     // MARK: history(days:) — the range-scoped day list

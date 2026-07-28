@@ -219,16 +219,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func history(limit: Int = 30) -> [DayStat] {
-        let cal = Calendar.current
-        let groups = Dictionary(grouping: records) { cal.startOfDay(for: $0.at) }
-        return groups
-            .map { DayStat(date: $0.key, count: $0.value.count) }
-            .sorted { $0.date > $1.date }
-            .prefix(limit)
-            .map { $0 }
-    }
-
     /// Days within the last `days` days (ending today) that have at least one
     /// record, newest first. Powers the History tab's day list, so the
     /// Week/Month control governs it the same way it governs `dailySeries` and

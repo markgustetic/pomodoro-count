@@ -53,9 +53,15 @@ extension AppModel {
 
     func resolve(_ target: CategoryTarget) -> String? {
         switch target {
-        case .automatic:      return automaticCategoryName
-        case .fallback:       return nil
-        case .named(let name): return settings.categoriesEnabled ? name : nil
+        case .automatic: return automaticCategoryName
+        case .fallback:  return nil
+        case .named(let name):
+            guard settings.categoriesEnabled else { return nil }
+            // Return the canonical stored spelling when one matches, so a
+            // non-canonical spelling (different case, stray whitespace) can
+            // never enter a record.
+            let wanted = Category.normalized(name)
+            return settings.categories.first { Category.normalized($0.name) == wanted }?.name ?? name
         }
     }
 
@@ -291,7 +297,9 @@ extension AppModel {
         let archivedNames = Dictionary(
             grouping: inRange.compactMap(\.category),
             by: Category.normalized)
-        for (normalized, count) in counts.sorted(by: { $0.key < $1.key }) {
+        for (normalized, count) in counts.sorted(by: {
+            $0.key.localizedStandardCompare($1.key) == .orderedAscending
+        }) {
             let display = archivedNames[normalized]?.first ?? normalized
             totals.append(CategoryTotal(id: "archived-\(normalized)", name: display, count: count))
         }

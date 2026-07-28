@@ -65,6 +65,28 @@ import Foundation
         #expect(names.dropFirst(2) == ["General", "Antique", "Zebra"])
     }
 
+    /// Plain `<` on the lowercased key sorts by raw Unicode scalar, which puts
+    /// "Étude" after "Zebra" — `localizedStandardCompare` sorts it where a
+    /// reader expects, alongside the other E's.
+    @Test func archivedNamesSortLocalizedRatherThanByRawUnicodeScalar() {
+        let m = configured()
+        m.records = [
+            Record(at: Date(), source: "manual", category: "Zebra"),
+            Record(at: Date(), source: "manual", category: "Étude"),
+        ]
+        let archived = m.categoryTotals(days: 7).map(\.name).suffix(2)
+        #expect(Array(archived) == ["Étude", "Zebra"])
+    }
+
+    /// A record differing only in case from a current category must fold into
+    /// that category's total, not read as a separate archived name.
+    @Test func aCurrentCategoryFoldsARecordDifferingOnlyInCase() {
+        let m = configured()   // "Work" is the stored spelling
+        m.records = [Record(at: Date(), source: "manual", category: "WORK")]
+        #expect(m.categoryTotals(days: 7).first { $0.name == "Work" }?.count == 1)
+        #expect(!m.categoryTotals(days: 7).contains { $0.name == "WORK" })
+    }
+
     @Test func totalsMatchTheDailySeriesTotal() {
         let m = configured()
         m.records = [

@@ -61,7 +61,7 @@ struct CategoryRow: View {
                 Text(progress.goal > 0 ? "\(progress.done)/\(progress.goal)" : "\(progress.done)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(progress.isMet ? palette.accent : palette.textDim)
-                    .frame(width: 34, alignment: .trailing)
+                    .frame(width: 40, alignment: .trailing)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
