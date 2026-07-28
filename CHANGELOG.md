@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   archives it — its pomodoros stay in your history, totals, and CSV export.
 - CSV export gains a `category` column.
 
+### Changed
+
+- The History day list now respects the Week / Month range, instead of always
+  showing up to 30 populated days regardless of the selected range. This
+  changes History's behaviour even with categories switched off.
+- CSV export gains a `category` column, appended after the existing columns.
+  Anything that parses the export should account for the new column.
+
 ## [1.0.0] - 2026-07-27
 
 First public release.
