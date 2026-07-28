@@ -239,76 +239,63 @@ struct CategoryList: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.palette) private var palette
 
-    /// One row's measured height, so the `List` can be sized to its contents.
-    @State private var rowHeight: CGFloat = 0
-
     /// Which grip the pointer is over. An id rather than a `Bool` because every
     /// row's grip is built by the same expression — a shared flag would light
     /// all of them at once.
     @State private var hoveredGrip: UUID?
 
-    /// Vertical padding `listRowInsets` adds to a row, top plus bottom.
-    private static let rowInsets: CGFloat = 6
-
-    /// One row's full height including its insets.
-    ///
-    /// The fallback is the height this row measured at back when it was
-    /// hardcoded, and it only applies to the very first frame, before any
-    /// measurement has landed. Without it the `List` would be asked for a
-    /// height of zero and the rows would vanish — which is exactly what an
-    /// earlier attempt at self-sizing this list did.
-    private var rowPitch: CGFloat { (rowHeight > 0 ? rowHeight : 26) + Self.rowInsets }
+    /// The row a drag is currently hovering over, highlighted as the place the
+    /// dragged category will land.
+    @State private var dropTarget: UUID?
 
     var body: some View {
-        // A `List` rather than a hand-built stack with a `DragGesture`. That
-        // was tried: on macOS a `List` is backed by NSTableView, so AppKit
-        // drives the reorder natively, while the custom version had to move the
-        // array on every crossing and compensate the dragged row's offset by
-        // hand. Two rounds of fixes later it still flickered, because each
-        // crossing was an array mutation, a store write and an animation racing
-        // a hand-computed offset. This is one move, on drop.
+        // Plain stack plus the system's own drag and drop, after two other
+        // mechanisms failed here. A hand-built `DragGesture` worked but
+        // flickered: it reordered the array on every crossing, wrote the store
+        // each time, and compensated the dragged row's offset by hand against
+        // an animation. A `List` with `.onMove` would have handed the whole
+        // problem to AppKit, but its reorder does not function in this
+        // context — a `List` sized to its contents inside the Settings
+        // `ScrollView` — and dragging did nothing at all.
         //
-        // The grip is what made the `List` usable this time. Its drag starts
-        // from any non-interactive part of a row, and this row is a text field,
-        // a stepper and a button edge to edge — which is why the affordance was
-        // unreachable before. The glyph is the one part of the row that takes
-        // no clicks, so it is the part you grab.
-        List {
+        // `.draggable`/`.dropDestination` depends on neither. Nothing in the
+        // list moves while a drag is in flight: the system carries a preview
+        // under the pointer, the target row lights up, and the order changes
+        // once, on drop. There is no per-frame arithmetic here to get wrong,
+        // which is the point.
+        VStack(spacing: 6) {
             ForEach(model.settings.categories) { category in
-                HStack(spacing: 6) {
-                    grip(for: category)
-                    CategorySettingsRow(category: category)
-                }
-                .background {
-                    // Every row is the same shape, so they all report the same
-                    // height and it does not matter which lands last. Measured
-                    // rather than hardcoded: the constant this replaced carried
-                    // a comment warning it had to be re-measured by hand
-                    // whenever the row's font or padding changed.
-                    GeometryReader { geo in
-                        // `.task(id:)` rather than `.onChange(of:initial:)`: it
-                        // runs after the layout that produced the height, so
-                        // writing state here cannot land mid-update.
-                        Color.clear.task(id: geo.size.height) { rowHeight = geo.size.height }
-                    }
-                }
-                .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+                row(category)
             }
-            .onMove { model.moveCategories(fromOffsets: $0, toOffset: $1) }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        // Sized to its contents so it does not open a scroller of its own,
-        // nested inside the Settings tab's.
-        .frame(height: CGFloat(model.settings.categories.count) * rowPitch)
     }
 
-    /// The grab point. Not a `Button` and carrying no gesture of its own: the
-    /// `List` handles the drag, and this is here to be the one spot in a row
-    /// crowded with controls that a drag can actually start from — and to look
-    /// like it.
+    private func row(_ category: Category) -> some View {
+        HStack(spacing: 6) {
+            grip(for: category)
+            CategorySettingsRow(category: category)
+        }
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(dropTarget == category.id ? palette.accent.opacity(0.16) : .clear)
+        }
+        .animation(.easeOut(duration: 0.12), value: dropTarget)
+        .dropDestination(for: String.self) { items, _ in
+            drop(items, onto: category)
+        } isTargeted: { over in
+            dropTarget = over ? category.id : (dropTarget == category.id ? nil : dropTarget)
+        }
+        // Without a `List` there is no system reorder action, so VoiceOver gets
+        // these. They sit on the row, which already carries the category's
+        // name, rather than on the grip, which is a bare glyph.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(category.name)
+        .accessibilityAction(named: "Move up") { nudge(category, by: -1) }
+        .accessibilityAction(named: "Move down") { nudge(category, by: 1) }
+    }
+
+    /// The drag source. Only the grip is draggable, so the name field keeps
+    /// drag-to-select and the stepper and remove button are untouched.
     private func grip(for category: Category) -> some View {
         Image(systemName: "line.3.horizontal")
             .font(.system(size: 11, weight: .semibold))
@@ -319,12 +306,53 @@ struct CategoryList: View {
             .onHover { inside in
                 hoveredGrip = inside ? category.id : (hoveredGrip == category.id ? nil : hoveredGrip)
                 // The open hand is the macOS convention for "this can be
-                // dragged". AppKit swaps in the closed one during the drag.
+                // dragged". The system takes the cursor over during the drag.
                 if inside { NSCursor.openHand.set() } else { NSCursor.arrow.set() }
             }
-            .help("Drag to reorder")
-            // Decorative: the `List` gives VoiceOver its own reorder action on
-            // the row, so a second announcement for the glyph is just noise.
+            // The id, not the name: names can be edited mid-drag and are not
+            // unique until `isCategoryNameAvailable` has had its say.
+            .draggable(category.id.uuidString) {
+                // What the pointer carries. The row itself is 300pt of
+                // controls; its name is what identifies it.
+                Text(category.name)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundStyle(palette.text)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background { CardBackground(cornerRadius: 8) }
+            }
+            .help("Drag onto another category to reorder")
+            // Decorative: the row it sits on carries the name and the reorder
+            // actions, so announcing the glyph too would only add noise.
             .accessibilityHidden(true)
+    }
+
+    /// Moves the dragged category into this row's slot.
+    ///
+    /// Both ends are resolved by id rather than by position: the payload is an
+    /// id precisely so that a list which changed under the drag cannot land the
+    /// move on the wrong row. Returns false — declining the drop — when the
+    /// payload is not one of ours or names the row it is already in.
+    private func drop(_ items: [String], onto category: Category) -> Bool {
+        dropTarget = nil
+        guard let raw = items.first,
+              let draggedID = UUID(uuidString: raw),
+              let from = model.settings.categories.firstIndex(where: { $0.id == draggedID }),
+              let to = model.settings.categories.firstIndex(where: { $0.id == category.id }),
+              from != to
+        else { return false }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+            model.moveCategory(from: from, to: to)
+        }
+        return true
+    }
+
+    /// Animates a one-slot nudge, so a VoiceOver move reads like a drop.
+    /// A row at either end stays put — `nudgeCategory` ignores a destination
+    /// off the end, so there is no special case here.
+    private func nudge(_ category: Category, by delta: Int) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+            model.nudgeCategory(id: category.id, by: delta)
+        }
     }
 }
