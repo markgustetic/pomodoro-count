@@ -361,6 +361,9 @@ struct CategoryList: View {
             }
             .gesture(dragGesture(for: category, at: index))
             .help("Drag to reorder")
+            // Decorative to VoiceOver: the row it sits on already carries the
+            // category's name and the Move up / Move down actions.
+            .accessibilityHidden(true)
     }
 
     /// `minimumDistance: 3` so a stray click on the grip is not a reorder.
