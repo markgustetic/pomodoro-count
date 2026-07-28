@@ -4,10 +4,30 @@ import AppKit
 /// template image so macOS tints it correctly in light/dark and on click.
 enum StatusIcon {
 
+    private struct Key: Equatable {
+        let phase: Phase, running: Bool, text: String, description: String?
+    }
+
+    /// The last render. One entry is the right size: the item re-renders on
+    /// every 0.5s tick, but `ceil` moves the countdown text only once a
+    /// second, so half of all calls repeat the previous inputs exactly —
+    /// and those should not redraw a pixel-identical image.
+    @MainActor private static var lastRender: (key: Key, image: NSImage)?
+
     /// `description` is what VoiceOver announces; the drawn text alone ("3") is
     /// meaningless read aloud.
+    @MainActor
     static func render(phase: Phase, running: Bool, text: String,
                        description: String? = nil) -> NSImage {
+        let key = Key(phase: phase, running: running, text: text, description: description)
+        if let lastRender, lastRender.key == key { return lastRender.image }
+        let image = draw(phase: phase, running: running, text: text, description: description)
+        lastRender = (key, image)
+        return image
+    }
+
+    private static func draw(phase: Phase, running: Bool, text: String,
+                             description: String?) -> NSImage {
         let font = NSFont.systemFont(ofSize: 13, weight: .medium)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,

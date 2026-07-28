@@ -31,6 +31,19 @@ import Foundation
         #expect(m.statusText.contains(":"))
     }
 
+    /// The timer fires every 0.5s but `ceil` moves the countdown text only
+    /// once a second, so half of all renders repeat the previous inputs
+    /// exactly. Those must return the cached image, not redraw an identical
+    /// one — the item is live for the whole of every session.
+    @Test func renderingTheSameInputsReturnsTheCachedImage() {
+        let first = StatusIcon.render(phase: .work, running: true, text: "12:34", description: "Focus")
+        let second = StatusIcon.render(phase: .work, running: true, text: "12:34", description: "Focus")
+        #expect(first === second)
+
+        let moved = StatusIcon.render(phase: .work, running: true, text: "12:33", description: "Focus")
+        #expect(moved !== first)
+    }
+
     @Test func iconOnlyIsNarrowerAndDropsTheTextGap() {
         let withCount = StatusIcon.render(phase: .idle, running: false, text: "8")
         let iconOnly = StatusIcon.render(phase: .idle, running: false, text: "")
