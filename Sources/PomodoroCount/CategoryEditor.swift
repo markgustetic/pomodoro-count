@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The Settings page's category editor: the list of categories, the row that
 /// edits one, and the forms for adding and removing them. Split out of
@@ -129,17 +130,6 @@ struct CategorySettingsRow: View {
     @State private var rejected = false
     @State private var confirmingRemoval = false
 
-    /// Measured height of one row inside the `List`, including its tamed row
-    /// insets — used to size the list to its content instead of letting it
-    /// open an internal scroller.
-    ///
-    /// A hardcoded measurement is unsatisfying, and the obvious replacement does
-    /// not work: `.scrollDisabled(true)` plus `.fixedSize(horizontal: false,
-    /// vertical: true)` collapses the `List` to zero height and the rows vanish
-    /// from Settings entirely. That was tried and reverted. If you change this
-    /// row's font, padding, or controls, re-measure this number.
-    static let rowHeight: CGFloat = 32
-
     var body: some View {
         HStack(spacing: 6) {
             TextField("Name", text: $draftName)
@@ -234,27 +224,132 @@ struct FallbackNameField: View {
     }
 }
 
-/// The editable list of the user's categories.
+/// The editable list of the user's categories, reordered by dragging a row's
+/// grip handle.
+///
+/// A plain `VStack` rather than a `List`. `List` synthesises `.onMove`, but its
+/// drag starts anywhere in the row, and this row is a text field, a stepper and
+/// a button edge to edge — there was nothing to grab, so the reordering it
+/// offered was unreachable. A `List` nested in the Settings `ScrollView` also
+/// opened a scroller of its own unless given an explicit height, which meant
+/// hardcoding a row height and re-measuring it by hand whenever the row changed.
+/// The stack drops both problems: the grip is the only drag source, and the row
+/// height is measured at layout time.
 struct CategoryList: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.palette) private var palette
+
+    /// The gap between rows. Half the drag pitch, so it is named rather than
+    /// inlined into the `VStack`.
+    private static let spacing: CGFloat = 6
+
+    /// One row's measured height. Zero until the first layout has run, which
+    /// `Reorder.destination` treats as "cannot move yet".
+    @State private var rowHeight: CGFloat = 0
+    @State private var drag: DragState?
+
+    /// A reorder in progress. `startIndex` is where the row was picked up,
+    /// `currentIndex` where it sits now; they diverge as the drag commits moves,
+    /// and the gap between them is what keeps the row under the pointer.
+    private struct DragState {
+        let id: UUID
+        let startIndex: Int
+        var currentIndex: Int
+        var translation: CGFloat = 0
+    }
+
+    /// Distance from one row's top edge to the next.
+    private var pitch: CGFloat { rowHeight + Self.spacing }
+
+    /// Where the dragged row is drawn: the raw translation less the distance
+    /// already absorbed by moves it has committed. Without that subtraction the
+    /// row would jump a full slot away from the pointer every time it swapped.
+    private var visualOffset: CGFloat {
+        guard let drag else { return 0 }
+        return drag.translation - CGFloat(drag.currentIndex - drag.startIndex) * pitch
+    }
 
     var body: some View {
-        // A List is required for SwiftUI to synthesise the drag-to-reorder
-        // affordance for `.onMove` — a ForEach in a plain VStack never gets
-        // one. It's given an explicit height sized to its row count so it
-        // doesn't open its own internal scroller nested inside the tab's
-        // outer ScrollView.
-        List {
-            ForEach(model.settings.categories) { category in
-                CategorySettingsRow(category: category)
-                    .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+        VStack(spacing: Self.spacing) {
+            ForEach(Array(model.settings.categories.enumerated()), id: \.element.id) { index, category in
+                row(category, at: index)
             }
-            .onMove { model.moveCategories(fromOffsets: $0, toOffset: $1) }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .frame(height: CGFloat(model.settings.categories.count) * CategorySettingsRow.rowHeight)
+    }
+
+    private func row(_ category: Category, at index: Int) -> some View {
+        let dragging = drag?.id == category.id
+        return HStack(spacing: 6) {
+            grip(for: category, at: index)
+            CategorySettingsRow(category: category)
+        }
+        .background {
+            // Every row is the same shape, so they all report the same height
+            // and it does not matter which one lands last. Measured rather than
+            // hardcoded: the old `List` needed a fixed row height that had to be
+            // re-measured by hand whenever the row's font or padding changed.
+            GeometryReader { geo in
+                // `.task(id:)` rather than `.onChange(of:initial:)`: it runs
+                // after the layout that produced the height, so writing state
+                // here cannot land in the middle of a view update.
+                Color.clear.task(id: geo.size.height) { rowHeight = geo.size.height }
+            }
+        }
+        .offset(y: dragging ? visualOffset : 0)
+        .scaleEffect(dragging ? 1.02 : 1)
+        .shadow(color: .black.opacity(dragging ? 0.28 : 0), radius: 7, y: 3)
+        // Lifted clear of its neighbours, so it passes over them rather than
+        // under while it is being dragged.
+        .zIndex(dragging ? 1 : 0)
+    }
+
+    /// The drag handle. Deliberately not a `Button`: it performs no action when
+    /// clicked, and button semantics would promise one. The reorder actions for
+    /// VoiceOver and the keyboard live on the row instead.
+    private func grip(for category: Category, at index: Int) -> some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(drag?.id == category.id ? palette.text : palette.textDim)
+            .frame(width: 12, height: 22)
+            .contentShape(Rectangle())
+            .onHover { inside in
+                // The open hand is the macOS convention for "this can be
+                // dragged"; the gesture swaps it for the closed one while a drag
+                // is actually running.
+                if inside { NSCursor.openHand.set() } else { NSCursor.arrow.set() }
+            }
+            .gesture(dragGesture(for: category, at: index))
+            .help("Drag to reorder")
+    }
+
+    /// `minimumDistance: 3` so a stray click on the grip is not a reorder.
+    private func dragGesture(for category: Category, at index: Int) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .local)
+            .onChanged { value in
+                if drag == nil {
+                    drag = DragState(id: category.id, startIndex: index, currentIndex: index)
+                    NSCursor.closedHand.set()
+                }
+                guard var state = drag else { return }
+                state.translation = value.translation.height
+
+                let destination = Reorder.destination(
+                    from: state.startIndex,
+                    translation: state.translation,
+                    pitch: pitch,
+                    count: model.settings.categories.count)
+
+                if destination != state.currentIndex {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                        model.moveCategory(from: state.currentIndex, to: destination)
+                    }
+                    state.currentIndex = destination
+                }
+                drag = state
+            }
+            .onEnded { _ in
+                NSCursor.openHand.set()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { drag = nil }
+            }
     }
 }

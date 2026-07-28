@@ -175,10 +175,6 @@ extension AppModel {
         settings.categories.removeAll { $0.id == id }
     }
 
-    func moveCategories(fromOffsets source: IndexSet, toOffset destination: Int) {
-        settings.categories.move(fromOffsets: source, toOffset: destination)
-    }
-
     /// Moves one category to a destination index.
     ///
     /// `Array.move(fromOffsets:toOffset:)` takes an *insertion offset measured

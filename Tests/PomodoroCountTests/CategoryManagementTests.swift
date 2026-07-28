@@ -167,12 +167,6 @@ import Foundation
 
     // MARK: Reordering
 
-    @Test func reorderingChangesDisplayOrder() {
-        let m = configured()
-        m.moveCategories(fromOffsets: IndexSet(integer: 1), toOffset: 0)
-        #expect(m.settings.categories.map(\.name) == ["Music", "Work"])
-    }
-
     /// Three categories, so a move can be tested as something other than a swap
     /// of two — the direction-dependent off-by-one only shows up with three.
     private func threeCategories() -> AppModel {
