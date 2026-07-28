@@ -22,15 +22,11 @@ extension AppModel {
         return "\(m) \(s)"
     }
 
+    /// Backs both the History day list and the header's date — the two read
+    /// identically by design, so they share one formatter.
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "EEE, MMM d"
-        return f
-    }()
-
-    private static let todayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, MMM d"
         return f
     }()
 
@@ -40,13 +36,5 @@ extension AppModel {
         return Self.dayFormatter.string(from: date)
     }
 
-    var todayDateString: String { Self.todayFormatter.string(from: Date()) }
-
-    private static let shortDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "EEE, MMM d"
-        return f
-    }()
-
-    var shortDateString: String { Self.shortDateFormatter.string(from: Date()) }
+    var shortDateString: String { Self.dayFormatter.string(from: Date()) }
 }
