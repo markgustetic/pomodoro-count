@@ -146,14 +146,7 @@ struct HistoryTab: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(palette.cardFill)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(palette.cardStroke, lineWidth: 1)
-                }
-        )
+        .cardBackground(cornerRadius: 10)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue("\(value) \(value == 1 ? "pomodoro" : "pomodoros")")

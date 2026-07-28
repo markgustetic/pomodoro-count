@@ -78,14 +78,7 @@ struct RootView: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(palette.cardFill)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(palette.cardStroke, lineWidth: 1)
-                }
-        )
+        .cardBackground(cornerRadius: 14)
     }
 
     @ViewBuilder private var statusBadge: some View {
@@ -237,14 +230,7 @@ struct RootView: View {
         .padding(.vertical, 16)
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(palette.cardFill)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(palette.cardStroke, lineWidth: 1)
-                }
-        )
+        .cardBackground(cornerRadius: 16)
     }
 
     // MARK: Footer

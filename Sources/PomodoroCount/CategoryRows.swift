@@ -67,12 +67,7 @@ struct CategoryRow: View {
             .padding(.vertical, 7)
             .contentShape(Rectangle())
             .background {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(palette.cardFill.opacity(hover ? 1.6 : 1.0))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .strokeBorder(palette.cardStroke, lineWidth: 1)
-                    }
+                CardBackground(cornerRadius: 11, fillOpacity: hover ? 1.6 : 1.0)
                     .overlay {
                         // The running session's target row stays outlined so
                         // it's clear where the next completed pomodoro lands.

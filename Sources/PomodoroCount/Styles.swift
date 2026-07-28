@@ -165,6 +165,32 @@ struct HoverTextButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Card background
+
+/// The panel's shared card look: a filled, continuous rounded rect with a
+/// hairline stroke. Used by the count header, the focus timer card, History's
+/// stat tiles, and — composed with its own hover fill and selection ring — each
+/// category row.
+struct CardBackground: View {
+    var cornerRadius: CGFloat
+    var fillOpacity: Double = 1
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        shape
+            .fill(palette.cardFill.opacity(fillOpacity))
+            .overlay { shape.strokeBorder(palette.cardStroke, lineWidth: 1) }
+    }
+}
+
+extension View {
+    /// Applies the shared card background at the given corner radius.
+    func cardBackground(cornerRadius: CGFloat) -> some View {
+        background { CardBackground(cornerRadius: cornerRadius) }
+    }
+}
+
 // MARK: - Sparkline
 
 /// A compact bar strip of recent daily counts. The last bar (today) is
