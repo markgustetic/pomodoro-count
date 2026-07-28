@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Removing a category now asks first.** The minus button opened no
+  confirmation, so a single mis-click on a control the size of a full stop took
+  a category off the panel. It now names the category and says what survives —
+  its pomodoros stay in your history, and adding the name back reunites it with
+  them.
 - **Categories with daily goals.** Optional named categories, each with a daily
   goal. Tapping a category's row logs a pomodoro to it, focus sessions can be
   aimed at one, and History gains a By category breakdown. Deleting a category

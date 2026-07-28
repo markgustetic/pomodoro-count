@@ -225,12 +225,62 @@ struct AddCategoryForm: View {
     }
 }
 
+/// Confirms removing a category, so a single mis-click on a control the size of
+/// a full stop can't quietly take a category off the panel.
+///
+/// A popover rather than an alert or a `confirmationDialog`, for the reason
+/// `AddCategoryForm` gives: either of those takes key status away from the menu
+/// bar panel, which dismisses the moment it loses focus — the confirmation
+/// would outlive the panel it was confirming something in.
+///
+/// It says what survives, because "remove" reads far more final than it is:
+/// nothing is deleted, the category is archived. Its pomodoros stay in the
+/// history, the totals and the CSV export, and adding the same name back
+/// reunites it with them.
+struct RemoveCategoryConfirmation: View {
+    let name: String
+    @Binding var isPresented: Bool
+    let remove: () -> Void
+
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Remove “\(name)”?")
+                .font(.callout.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Its pomodoros stay in your history. Adding the name back later reunites it with them.")
+                .font(.caption2)
+                .foregroundStyle(palette.textDim)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Spacer()
+                Button("Cancel") { isPresented = false }
+                    .keyboardShortcut(.cancelAction)
+                // Deliberately not `.defaultAction`: Return should not be able
+                // to carry out a destructive action the user opened this to
+                // think about. Esc cancels; removing takes a click.
+                Button("Remove", role: .destructive) {
+                    isPresented = false
+                    remove()
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 230)
+    }
+}
+
 /// One editable category: rename in place, adjust its goal, or archive it.
 struct CategorySettingsRow: View {
     let category: Category
     @EnvironmentObject var model: AppModel
+    @Environment(\.palette) private var palette
     @State private var draftName: String = ""
     @State private var rejected = false
+    @State private var confirmingRemoval = false
 
     /// Measured height of one row inside the `List`, including its tamed row
     /// insets — used to size the list to its content instead of letting it
@@ -266,7 +316,7 @@ struct CategorySettingsRow: View {
             .accessibilityLabel("\(category.name) daily goal")
 
             Button {
-                model.removeCategory(id: category.id)
+                confirmingRemoval = true
             } label: {
                 Image(systemName: "minus.circle")
             }
@@ -275,6 +325,17 @@ struct CategorySettingsRow: View {
             .buttonStyle(HoverTextButtonStyle(emphasis: .destructive))
             .help("Remove — its pomodoros stay in your history")
             .accessibilityLabel("Remove \(category.name)")
+            .popover(isPresented: $confirmingRemoval, arrowEdge: .bottom) {
+                // `remove` is a closure built here rather than a lookup done
+                // inside the popover, for the same reason `AddCategoryForm`
+                // takes the model as a parameter: `@EnvironmentObject` does not
+                // reliably reach popover content, and it crashes when it misses.
+                RemoveCategoryConfirmation(name: category.name,
+                                           isPresented: $confirmingRemoval) {
+                    model.removeCategory(id: category.id)
+                }
+                .themed(palette)
+            }
         }
     }
 
