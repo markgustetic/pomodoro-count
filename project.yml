@@ -4,6 +4,13 @@
 # project exists only because XCUITest needs a UI-testing bundle, which SPM
 # cannot produce. Generated rather than checked in, so there is no .pbxproj to
 # hand-maintain: run `just uitest` and it is rebuilt from this file.
+#
+# Two test bundles, split by what macOS demands of them. `UITests` is the
+# XCUITest bundle that drives the real menu bar item; running it requires
+# Automation Mode, which this machine only grants to a person authenticating
+# at the keyboard. `DynamicsTests` drives the `--reorder-window` harness with
+# posted events and the raw Accessibility API — none of which is XCUITest — so
+# it lives in a plain unit-test bundle and runs unattended.
 name: PomodoroCountUITests
 options:
   bundleIdPrefix: com.markg
@@ -45,11 +52,30 @@ targets:
     platform: macOS
     sources:
       - path: UITests
+        excludes:
+          - ReorderDynamicsTests.swift
     dependencies:
       - target: PomodoroCount
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.markg.pomodorocount.uitests
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+
+  DynamicsTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: UITests/ReorderDynamicsTests.swift
+      - path: UITests/TestSupport.swift
+    # Deliberately no dependency on the app target: XcodeGen reads one as
+    # "host the tests inside the app", which would run this bundle inside a
+    # second live copy of the menu bar app instead of a plain xctest process.
+    # The scheme's build list is what gets the app built first.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markg.pomodorocount.dynamicstests
         SWIFT_VERSION: "5.9"
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_IDENTITY: "-"
@@ -60,6 +86,8 @@ schemes:
       targets:
         PomodoroCount: all
         UITests: [test]
+        DynamicsTests: [test]
     test:
       targets:
+        - DynamicsTests
         - UITests

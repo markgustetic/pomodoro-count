@@ -25,21 +25,7 @@ final class CategoryReorderUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
 
-        // A throwaway store, seeded by the app itself, so these tests can never
-        // read or write the real pomodoro history.
-        //
-        // Run as a plain subprocess rather than through `XCUIApplication`:
-        // `--seed-store` writes the file and exits immediately, and XCUITest
-        // treats an app that exits during launch as a launch failure.
-        storePath = NSTemporaryDirectory()
-            + "pomodoro-uitest-\(UUID().uuidString)/data.json"
-        let seeder = Process()
-        seeder.executableURL = try Self.appBinary()
-        seeder.arguments = ["--seed-store", storePath]
-        try seeder.run()
-        seeder.waitUntilExit()
-        XCTAssertTrue(FileManager.default.fileExists(atPath: storePath),
-                      "seeding did not write \(storePath!)")
+        storePath = try TestStore.seed()
 
         app = XCUIApplication()
         app.launchArguments = ["--store", storePath]
@@ -50,21 +36,6 @@ final class CategoryReorderUITests: XCTestCase {
 
     override func tearDown() {
         app?.terminate()
-    }
-
-    /// The app binary in the built-products directory.
-    ///
-    /// Walked up to rather than hardcoded: the test bundle sits several levels
-    /// inside `UITests-Runner.app`, and how many is Xcode's business, not this
-    /// test's.
-    private static func appBinary() throws -> URL {
-        var dir = Bundle(for: CategoryReorderUITests.self).bundleURL
-        for _ in 0..<6 {
-            dir = dir.deletingLastPathComponent()
-            let candidate = dir.appendingPathComponent("PomodoroCount.app/Contents/MacOS/PomodoroCount")
-            if FileManager.default.isExecutableFile(atPath: candidate.path) { return candidate }
-        }
-        throw XCTSkip("PomodoroCount.app not found near \(Bundle(for: CategoryReorderUITests.self).bundleURL.path)")
     }
 
     // MARK: Reaching the UI
@@ -168,29 +139,13 @@ final class CategoryReorderUITests: XCTestCase {
         return CGPoint(x: f.midX, y: f.midY)
     }
 
-    /// The order as persisted, read straight out of the store the app writes.
-    ///
-    /// The drag commits on drop, and this panel dismisses the moment it loses
-    /// focus — which posting mouse events can cause — so the live element tree
-    /// is not reliably there to read afterwards. The store is, and it is also
-    /// the thing that has to be right: an order that never reached disk would
-    /// look identical until the next launch.
-    private func persistedOrder() throws -> [String] {
-        let data = try Data(contentsOf: URL(fileURLWithPath: storePath))
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let settings = json?["settings"] as? [String: Any]
-        let categories = settings?["categories"] as? [[String: Any]] ?? []
-        return categories.compactMap { $0["name"] as? String }
-    }
-
+    /// Asserts on the store rather than the element tree: the drag commits on
+    /// drop, and this panel dismisses the moment it loses focus — which posting
+    /// mouse events can cause — so the live tree is not reliably there to read
+    /// afterwards.
     private func expect(persisted expected: [String],
                         file: StaticString = #filePath, line: UInt = #line) throws {
-        // The write lands on drop; give it a moment rather than racing it.
-        let deadline = Date().addingTimeInterval(5)
-        while Date() < deadline && (try? persistedOrder()) != expected {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        XCTAssertEqual(try persistedOrder(), expected, file: file, line: line)
+        try TestStore.expectOrder(expected, at: storePath, file: file, line: line)
     }
 
     // MARK: Tests
@@ -220,11 +175,11 @@ final class CategoryReorderUITests: XCTestCase {
     ///
     /// `--reorder-window` (`ReorderHarness`) hosts the panel's UI in a plain
     /// window for exactly this: reorder *dynamics* — tracking, one commit per
-    /// crossing, no spurious reverts — can be driven and asserted there. What
-    /// it can never prove is that a drag *starts* in the real panel; an
-    /// ordinary key window is permissive in precisely the way that made two
-    /// AppKit-drag mechanisms look plausible while being dead here. That
-    /// last inch stays with a person and a mouse.
+    /// crossing, no spurious reverts — can be driven and asserted there, and
+    /// `ReorderDynamicsTests` does. What it can never prove is that a drag
+    /// *starts* in the real panel; an ordinary key window is permissive in
+    /// precisely the way that made two AppKit-drag mechanisms look plausible
+    /// while being dead here. That last inch stays with a person and a mouse.
     private func skipUntilDragAutomationWorks() throws {
         throw XCTSkip("Synthetic drags do not drive the panel's gesture (a plain window works — see the note above).")
     }

@@ -129,7 +129,9 @@ clean:
 stop:
     -pkill -x "{{exe}}"
 
-# Run the UI tests (drives the real app through its menu bar item)
+# Run all UI tests: reorder dynamics in the harness window, then the XCUITest
+# suite that drives the real menu bar item (macOS asks a person at the keyboard
+# to enable Automation Mode for that half)
 uitest:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -141,3 +143,18 @@ uitest:
     xcodegen generate
     xcodebuild -project PomodoroCountUITests.xcodeproj -scheme UITests \
         -destination 'platform=macOS' test
+
+# Run only the reorder dynamics tests — no Automation Mode prompt, so this one
+# runs unattended; it does post real mouse events, so leave the machine alone
+# for the half-minute it takes
+uitest-dynamics:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v xcodegen >/dev/null; then
+        echo "UI tests need XcodeGen:  brew install xcodegen"
+        exit 1
+    fi
+    export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+    xcodegen generate
+    xcodebuild -project PomodoroCountUITests.xcodeproj -scheme UITests \
+        -destination 'platform=macOS' test -only-testing:DynamicsTests
