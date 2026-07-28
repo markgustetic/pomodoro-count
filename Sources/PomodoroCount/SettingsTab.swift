@@ -101,7 +101,16 @@ struct SettingsTab: View {
                             .font(.caption)
                             .foregroundStyle(palette.textDim)
                         HStack(spacing: 6) {
-                            FallbackNameField()
+                            // The bucket's name shares the uniqueness space
+                            // with every category's, so it goes through the
+                            // same committable field rather than binding
+                            // straight to the setting — which would accept a
+                            // colliding or empty name and rewrite the store
+                            // on every keystroke.
+                            CommittableNameField(
+                                accessibilityLabel: "Fallback category name",
+                                current: { model.settings.fallbackName },
+                                commit: { model.setFallbackName($0) })
                             Stepper(value: $model.settings.fallbackGoal, in: 0...20) {
                                 Text("\(model.settings.fallbackGoal)")
                                     .font(.caption.monospacedDigit())

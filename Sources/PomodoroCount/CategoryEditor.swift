@@ -121,23 +121,61 @@ struct RemoveCategoryConfirmation: View {
     }
 }
 
+/// A name field with the draft + reject-and-snap-back contract every rename
+/// in Settings shares: edits accumulate in a local draft, submit hands the
+/// draft to the model, and a rejection (empty, collision) snaps the field
+/// back to the name the model still has rather than keeping one it refused.
+/// On success the field resyncs to the trimmed value the model stored.
+///
+/// One view rather than the same dozen lines in each rename site — the
+/// contract is behavioral, and two copies had already begun to be a place
+/// where a fix to one could silently miss the other. Takes closures, not the
+/// model: it can be hosted anywhere, including popover content, where
+/// `@EnvironmentObject` does not reliably reach.
+struct CommittableNameField: View {
+    let accessibilityLabel: String
+    /// The model's current value — read at appearance and again on each
+    /// rejection, so the snap-back is always to what the model actually has.
+    let current: () -> String
+    /// Attempts the rename; false means rejected, and the field snaps back.
+    let commit: (String) -> Bool
+
+    @State private var draft = ""
+    @State private var rejected = false
+
+    var body: some View {
+        TextField("Name", text: $draft)
+            .textFieldStyle(.roundedBorder)
+            .foregroundStyle(rejected ? Color.red : Color.primary)
+            .onSubmit(submit)
+            .onAppear { draft = current() }
+            .accessibilityLabel(accessibilityLabel)
+    }
+
+    private func submit() {
+        if commit(draft) {
+            rejected = false
+            draft = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            rejected = true
+            draft = current()
+        }
+    }
+}
+
 /// One editable category: rename in place, adjust its goal, or archive it.
 struct CategorySettingsRow: View {
     let category: Category
     @EnvironmentObject var model: AppModel
     @Environment(\.palette) private var palette
-    @State private var draftName: String = ""
-    @State private var rejected = false
     @State private var confirmingRemoval = false
 
     var body: some View {
         HStack(spacing: 6) {
-            TextField("Name", text: $draftName)
-                .textFieldStyle(.roundedBorder)
-                .foregroundStyle(rejected ? Color.red : Color.primary)
-                .onSubmit(commit)
-                .onAppear { draftName = category.name }
-                .accessibilityLabel("Category name")
+            CommittableNameField(
+                accessibilityLabel: "Category name",
+                current: { category.name },
+                commit: { model.renameCategory(id: category.id, to: $0) })
 
             Stepper(value: Binding(
                 get: { category.dailyGoal },
@@ -176,52 +214,6 @@ struct CategorySettingsRow: View {
         }
     }
 
-    /// Renaming can fail on a collision, so the field snaps back rather than
-    /// silently keeping a name the model rejected. On success, the model
-    /// stores a trimmed name, so the field is resynced to match — otherwise it
-    /// would keep showing untrimmed whitespace the model already discarded.
-    private func commit() {
-        if model.renameCategory(id: category.id, to: draftName) {
-            rejected = false
-            draftName = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            rejected = true
-            draftName = category.name
-        }
-    }
-}
-
-/// The fallback bucket's editable name. Its name shares the same uniqueness
-/// space as every category's, so it uses the same draft + reject-and-snap-back
-/// pattern as `CategorySettingsRow` rather than binding straight to the
-/// setting — which would accept a colliding or empty name and rewrite the
-/// store on every keystroke.
-struct FallbackNameField: View {
-    @EnvironmentObject var model: AppModel
-    @State private var draftName: String = ""
-    @State private var rejected = false
-
-    var body: some View {
-        TextField("Name", text: $draftName)
-            .textFieldStyle(.roundedBorder)
-            .foregroundStyle(rejected ? Color.red : Color.primary)
-            .onSubmit(commit)
-            .onAppear { draftName = model.settings.fallbackName }
-            .accessibilityLabel("Fallback category name")
-    }
-
-    /// Same rejection contract as `CategorySettingsRow.commit`: on success the
-    /// field is resynced to the model's trimmed name; on failure it snaps back
-    /// to the name the model still has.
-    private func commit() {
-        if model.setFallbackName(draftName) {
-            rejected = false
-            draftName = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            rejected = true
-            draftName = model.settings.fallbackName
-        }
-    }
 }
 
 /// The editable list of the user's categories, reordered by dragging a row's
