@@ -168,58 +168,52 @@ import Foundation
     // MARK: Reordering
 
     /// Three categories, so a move can be tested as something other than a swap
-    /// of two — the direction-dependent off-by-one only shows up with three.
+    /// of two — the direction-dependent insertion offset only shows up with three.
     private func threeCategories() -> AppModel {
         let m = configured()
         m.addCategory(name: "Admin", dailyGoal: 2)
         return m       // Work, Music, Admin
     }
 
+    /// `moveCategories` takes what `List.onMove` hands it: an insertion offset
+    /// measured *before* the removal, so moving the first row down one is
+    /// `toOffset: 2`, not 1. These pin that convention, since a caller passing
+    /// a destination index instead would silently move nothing.
     @Test func movingACategoryDownLandsInTheTargetSlot() {
         let m = threeCategories()
-        m.moveCategory(from: 0, to: 2)
+        m.moveCategories(fromOffsets: IndexSet(integer: 0), toOffset: 3)
         #expect(m.settings.categories.map(\.name) == ["Music", "Admin", "Work"])
     }
 
-    /// The `toOffset` off-by-one, pinned: `move(fromOffsets:toOffset:)` measures
-    /// its offset before the removal, so passing the destination unadjusted here
-    /// would leave the order untouched and the row would look stuck.
     @Test func movingACategoryDownByOneActuallyMovesIt() {
         let m = threeCategories()
-        m.moveCategory(from: 0, to: 1)
+        m.moveCategories(fromOffsets: IndexSet(integer: 0), toOffset: 2)
         #expect(m.settings.categories.map(\.name) == ["Music", "Work", "Admin"])
     }
 
     @Test func movingACategoryUpLandsInTheTargetSlot() {
         let m = threeCategories()
-        m.moveCategory(from: 2, to: 0)
+        m.moveCategories(fromOffsets: IndexSet(integer: 2), toOffset: 0)
         #expect(m.settings.categories.map(\.name) == ["Admin", "Work", "Music"])
     }
 
-    @Test func movingToTheSlotItAlreadyOccupiesChangesNothing() {
+    /// The no-op `List` produces when a row is dropped back where it started.
+    @Test func droppingARowWhereItStartedChangesNothing() {
         let m = threeCategories()
-        m.moveCategory(from: 1, to: 1)
-        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
-    }
-
-    @Test func outOfRangeIndicesChangeNothing() {
-        let m = threeCategories()
-        m.moveCategory(from: 5, to: 0)
-        m.moveCategory(from: 0, to: 9)
-        m.moveCategory(from: -1, to: 1)
+        m.moveCategories(fromOffsets: IndexSet(integer: 1), toOffset: 1)
         #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
     }
 
     @Test func reorderingLeavesTheRecordsAlone() {
         let m = threeCategories()
         m.records = [Record(at: Date(), source: "manual", category: "Music")]
-        m.moveCategory(from: 1, to: 0)
+        m.moveCategories(fromOffsets: IndexSet(integer: 1), toOffset: 0)
         #expect(m.todayCount(inCategory: "Music") == 1)
     }
 
     @Test func thePanelFollowsTheNewOrderWithTheBucketStillLast() {
         let m = threeCategories()
-        m.moveCategory(from: 2, to: 0)
+        m.moveCategories(fromOffsets: IndexSet(integer: 2), toOffset: 0)
         #expect(m.todayProgress.map(\.name) == ["Admin", "Work", "Music", "General"])
     }
 
@@ -228,7 +222,7 @@ import Foundation
         m.settings.categoriesEnabled = true
         m.addCategory(name: "Work", dailyGoal: 4)
         m.addCategory(name: "Music", dailyGoal: 1)
-        m.moveCategory(from: 1, to: 0)
+        m.moveCategories(fromOffsets: IndexSet(integer: 1), toOffset: 0)
 
         let reloaded = AppModel(storeURL: url)
         #expect(reloaded.settings.categories.map(\.name) == ["Music", "Work"])
@@ -241,108 +235,10 @@ import Foundation
     @Test func reorderingLeavesTheSessionTargetPointingAtTheSameCategory() {
         let m = threeCategories()   // Work, Music, Admin
         m.settings.sessionTargetName = "Music"
-        m.moveCategory(from: 1, to: 0)   // Music moves to the front
+        m.moveCategories(fromOffsets: IndexSet(integer: 1), toOffset: 0)
         #expect(m.resolve(m.sessionTarget) == "Music")
     }
 
-    // MARK: Drag replay
-
-    /// Four categories, so a drag can cross three slot boundaries — enough
-    /// for several ticks to land in the same slot before the next one commits.
-    private func fourCategories() -> AppModel {
-        let m = threeCategories()
-        m.addCategory(name: "Reading", dailyGoal: 1)
-        return m   // Work, Music, Admin, Reading
-    }
-
-    /// `pitch` matches `ReorderTests`: one row's height plus the gap to the
-    /// next, so 16 is the rounding boundary between two slots.
-    private let pitch: CGFloat = 32
-
-    /// Every seam here is unit-tested alone — `Reorder.destination` in
-    /// `ReorderTests`, `moveCategory` above — but nothing previously proved
-    /// the two agree on which index is "from". `CategoryList.dragGesture`
-    /// passes `startIndex` to `Reorder.destination` and `currentIndex` to
-    /// `moveCategory`, three lines apart; this replays that exact bookkeeping
-    /// against the real implementations of both, tick by tick, the way a
-    /// mouse drag would drive it.
-    ///
-    /// Also pins the invariant that keeps the row under the pointer: the drawn
-    /// offset — translation minus the distance already absorbed by committed
-    /// moves — never exceeds the sticky band, which is the furthest the row is
-    /// allowed to get from its slot before the move commits.
-    @discardableResult
-    private func replayDrag(on m: AppModel, from startIndex: Int, through translations: [CGFloat]) -> Int {
-        var currentIndex = startIndex
-        for translation in translations {
-            let destination = Reorder.destination(
-                from: startIndex, current: currentIndex, translation: translation, pitch: pitch,
-                count: m.settings.categories.count)
-            if destination != currentIndex {
-                m.moveCategory(from: currentIndex, to: destination)
-                currentIndex = destination
-            }
-            let drawnOffset = abs(translation - CGFloat(currentIndex - startIndex) * pitch)
-            #expect(drawnOffset <= (0.5 + Reorder.stickiness) * pitch)
-        }
-        return currentIndex
-    }
-
-    @Test func aDownwardDragReplaysTheSameOrderAMouseDragWould() {
-        let m = fourCategories()   // Work, Music, Admin, Reading
-        // Steps of 9pt, well short of the 32pt pitch, so several ticks land in
-        // the same slot before the next boundary. With the sticky band those
-        // boundaries are at 22.4, 54.4 and 86.4pt, and no tick lands on one.
-        let end = replayDrag(on: m, from: 0, through: [0, 9, 18, 27, 36, 45, 54, 63, 72, 81, 90, 99])
-        #expect(end == 3)
-        #expect(m.settings.categories.map(\.name) == ["Music", "Admin", "Reading", "Work"])
-    }
-
-    /// The downward case in reverse: same tick size, crossing two boundaries
-    /// instead of three, moving the opposite way.
-    @Test func anUpwardDragReplaysTheSameOrderAMouseDragWould() {
-        let m = fourCategories()   // Work, Music, Admin, Reading
-        let end = replayDrag(on: m, from: 3, through: [0, -9, -18, -27, -36, -45, -54, -63])
-        #expect(end == 1)
-        #expect(m.settings.categories.map(\.name) == ["Work", "Reading", "Music", "Admin"])
-    }
-
-    /// The stutter this stickiness exists to stop: a pointer easing across a
-    /// boundary and wavering there. Every one of these ticks sits within the
-    /// band around the slot the row moved into, so the drag must commit exactly
-    /// one reorder rather than one per tremor.
-    @Test func waveringAtABoundaryCommitsOnlyOneMove() {
-        let m = fourCategories()
-        let end = replayDrag(on: m, from: 0, through: [0, 20, 23, 21, 24, 20, 25, 22, 26])
-        #expect(end == 1)
-        #expect(m.settings.categories.map(\.name) == ["Music", "Work", "Admin", "Reading"])
-    }
-
-    // MARK: Nudging (keyboard and VoiceOver)
-
-    @Test func nudgingMovesACategoryOneSlot() {
-        let m = threeCategories()
-        let admin = m.settings.categories[2].id
-        m.nudgeCategory(id: admin, by: -1)
-        #expect(m.settings.categories.map(\.name) == ["Work", "Admin", "Music"])
-        m.nudgeCategory(id: admin, by: 1)
-        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
-    }
-
-    /// The row at either end has nowhere to go, and says so by doing nothing
-    /// rather than by needing a special case at the call site.
-    @Test func nudgingPastEitherEndChangesNothing() {
-        let m = threeCategories()
-        m.nudgeCategory(id: m.settings.categories[0].id, by: -1)
-        m.nudgeCategory(id: m.settings.categories[2].id, by: 1)
-        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
-    }
-
-    @Test func nudgingAnUnknownCategoryChangesNothing() {
-        let m = threeCategories()
-        m.nudgeCategory(id: UUID(), by: 1)
-        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
-    }
 
     // MARK: Fallback name
 

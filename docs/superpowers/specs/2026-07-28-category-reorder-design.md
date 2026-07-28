@@ -35,15 +35,16 @@ on hover, matching how the row's other low-chrome controls behave. The cursor
 becomes `NSCursor.openHand` over the grip and `NSCursor.closedHand` during a
 drag.
 
-Pressing the grip and moving lifts the row — a slight scale and a stronger
-shadow — and it follows the pointer vertically while the remaining rows slide to
-open a gap. Reordering is live: when the dragged row's position crosses into
-another slot, the move happens immediately, so the order visible during the drag
-is the order that lands. Releasing settles the row into place with a spring.
+Pressing the grip and moving lifts the row and carries it under the pointer
+while the others open a gap for it; releasing drops it in. That behaviour is
+AppKit's — the list is a `List`, and its reordering is the system's, so it
+matches every other reorderable list on the Mac and moves at the frame rate the
+platform manages rather than one we compute.
 
-The grip is the only drag source. The name field, the goal stepper and the
-remove button keep their current behaviour. A drag needs 3pt of movement before
-it counts, so a stray click on the grip does nothing.
+In practice the grip is the only place a drag can start, because it is the only
+part of the row that is not already a control. The name field, the goal stepper
+and the remove button keep their existing behaviour: dragging inside the name
+field selects text, as it should.
 
 The grip costs roughly 18pt of a 300pt panel, taken from the name field. Names
 still fit comfortably; very long ones truncate slightly sooner while being
@@ -51,132 +52,102 @@ typed.
 
 ### Accessibility
 
-Today's `List` gives VoiceOver a reorder action and gives keyboard users
-nothing — macOS list reordering is mouse-only. Replacing it must not lose the
-former, so each row gets "Move up" and "Move down" accessibility actions, which
-reach VoiceOver. On macOS, custom accessibility actions are exposed through the
-accessibility API only — a keyboard-only user with Full Keyboard Access and no
-screen reader has no generic way to invoke them. Reaching that audience would
-need a real key handler, which this change does not add. The grip itself is
-decorative to VoiceOver: the actions live on the row, which already carries the
-category's name.
+The `List` gives VoiceOver its standard reorder action, and keeping the `List`
+keeps it — this is the behaviour that already shipped, and the surest way not to
+regress it was not to replace it. Keyboard-only reordering, for a user with Full
+Keyboard Access and no screen reader, is not something macOS list reordering
+offers and this change does not add it.
+
+The grip is decorative to VoiceOver, and marked `accessibilityHidden`: the row
+already carries the category's name and the reorder action, so announcing the
+glyph as well would only add noise.
 
 ## Architecture
 
-Three pieces, so the error-prone part is testable without a UI.
+### The reorder is the platform's, not ours
 
-### 1. `Reorder.destination` — pure, no SwiftUI
+`CategoryList` is a `List` with `.onMove`. On macOS a `List` is backed by
+NSTableView, so AppKit drives the drag: the row lifts, tracks the pointer and
+drops natively, and the move arrives once, on drop.
 
-```swift
-static func destination(from startIndex: Int,
-                        translation: CGFloat,
-                        pitch: CGFloat,
-                        count: Int) -> Int
-```
+This was not the first attempt. A hand-built version — a `VStack`, a
+`DragGesture` on the grip, and arithmetic that decided which slot the row
+belonged in — was built, reviewed and shipped, and it flickered. Each crossing
+reordered the array, wrote the store and started an animation, while the dragged
+row's offset was recomputed by hand to compensate; two rounds of fixes (matching
+the animation, then making the slot sticky so a slow crossing did not commit
+dozens of moves) improved it without curing it. The lesson worth keeping: the
+part that felt wrong was never the part that was hard to get right. The
+arithmetic was correct and thoroughly tested. What could not be reproduced by
+hand was the frame-by-frame smoothness AppKit gives away for nothing.
 
-Given the index a drag began at and how far it has travelled, returns the slot
-the row now belongs in: `startIndex + round(translation / pitch)`, clamped to
-`0..<count`. Returns `startIndex` unchanged when `pitch <= 0` or `count <= 0`,
-so a row that has not been measured yet cannot produce a nonsense move.
+The grip is what makes the `List` usable, and is the whole reason the first
+attempt existed. A `List` row drags from any non-interactive part of itself, and
+this row is a `TextField`, a `Stepper` and a `Button` edge to edge — there was
+nowhere to grab, which is why the `.onMove` already wired up before this change
+was unreachable. The glyph is the one part of the row that takes no clicks, so
+it is the part you grab. It carries no gesture of its own; it is a grab point
+and a signpost.
 
-This is where reorder bugs live — rounding at the midpoint, running off the
-ends — so it is a free function over numbers, tested directly.
+### `AppModel.moveCategories(fromOffsets:toOffset:)`
 
-### 2. `AppModel.moveCategory(from:to:)`
+Takes exactly what `.onMove` hands over — source offsets and an insertion offset
+measured before the removal. That convention is awkward in isolation, but the
+only caller is `.onMove`, and translating it into something tidier here would
+mean translating it back at the call site.
 
-Replaces `moveCategories(fromOffsets:toOffset:)`, which existed only to feed
-`List.onMove` and has one caller. Swift's `Array.move(fromOffsets:toOffset:)`
-takes an *insertion offset measured before the removal*, so moving a row down by
-one requires `to + 1`; passing `to` moves nothing and the row appears stuck. That
-adjustment is absorbed and commented once here rather than repeated in gesture
-code.
+### Row height is measured, not hardcoded
 
-Guards: indices outside `settings.categories.indices` and `from == to` change
-nothing, so a drag that resolves to its own slot writes nothing to the store.
+The `List` is given an explicit height so it does not open a scroller of its own
+nested inside the Settings `ScrollView`. That height used to be a hardcoded
+`CategorySettingsRow.rowHeight = 32`, carrying a comment warning it had to be
+re-measured by hand whenever the row's font or padding changed. Instead a row
+reports its real height through a `GeometryReader` in its background, published
+to state by `.task(id:)` — which runs after the layout that produced the height,
+so the write cannot land mid-update.
 
-### 3. The gesture, in the view
-
-`CategoryList` owns the drag state — the dragged category's id, the index the
-drag started at, the index it currently occupies, and the raw translation — and
-renders rows in a `VStack`.
-
-The dragged row's visual offset is
-
-```
-translation - CGFloat(currentIndex - startIndex) * pitch
-```
-
-so it stays under the pointer after a swap, rather than jumping by a row each
-time one happens. On change: ask `Reorder.destination`; if it differs from
-`currentIndex`, call `moveCategory` and update `currentIndex`. On end: clear the
-drag state inside a spring animation.
-
-### Row pitch is measured, not hardcoded
-
-The drag needs the row-to-row distance. `SettingsTab.swift` currently hardcodes
-`CategorySettingsRow.rowHeight = 32`, carrying a comment warning that it must be
-re-measured by hand if the row's font or padding changes. Rather than keep that,
-a row reports its real height through a `GeometryReader` in its background,
-published to state by `.task(id:)` — which runs after the layout that produced
-the height, so the write cannot land mid-update. Pitch is zero until a row has
-been measured, and that height plus the `VStack` spacing once it has — zero
-rather than just the spacing, so that `Reorder.destination`'s guard against an
-unmeasured row is actually reachable, not a positive number that would slip
-past it. `onGeometryChange` would be tidier but is macOS 15, and the package
-targets macOS 14.
-
-This is possible because the `List` goes away, replaced by a plain `VStack`.
-That also removes the nested-scroller problem — a `List` inside the Settings
-`ScrollView` — which the height hack existed to work around.
+A single fallback constant remains, applying only to the first frame before any
+measurement lands. Without it the `List` would be asked for a height of zero and
+the rows would vanish, which is precisely what an earlier attempt at self-sizing
+this list (`.scrollDisabled` plus `.fixedSize`) did.
 
 ### File split
 
-`SettingsTab.swift` is 383 lines doing two jobs: app preferences and a category
-editor. This change adds to the second. The category editor —
-`CategorySettingsRow`, `AddCategoryForm`, `RemoveCategoryConfirmation`,
-`FallbackNameField`, plus the new `CategoryList`, grip handle and `Reorder` —
-moves to `CategoryEditor.swift`, leaving `SettingsTab.swift` at roughly 150
-lines of app preferences. This mirrors the existing split of `Category.swift`
-from the model.
+`SettingsTab.swift` was 383 lines doing two jobs: app preferences and a category
+editor. The category editor — `CategoryList`, `CategorySettingsRow`,
+`AddCategoryForm`, `RemoveCategoryConfirmation` and `FallbackNameField` — moved
+to `CategoryEditor.swift`, leaving `SettingsTab.swift` at app preferences only.
+This mirrors the existing split of `Category.swift` from the model.
 
 ## Persistence
 
-`AppModel.settings` saves on `didSet`, so each swap writes the store. Swaps are
-discrete — they fire when the drag crosses into a new slot, not per frame — so
-dragging across four positions costs four writes, comparable to four clicks of a
-stepper. This is not the per-keystroke behaviour the rename path was fixed for,
-and needs no debouncing.
+`AppModel.settings` saves on `didSet`, so a reorder writes the store. `.onMove`
+fires once per completed drag, so that is one write per reorder, on drop —
+nothing during the gesture.
+
+This is worth stating because the hand-built version got it wrong in a way that
+was visible: it committed a move on every crossing, and each move was a
+synchronous encode of the whole store on the main actor, mid-drag. That was a
+real contributor to the flicker, not just a theoretical cost.
 
 No schema change: order is already carried by the position of entries in
 `settings.categories`.
 
 ## Testing
 
-Test-driven, matching the project's existing swift-testing suites.
+The reorder itself is AppKit's and is not ours to test. What is ours is the
+model mutation and the invariants around it, all in `CategoryManagementTests`:
 
-`Reorder.destination`:
-
-- moving down by one row and by several
-- moving up by one row and by several
-- zero translation returns the starting index
-- exactly half a pitch, the rounding boundary: `rounded()` rounds half away from
-  zero, so `+pitch / 2` moves down one slot and `-pitch / 2` moves up one. Pinned
-  by a test so it is a decision rather than an accident.
-- clamped at index 0 dragging up past the top, and at `count - 1` past the
-  bottom
-- `pitch <= 0` and `count <= 0` return `startIndex`
-
-`AppModel.moveCategory(from:to:)`, in `CategoryManagementTests`:
-
-- moving down lands in the expected slot (the `to + 1` case)
-- moving up lands in the expected slot
-- `from == to` leaves the list unchanged
-- out-of-range indices leave the list unchanged
+- moving down, moving up, and moving down by one — the last pins `.onMove`'s
+  insertion-offset convention, which a caller passing a destination index
+  instead would silently get wrong
+- dropping a row back where it started changes nothing
 - the new order survives a save and reload
 - `todayProgress` reflects the new order, with the fallback bucket still last
 - `records` are untouched by a reorder
+- the session target still resolves to the same category after one — the
+  coupling is by name rather than index, which is exactly the kind of invariant
+  a future index-based change could break unnoticed
 
-The existing `reorderingChangesDisplayOrder` test moves to the new API.
-
-The gesture itself is not unit-tested — it is a few lines wiring the two tested
-pieces together — and is verified by running the app.
+Deleted along with the hand-built gesture: `Reorder.destination` and its suite.
+The arithmetic was correct and well tested; it simply has nothing left to do.
