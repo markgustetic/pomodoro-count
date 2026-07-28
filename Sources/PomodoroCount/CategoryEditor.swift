@@ -248,6 +248,12 @@ struct CategoryList: View {
     @State private var rowHeight: CGFloat = 0
     @State private var drag: DragState?
 
+    /// True only while a drag is actually live. `@GestureState` resets itself
+    /// when a gesture is cancelled as well as when it ends, and a cancelled
+    /// drag is the one case `onEnded` never reports — so this, not `drag`
+    /// itself, is what can be trusted to say whether a gesture is still going.
+    @GestureState private var dragIsLive = false
+
     /// A reorder in progress. `startIndex` is where the row was picked up,
     /// `currentIndex` where it sits now; they diverge as the drag commits moves,
     /// and the gap between them is what keeps the row under the pointer.
@@ -273,6 +279,15 @@ struct CategoryList: View {
         VStack(spacing: Self.spacing) {
             ForEach(Array(model.settings.categories.enumerated()), id: \.element.id) { index, category in
                 row(category, at: index)
+            }
+        }
+        // The normal path clears `drag` in `onEnded`. This catches the path
+        // where `onEnded` never comes: the gesture state going false is
+        // SwiftUI telling us the drag is over however it ended. Without it a
+        // dead drag's indices survive to steer the next one.
+        .onChange(of: dragIsLive) { _, live in
+            if !live, drag != nil {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { drag = nil }
             }
         }
     }
@@ -325,6 +340,7 @@ struct CategoryList: View {
     /// `minimumDistance: 3` so a stray click on the grip is not a reorder.
     private func dragGesture(for category: Category, at index: Int) -> some Gesture {
         DragGesture(minimumDistance: 3, coordinateSpace: .local)
+            .updating($dragIsLive) { _, live, _ in live = true }
             .onChanged { value in
                 // Initialize or reinitialize drag state if this is a fresh drag or a stale
                 // drag left behind by an interrupted gesture. `onEnded` is not guaranteed to
