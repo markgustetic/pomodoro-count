@@ -244,7 +244,7 @@ struct CategoryList: View {
     private static let spacing: CGFloat = 6
 
     /// One row's measured height. Zero until the first layout has run, which
-    /// `Reorder.destination` treats as "cannot move yet".
+    /// makes `pitch` zero too — see its doc comment for why that matters.
     @State private var rowHeight: CGFloat = 0
     @State private var drag: DragState?
 
@@ -264,8 +264,12 @@ struct CategoryList: View {
         var translation: CGFloat = 0
     }
 
-    /// Distance from one row's top edge to the next.
-    private var pitch: CGFloat { rowHeight + Self.spacing }
+    /// Distance from one row's top edge to the next. Zero, not just `spacing`,
+    /// until a row has actually been measured — otherwise an unmeasured list
+    /// would report a 6pt pitch and a short drag would fling a row the length
+    /// of it. `Reorder.destination` treats a zero pitch as "cannot move yet",
+    /// and this is what makes that guard reachable.
+    private var pitch: CGFloat { rowHeight > 0 ? rowHeight + Self.spacing : 0 }
 
     /// Where the dragged row is drawn: the raw translation less the distance
     /// already absorbed by moves it has committed. Without that subtraction the
