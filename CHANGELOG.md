@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   aimed at one, and History gains a By category breakdown. Deleting a category
   archives it — its pomodoros stay in your history, totals, and CSV export.
 - CSV export gains a `category` column.
+- **Right-clicking the menu bar icon** shows a menu with **Quit**, so the app can
+  be quit without opening the panel first.
 
 ### Changed
 

@@ -85,6 +85,8 @@ The panel closes and the count goes up. Mis-tapped? **Undo last**.
 **Without opening anything.** <kbd>⌃</kbd><kbd>⌥</kbd><kbd>⌘</kbd><kbd>P</kbd>
 logs one from any app. Record your own combo in Settings, or turn it off.
 
+**Right-click the menu bar icon** to quit without opening the panel.
+
 **The menu bar shows** today's count when idle, or a live countdown while a
 session runs — with a cup glyph on breaks and a pause glyph when paused. If your
 menu bar is crowded, turn off **Show count in menu bar** and it shrinks to just

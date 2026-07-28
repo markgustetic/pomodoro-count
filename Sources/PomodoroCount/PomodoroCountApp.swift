@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // scheduled background checks would never run for anyone who doesn't
         // open Settings — which is most people.
         _ = Updater.shared
+        // Right-click the menu bar item to quit without opening the panel.
+        MenuBarPanel.installContextMenu()
 
         // A menu-bar-only app launches to no window, no Dock icon, and no sign
         // it did anything. Open the panel once so a new user sees where it went.
@@ -99,6 +101,55 @@ enum MenuBarPanel {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             MainActor.assumeIsolated { present(retries: retries - 1) }
         }
+    }
+
+    // MARK: Right-click menu
+
+    private static var rightClickMonitor: Any?
+
+    /// Makes right-clicking the menu bar item show a small menu, so the app can
+    /// be quit without opening the panel first.
+    ///
+    /// `MenuBarExtra` owns the status item's target and action and exposes no
+    /// hook for a secondary click, and giving the item an `NSMenu` outright
+    /// would hijack the left click too — the panel would stop opening. So watch
+    /// for right-clicks landing in the status bar window and handle them before
+    /// SwiftUI sees them.
+    ///
+    /// Unlike `present()`, this needs no retry: the monitor looks the button up
+    /// when an event arrives, by which point the status item certainly exists.
+    static func installContextMenu() {
+        guard rightClickMonitor == nil else { return }
+        rightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { event in
+            // Returns a Bool rather than the event itself: `assumeIsolated`
+            // requires a Sendable result, and NSEvent is not.
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard let button = statusItemButton, event.window === button.window else {
+                    return false
+                }
+                contextMenu().popUp(
+                    positioning: nil,
+                    at: NSPoint(x: 0, y: button.bounds.maxY + 5),
+                    in: button)
+                return true
+            }
+            // nil consumes the event so SwiftUI never sees it; anything not ours
+            // passes through untouched.
+            return handled ? nil : event
+        }
+    }
+
+    /// The right-click menu's contents.
+    ///
+    /// The item carries no target, so `terminate:` travels the responder chain
+    /// to `NSApp` the way a menu item in a normal app's menu bar would.
+    static func contextMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(
+            withTitle: "Quit Pomodoro Count",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q")
+        return menu
     }
 
     /// The `NSStatusBarButton` behind our menu bar item. SwiftUI keeps the status
