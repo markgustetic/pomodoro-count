@@ -112,10 +112,11 @@ drag state inside a spring animation.
 The drag needs the row-to-row distance. `SettingsTab.swift` currently hardcodes
 `CategorySettingsRow.rowHeight = 32`, carrying a comment warning that it must be
 re-measured by hand if the row's font or padding changes. Rather than keep that,
-a row reports its real height through a `GeometryReader` in its background and a
-`PreferenceKey`; pitch is that height plus the `VStack` spacing.
-`onGeometryChange` would be tidier but is macOS 15, and the package targets
-macOS 14.
+a row reports its real height through a `GeometryReader` in its background,
+published to state by `.task(id:)` — which runs after the layout that produced
+the height, so the write cannot land mid-update. Pitch is that height plus the
+`VStack` spacing. `onGeometryChange` would be tidier but is macOS 15, and the
+package targets macOS 14.
 
 This is possible because the `List` goes away, replaced by a plain `VStack`.
 That also removes the nested-scroller problem — a `List` inside the Settings
