@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Reorder categories** — drag a category by the grip handle on its Settings
   row to change the order categories appear in, both in Settings and in the
-  Focus panel. Reachable without a mouse too: each row carries "Move up" and
-  "Move down" actions for VoiceOver and the keyboard.
+  Focus panel. Each row also carries "Move up" and "Move down" actions for
+  VoiceOver, so reordering does not require a mouse.
 
 ## [1.0.0] - 2026-07-28
 
