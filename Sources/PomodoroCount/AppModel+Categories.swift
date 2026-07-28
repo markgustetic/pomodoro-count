@@ -220,9 +220,7 @@ extension AppModel {
     func categoryTotals(days: Int) -> [CategoryTotal] {
         guard settings.categoriesEnabled else { return [] }
 
-        let calendar = Calendar.current
-        let cutoff = calendar.date(
-            byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: Date()))!
+        let cutoff = windowStart(days: days)
         let inRange = records.filter { $0.at >= cutoff }
 
         var counts: [String: Int] = [:]     // normalized name (or "") -> count

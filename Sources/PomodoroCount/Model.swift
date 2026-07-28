@@ -113,6 +113,16 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The first instant of an N-day window ending today. Every "last N days"
+    /// query — `history`, `dailySeries`, `categoryTotals` — measures its window
+    /// from here, so the semantics (inclusive of today, calendar-day aligned)
+    /// can only be changed in one place. Force-unwrapped because day
+    /// arithmetic on a real calendar cannot fail for the small positive `days`
+    /// these queries pass.
+    func windowStart(days: Int, calendar: Calendar = .current) -> Date {
+        calendar.date(byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: Date()))!
+    }
+
     /// Days within the last `days` days (ending today) that have at least one
     /// record, newest first. Powers the History tab's day list, so the
     /// Week/Month control governs it the same way it governs `dailySeries` and
@@ -120,7 +130,7 @@ final class AppModel: ObservableObject {
     /// the day list has always shown only days you actually logged something.
     func history(days: Int) -> [DayStat] {
         let cal = Calendar.current
-        let cutoff = cal.date(byAdding: .day, value: -(days - 1), to: cal.startOfDay(for: Date()))!
+        let cutoff = windowStart(days: days, calendar: cal)
         let groups = Dictionary(grouping: records.filter { $0.at >= cutoff }) { cal.startOfDay(for: $0.at) }
         return groups
             .map { DayStat(date: $0.key, count: $0.value.count) }
