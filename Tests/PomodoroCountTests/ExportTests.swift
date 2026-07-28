@@ -7,7 +7,7 @@ import Foundation
 
     @Test func emptyHistoryExportsJustTheHeader() {
         let (m, _) = makeModel()
-        #expect(m.csvExport() == "timestamp,source\n")
+        #expect(m.csvExport() == "timestamp,source,category\n")
     }
 
     @Test func oneRowPerPomodoro() {
@@ -16,8 +16,8 @@ import Foundation
         m.logExternal()
         let lines = m.csvExport().split(separator: "\n")
         #expect(lines.count == 3)          // header + 2
-        #expect(lines[0] == "timestamp,source")
-        #expect(lines.dropFirst().allSatisfy { $0.hasSuffix(",manual") })
+        #expect(lines[0] == "timestamp,source,category")
+        #expect(lines.dropFirst().allSatisfy { $0.hasSuffix(",manual,General") })
     }
 
     @Test func rowsAreOldestFirstRegardlessOfStorageOrder() {
@@ -71,6 +71,39 @@ import Foundation
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         #expect(m.csvFilename == "pomodoro-count-\(formatter.string(from: Date())).csv")
+    }
+
+    @Test func theHeaderCarriesTheCategoryColumn() {
+        let (m, _) = makeModel()
+        #expect(m.csvExport() == "timestamp,source,category\n")
+    }
+
+    @Test func rowsCarryTheirCategory() {
+        let (m, _) = makeModel()
+        m.records = [Record(at: Date(), source: "manual", category: "Work")]
+        #expect(m.csvExport().contains(",manual,Work"))
+    }
+
+    /// Bucket pomodoros — including everything logged before categories existed
+    /// — read as the bucket's name rather than blank.
+    @Test func uncategorisedRowsUseTheFallbackName() {
+        let (m, _) = makeModel()
+        m.records = [Record(at: Date(), source: "manual")]
+        #expect(m.csvExport().contains(",manual,General"))
+    }
+
+    @Test func aRenamedFallbackShowsInTheExport() {
+        let (m, _) = makeModel()
+        m.settings.fallbackName = "Everything else"
+        m.records = [Record(at: Date(), source: "manual")]
+        #expect(m.csvExport().contains(",manual,Everything else"))
+    }
+
+    /// Category names are user-entered, so a comma must not shift the columns.
+    @Test func aCategoryNameWithACommaIsQuoted() {
+        let (m, _) = makeModel()
+        m.records = [Record(at: Date(), source: "manual", category: "Work, admin")]
+        #expect(m.csvExport().contains("\"Work, admin\""))
     }
 }
 

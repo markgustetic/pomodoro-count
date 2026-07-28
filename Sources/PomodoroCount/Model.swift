@@ -384,9 +384,11 @@ final class AppModel: ObservableObject {
     /// so a spreadsheet can group it however the reader likes.
     func csvExport() -> String {
         let formatter = ISO8601DateFormatter()
-        var lines = ["timestamp,source"]
+        var lines = ["timestamp,source,category"]
         for record in records.sorted(by: { $0.at < $1.at }) {
-            lines.append([formatter.string(from: record.at), record.source]
+            lines.append([formatter.string(from: record.at),
+                          record.source,
+                          record.category ?? settings.fallbackName]
                 .map(Self.csvField)
                 .joined(separator: ","))
         }
