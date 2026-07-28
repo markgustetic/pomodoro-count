@@ -243,6 +243,20 @@ struct CategoryList: View {
     /// inlined into the `VStack`.
     private static let spacing: CGFloat = 6
 
+    /// The coordinate space the drag is measured in: the list itself, which
+    /// does not move while a drag is running.
+    ///
+    /// It must not be `.local`. The gesture sits on the grip, and the gesture's
+    /// own effects move the grip — `visualOffset` slides the row every event,
+    /// and each committed move shifts its layout slot. Measured in the grip's
+    /// own space, the translation chases a target its last value just moved:
+    /// it accumulated at half the pointer's real travel, oscillating a point
+    /// or two between events, and jumped a full pitch on the frame after each
+    /// commit — which read as a second, spurious move and an immediate revert.
+    /// That feedback was the stutter, and it was measured, not deduced: the
+    /// pointer had travelled 46pt when the translation first read 23.
+    private static let spaceName = "categoryList"
+
     /// One row's measured height. Zero until the first layout has run, which
     /// makes `pitch` zero too — see its doc comment for why that matters.
     @State private var rowHeight: CGFloat = 0
@@ -290,6 +304,7 @@ struct CategoryList: View {
                 row(category, at: index)
             }
         }
+        .coordinateSpace(name: Self.spaceName)
         // The normal path clears `drag` in `onEnded`. This catches the path
         // where `onEnded` never comes: the gesture state going false is
         // SwiftUI telling us the drag is over however it ended. Without it a
@@ -382,7 +397,7 @@ struct CategoryList: View {
 
     /// `minimumDistance: 3` so a stray click on the grip is not a reorder.
     private func dragGesture(for category: Category, at index: Int) -> some Gesture {
-        DragGesture(minimumDistance: 3, coordinateSpace: .local)
+        DragGesture(minimumDistance: 3, coordinateSpace: .named(Self.spaceName))
             .updating($dragIsLive) { _, live, _ in live = true }
             .onChanged { value in
                 // Initialize or reinitialize drag state if this is a fresh drag or a stale

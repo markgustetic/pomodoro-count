@@ -50,6 +50,13 @@ enum Entry {
             StoreSeed.write(to: args[i + 1])
             return
         }
+        // --reorder-window hosts the panel UI in a plain window for automated
+        // drag reproduction. See `ReorderHarness` for what it may not be used
+        // to prove.
+        if args.contains("--reorder-window") {
+            MainActor.assumeIsolated { ReorderHarness.run() }
+            return
+        }
         PomodoroCountApp.main()
     }
 }

@@ -206,21 +206,27 @@ final class CategoryReorderUITests: XCTestCase {
     /// mouse-dragged / mouse-up, moves a row — while the same drag by hand
     /// does.
     ///
-    /// The likely reason is the same property that broke two of the three
-    /// reorder mechanisms this suite exists to catch: the `MenuBarExtra` panel
-    /// dismisses the instant it loses first-responder status. Element-based
-    /// clicks fail outright with "no longer valid after interruption handling",
-    /// and synthetic mouse events appear to close it too. So the automation
-    /// keeps closing the thing it is trying to drag.
+    /// Later investigation (2026-07-28, the coordinate-space stutter) narrowed
+    /// this down. Posted `CGEvent` streams were retried against the panel at
+    /// both `.cghidEventTap` and `.cgSessionEventTap`, with click-state and
+    /// delta fields filled in the way hardware fills them: clicks reach the
+    /// panel's buttons, and the panel does not close, but the gesture never
+    /// fires — not one `onChanged`. The identical stream drives the identical
+    /// view perfectly in an ordinary window, which is how the stutter was
+    /// finally measured and fixed. So the panel-specific blocker is real but
+    /// it is not dismissal; whatever `MenuBarExtra`'s panel does with
+    /// synthetic mouse-down streams, it does before SwiftUI's gesture sees
+    /// them.
     ///
-    /// Ideas not yet tried, roughly in order of promise: keeping the app
-    /// activated for the length of the drag (`NSApp.activate` behind a debug
-    /// flag, the way `MenuBarPanel.present()` already does at launch); posting
-    /// events to `.cgSessionEventTap` rather than `.cghidEventTap`; or an
-    /// in-app debug command that runs the gesture's own code path so the test
-    /// exercises the state machine without needing a real pointer.
+    /// `--reorder-window` (`ReorderHarness`) hosts the panel's UI in a plain
+    /// window for exactly this: reorder *dynamics* — tracking, one commit per
+    /// crossing, no spurious reverts — can be driven and asserted there. What
+    /// it can never prove is that a drag *starts* in the real panel; an
+    /// ordinary key window is permissive in precisely the way that made two
+    /// AppKit-drag mechanisms look plausible while being dead here. That
+    /// last inch stays with a person and a mouse.
     private func skipUntilDragAutomationWorks() throws {
-        throw XCTSkip("Drag automation does not yet drive this panel — see the note above.")
+        throw XCTSkip("Synthetic drags do not drive the panel's gesture (a plain window works — see the note above).")
     }
 
 
