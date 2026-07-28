@@ -141,6 +141,30 @@ final class AppModel: ObservableObject {
     @Published private(set) var isRunning = false
     @Published private(set) var remaining: TimeInterval = 0
 
+    /// Which category a finished focus session credits. Persisted so it survives
+    /// relaunch — re-picking it every day would be a papercut.
+    var sessionTarget: CategoryTarget {
+        get {
+            guard let name = settings.sessionTargetName, categoryExists(name) else {
+                return .fallback
+            }
+            return .named(name)
+        }
+        set {
+            switch newValue {
+            case .named(let name): settings.sessionTargetName = name
+            case .fallback, .automatic: settings.sessionTargetName = nil
+            }
+        }
+    }
+
+    /// Drives the timer to completion immediately. Tests only — a real session
+    /// takes 50 minutes.
+    func forceCompleteForTesting() {
+        remaining = 0
+        complete()
+    }
+
     private var endDate: Date?
     private var timer: Timer?
     private var hotKey: HotKeyManager?
@@ -311,7 +335,8 @@ final class AppModel: ObservableObject {
         endDate = nil
 
         if finished == .work {
-            records.append(Record(at: Date(), source: "timer", category: resolve(.automatic)))
+            records.append(Record(at: Date(), source: "timer",
+                                  category: resolve(sessionTarget)))
             play(.sessionDone)
             notify("Pomodoro complete", "Nice — that's \(todayCount) today.")
             if settings.autoStartBreak {

@@ -153,11 +153,17 @@ struct RootView: View {
     }
 
     private var phaseSubtitle: String {
+        let target = model.settings.categoriesEnabled ? " · \(sessionTargetLabel)" : ""
         switch model.phase {
         case .idle: return "Focus session · \(model.settings.workMinutes) min"
-        case .work: return model.isRunning ? "Focus in progress" : "Paused"
+        case .work: return model.isRunning ? "Focus in progress\(target)" : "Paused"
         case .breakTime: return model.isRunning ? "Break time" : "Paused"
         }
+    }
+
+    private var sessionTargetLabel: String {
+        if case .named(let name) = model.sessionTarget { return name }
+        return model.settings.fallbackName
     }
 
     private var focusTab: some View {
@@ -174,6 +180,27 @@ struct RootView: View {
                 .font(.caption)
                 .foregroundStyle(palette.textDim)
                 .accessibilityHidden(true)
+
+            if model.settings.categoriesEnabled {
+                Menu {
+                    Button(model.settings.fallbackName) { model.sessionTarget = .fallback }
+                    ForEach(model.settings.categories) { category in
+                        Button(category.name) { model.sessionTarget = .named(category.name) }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(palette.accent)
+                            .frame(width: 7, height: 7)
+                        Text("towards \(sessionTargetLabel)")
+                            .font(.caption)
+                    }
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .accessibilityLabel("Session target")
+                .accessibilityValue(sessionTargetLabel)
+            }
 
             HStack(spacing: 8) {
                 Button(model.primaryTitle) { model.toggle() }
