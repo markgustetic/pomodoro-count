@@ -20,6 +20,12 @@ enum PreviewRenderer {
             for _ in 0..<count { seeded.append(Record(at: stamp, source: "manual")) }
         }
         model.records = seeded
+        model.settings.categoriesEnabled = true
+        model.settings.categories = [
+            Category(name: "Work", dailyGoal: 4),
+            Category(name: "AI study", dailyGoal: 1),
+            Category(name: "Music", dailyGoal: 1),
+        ]
         if let theme = PreviewOverrides.theme { model.settings.theme = theme }
         let bg: Color = model.settings.theme == .synthwave
             ? Color(hex: 0x0B0616)
