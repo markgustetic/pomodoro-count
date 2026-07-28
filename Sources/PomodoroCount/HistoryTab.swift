@@ -19,9 +19,12 @@ struct HistoryTab: View {
     enum Grouping: String, CaseIterable { case day = "By day", category = "By category" }
 
     var body: some View {
-        let stats = model.history(days: range.days)
-        let categoryTotals = model.categoryTotals(days: range.days)
+        // Only the visible grouping's query runs — each is a full pass over
+        // the window's records, and body re-evaluates on every model change,
+        // including the 0.5s tick while a session runs with this tab open.
         let showsCategoryBreakdown = grouping == .category && model.settings.categoriesEnabled
+        let stats = showsCategoryBreakdown ? [] : model.history(days: range.days)
+        let categoryTotals = showsCategoryBreakdown ? model.categoryTotals(days: range.days) : []
         let isEmpty = showsCategoryBreakdown ? categoryTotals.isEmpty : stats.isEmpty
         VStack(spacing: 10) {
             SegmentedControl(
