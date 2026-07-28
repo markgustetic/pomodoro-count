@@ -350,7 +350,14 @@ struct CategoryList: View {
                 // The open hand is the macOS convention for "this can be
                 // dragged"; the gesture swaps it for the closed one while a drag
                 // is actually running.
-                if inside { NSCursor.openHand.set() } else { NSCursor.arrow.set() }
+                if inside {
+                    NSCursor.openHand.set()
+                } else if drag == nil {
+                    // Only reclaim the cursor when no drag is running. A drag
+                    // leaves this 12pt frame almost at once, and the closed hand
+                    // set by the gesture has to survive that.
+                    NSCursor.arrow.set()
+                }
             }
             .gesture(dragGesture(for: category, at: index))
             .help("Drag to reorder")
