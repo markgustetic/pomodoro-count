@@ -131,3 +131,64 @@ extension AppModel {
         return rows
     }
 }
+
+@MainActor
+extension AppModel {
+
+    /// Names must be unique across the user's categories and the fallback name.
+    /// `excluding` lets a category keep its own name while being renamed.
+    func isCategoryNameAvailable(_ name: String, excluding id: UUID? = nil) -> Bool {
+        let wanted = Category.normalized(name)
+        guard !wanted.isEmpty else { return false }
+        guard wanted != Category.normalized(settings.fallbackName) else { return false }
+        return !settings.categories.contains {
+            $0.id != id && Category.normalized($0.name) == wanted
+        }
+    }
+
+    /// Returns false and changes nothing when the name is empty or taken.
+    @discardableResult
+    func addCategory(name: String, dailyGoal: Int) -> Bool {
+        guard isCategoryNameAvailable(name) else { return false }
+        settings.categories.append(Category(
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            dailyGoal: min(max(dailyGoal, 0), 20)))
+        return true
+    }
+
+    /// Rewrites every record that referenced the old name, in one pass, so no
+    /// history is orphaned. Returns false and changes nothing when the new name
+    /// is empty or taken by a different category.
+    @discardableResult
+    func renameCategory(id: UUID, to newName: String) -> Bool {
+        guard let index = settings.categories.firstIndex(where: { $0.id == id }),
+              isCategoryNameAvailable(newName, excluding: id)
+        else { return false }
+
+        let old = Category.normalized(settings.categories[index].name)
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for i in records.indices where records[i].category.map(Category.normalized) == old {
+            records[i].category = trimmed
+        }
+        settings.categories[index].name = trimmed
+
+        if settings.defaultCategoryName.map(Category.normalized) == old {
+            settings.defaultCategoryName = trimmed
+        }
+        if settings.sessionTargetName.map(Category.normalized) == old {
+            settings.sessionTargetName = trimmed
+        }
+        return true
+    }
+
+    /// Archives rather than deletes: the category leaves the list but its
+    /// records keep their name, so History, totals and CSV are unchanged.
+    func removeCategory(id: UUID) {
+        settings.categories.removeAll { $0.id == id }
+    }
+
+    func moveCategories(fromOffsets source: IndexSet, toOffset destination: Int) {
+        settings.categories.move(fromOffsets: source, toOffset: destination)
+    }
+}
