@@ -5,26 +5,9 @@ import Foundation
 @MainActor
 extension AppModel {
 
-    /// The category a pomodoro lands in when nothing was chosen.
-    ///
-    /// Order: the marked default when the bucket is off and it still exists;
-    /// then the bucket; then the first category in display order; then the
-    /// bucket regardless. The last two exist so archiving the marked default can
-    /// never leave a pomodoro with nowhere to go.
-    var automaticCategoryName: String? {
-        guard settings.categoriesEnabled else { return nil }
-        guard !settings.usesFallbackBucket else { return nil }
-
-        if let marked = settings.defaultCategoryName, categoryExists(marked) {
-            return marked
-        }
-        return settings.categories.first?.name
-    }
-
     func resolve(_ target: CategoryTarget) -> String? {
         switch target {
-        case .automatic: return automaticCategoryName
-        case .fallback:  return nil
+        case .fallback: return nil
         case .named(let name):
             guard settings.categoriesEnabled else { return nil }
             // Return the canonical stored spelling when one matches, so a
@@ -57,11 +40,15 @@ extension AppModel {
         }.count
     }
 
-    /// The panel's rows: every category in display order, then the fallback
-    /// bucket. The bucket appears when it is switched on, and also while it
-    /// still holds pomodoros after being switched off — the same rule an
-    /// archived category follows.
+    /// The panel's rows: every category in display order, then the bucket.
+    ///
+    /// Empty while categories are off. Records logged in that state still carry
+    /// no category — they are in the bucket as far as storage is concerned — but
+    /// a user who has never turned categories on should not meet a lone
+    /// "General" row explaining a feature they aren't using.
     var todayProgress: [CategoryProgress] {
+        guard settings.categoriesEnabled else { return [] }
+
         // "Running" means an actual focus session in progress, not idle or
         // paused — a paused session's target row should not stay outlined.
         let sessionRunning = phase == .work && isRunning
@@ -78,16 +65,15 @@ extension AppModel {
                 isSessionTarget: sessionRunning && normalizedTarget == Category.normalized(category.name))
         }
 
-        let bucketCount = todayCount(inCategory: nil)
-        if settings.usesFallbackBucket || bucketCount > 0 {
-            rows.append(CategoryProgress(
-                id: "fallback",
-                name: settings.fallbackName,
-                done: bucketCount,
-                goal: settings.fallbackGoal,
-                isFallback: true,
-                isSessionTarget: sessionRunning && targetName == nil))
-        }
+        // Unconditional: it is the only row that can take a pomodoro belonging
+        // to none of the categories, so it must not vanish at zero.
+        rows.append(CategoryProgress(
+            id: "fallback",
+            name: settings.fallbackName,
+            done: todayCount(inCategory: nil),
+            goal: settings.fallbackGoal,
+            isFallback: true,
+            isSessionTarget: sessionRunning && targetName == nil))
         return rows
     }
 }
@@ -175,9 +161,6 @@ extension AppModel {
 
         var updatedSettings = settings
         updatedSettings.categories[index].name = trimmed
-        if updatedSettings.defaultCategoryName.map(Category.normalized) == old {
-            updatedSettings.defaultCategoryName = trimmed
-        }
         if updatedSettings.sessionTargetName.map(Category.normalized) == old {
             updatedSettings.sessionTargetName = trimmed
         }
@@ -208,6 +191,8 @@ extension AppModel {
     /// a neglected category should be visible, not absent. Then the bucket, then
     /// any archived names that still have records in range, alphabetically.
     func categoryTotals(days: Int) -> [CategoryTotal] {
+        guard settings.categoriesEnabled else { return [] }
+
         let calendar = Calendar.current
         let cutoff = calendar.date(
             byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: Date()))!
@@ -225,11 +210,9 @@ extension AppModel {
                 count: counts.removeValue(forKey: Category.normalized(category.name)) ?? 0)
         }
 
-        if let bucket = counts.removeValue(forKey: ""), bucket > 0 {
-            totals.append(CategoryTotal(id: "fallback", name: settings.fallbackName, count: bucket))
-        } else if settings.usesFallbackBucket {
-            totals.append(CategoryTotal(id: "fallback", name: settings.fallbackName, count: 0))
-        }
+        totals.append(CategoryTotal(id: "fallback",
+                                    name: settings.fallbackName,
+                                    count: counts.removeValue(forKey: "") ?? 0))
 
         // Whatever is left is archived: it has records in range but no category.
         // Their display name comes from the first record that used it, so the

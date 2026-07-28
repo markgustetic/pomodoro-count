@@ -90,7 +90,6 @@ import Foundation
     @Test func renamingManyRecordsAllFollow() {
         let m = configured()
         m.records = (0..<50).map { _ in Record(at: Date(), source: "manual", category: "Work") }
-        m.settings.defaultCategoryName = "Work"
         m.settings.sessionTargetName = "Work"
         let workID = m.settings.categories[0].id
 
@@ -98,7 +97,6 @@ import Foundation
 
         #expect(m.records.count == 50)
         #expect(m.records.allSatisfy { $0.category == "Deep work" })
-        #expect(m.settings.defaultCategoryName == "Deep work")
         #expect(m.settings.sessionTargetName == "Deep work")
     }
 
@@ -161,11 +159,10 @@ import Foundation
 
     @Test func anArchivedCategoryStopsReceivingNewPomodoros() {
         let m = configured()
-        m.settings.usesFallbackBucket = false
-        m.settings.defaultCategoryName = "Music"
+        m.settings.sessionTargetName = "Music"
         m.removeCategory(id: m.settings.categories[1].id)
         m.logExternal()
-        #expect(m.records.first?.category == "Work")
+        #expect(m.records.first?.category == nil)   // the bucket, not Music
     }
 
     // MARK: Reordering

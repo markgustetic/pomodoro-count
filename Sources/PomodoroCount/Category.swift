@@ -20,14 +20,16 @@ struct Category: Codable, Identifiable, Equatable {
     }
 }
 
-/// Where a pomodoro should be filed.
+/// Where a pomodoro should be filed: a named category, or the bucket.
 ///
-/// `.automatic` means "work it out" — used by the global hotkey and by a timer
-/// session with no target. `.fallback` is an explicit request for the bucket,
-/// which is not the same thing: with the bucket switched off, `.automatic`
-/// resolves to a real category while `.fallback` still means the bucket.
+/// There used to be a third case, `.automatic`, meaning "work it out" — for the
+/// global hotkey and for a session with no target picked. It differed from
+/// `.fallback` only while the bucket could be switched off, when it resolved to
+/// a real category instead. That setting is gone and the bucket is always
+/// there, so the two cases had identical behaviour and one of them had to go:
+/// the panel's label read `.automatic` as "the bucket" while `resolve` sent it
+/// somewhere else, and the panel promised a destination it didn't deliver.
 enum CategoryTarget: Equatable {
-    case automatic
     case fallback
     case named(String)
 }

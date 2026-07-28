@@ -9,10 +9,8 @@ import Foundation
         let (m, _) = makeModel()
         #expect(!m.settings.categoriesEnabled)
         #expect(m.settings.categories.isEmpty)
-        #expect(m.settings.usesFallbackBucket)
         #expect(m.settings.fallbackName == "General")
         #expect(m.settings.fallbackGoal == 0)
-        #expect(m.settings.defaultCategoryName == nil)
         #expect(m.settings.sessionTargetName == nil)
     }
 

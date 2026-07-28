@@ -24,16 +24,25 @@ final class AppModel: ObservableObject {
     var sessionTarget: CategoryTarget {
         get {
             guard let name = settings.sessionTargetName, categoryExists(name) else {
-                return .automatic
+                return .fallback
             }
             return .named(name)
         }
         set {
             switch newValue {
             case .named(let name): settings.sessionTargetName = name
-            case .fallback, .automatic: settings.sessionTargetName = nil
+            case .fallback: settings.sessionTargetName = nil
             }
         }
+    }
+
+    /// What the panel's "towards …" control says a finished session will credit.
+    ///
+    /// Derived from `resolve`, not from the target's shape, so it cannot promise
+    /// one destination while the record goes to another — which is exactly what
+    /// happened when it read an unset target as "the bucket" on its own.
+    var sessionTargetLabel: String {
+        resolve(sessionTarget) ?? settings.fallbackName
     }
 
     /// Drives the timer to completion immediately. Tests only — a real session
@@ -251,7 +260,7 @@ final class AppModel: ObservableObject {
     /// Records a pomodoro completed outside the app, e.g. on a physical timer.
     /// `announce` (used by the global hotkey) also posts a confirmation banner,
     /// since the panel may not be open to show the count change.
-    func logExternal(to target: CategoryTarget = .automatic, announce: Bool = false) {
+    func logExternal(to target: CategoryTarget = .fallback, announce: Bool = false) {
         records.append(Record(at: Date(), source: "manual", category: resolve(target)))
         play(.countUp)
         if announce {

@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The Focus tab could name the wrong category.** With the fallback bucket
+  switched off, the panel read "towards General" while outlining a different
+  row and filing the pomodoro there. The label is now derived from the same
+  routing the record goes through, so it cannot disagree with it.
 - **Synthwave is readable again.** On a Mac set to Light appearance, the
   switches, steppers, text fields and popovers in the Synthwave theme kept
   drawing their light-mode selves on top of its near-black panel — white text
@@ -35,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The fallback category is always on, and hidden until you use categories.**
+  The "Fallback category" toggle and the default-category picker are gone. The
+  bucket is where a pomodoro that belongs to no category goes — several paths
+  still produced one with the toggle off, so switching it off never removed the
+  bucket, it only made routing harder to predict. It stays out of sight
+  entirely while categories are switched off. Settings loses two controls.
 - **History and Settings are their own pages.** Today's count and the category
   log rows now appear on Focus only. They sat above every tab, so opening
   Settings meant scrolling past a count card and four log buttons to reach the

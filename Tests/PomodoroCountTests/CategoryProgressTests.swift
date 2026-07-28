@@ -5,10 +5,9 @@ import Foundation
 @MainActor
 @Suite struct CategoryProgressTests {
 
-    private func configured(bucket: Bool = true) -> AppModel {
+    private func configured() -> AppModel {
         let (m, _) = makeModel()
         m.settings.categoriesEnabled = true
-        m.settings.usesFallbackBucket = bucket
         m.settings.categories = [
             Category(name: "Work", dailyGoal: 4),
             Category(name: "AI study", dailyGoal: 1),
@@ -49,16 +48,30 @@ import Foundation
         #expect(m.todayProgress.last?.isFallback == true)
     }
 
-    @Test func theBucketIsAbsentWhenSwitchedOffAndEmpty() {
-        let m = configured(bucket: false)
-        #expect(m.todayProgress.map(\.name) == ["Work", "AI study"])
+    /// The bucket is always the last row, empty or not. It is the only tap
+    /// target for a pomodoro that belongs to none of the categories, so it
+    /// cannot come and go with its own count.
+    @Test func theBucketIsAlwaysPresentEvenAtZero() {
+        let m = configured()
+        #expect(m.todayProgress.last?.name == "General")
+        #expect(m.todayProgress.last?.done == 0)
+        #expect(m.todayProgress.last?.isFallback == true)
     }
 
-    /// Switching the bucket off keeps it visible while it still holds pomodoros.
-    @Test func theBucketStaysWhileItHoldsPomodoros() {
-        let m = configured(bucket: false)
+    @Test func theBucketCountsWhatCarriesNoCategory() {
+        let m = configured()
         m.records = [Record(at: Date(), source: "manual")]
         #expect(m.todayProgress.map(\.name) == ["Work", "AI study", "General"])
+        #expect(m.todayProgress.last?.done == 1)
+    }
+
+    /// It is the *rows* that hide when categories are off, not the routing:
+    /// records logged in that state still carry no category.
+    @Test func noRowsAtAllWhileCategoriesAreOff() {
+        let m = configured()
+        m.settings.categoriesEnabled = false
+        m.records = [Record(at: Date(), source: "manual")]
+        #expect(m.todayProgress.isEmpty)
     }
 
     @Test func aGoalIsMetOnlyWhenReached() {
@@ -91,7 +104,6 @@ import Foundation
     func dotsGiveWayToABarAboveEight(goal: Int, expectsDots: Bool) {
         let (m, _) = makeModel()
         m.settings.categoriesEnabled = true
-        m.settings.usesFallbackBucket = false
         m.settings.categories = [Category(name: "X", dailyGoal: goal)]
         #expect(m.todayProgress.first?.showsDots == expectsDots)
     }

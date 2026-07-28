@@ -15,12 +15,11 @@ import Foundation
         return m
     }
 
-    @Test func theTargetDefaultsToAutomaticNotTheBucket() {
+    @Test func anUnsetTargetIsTheBucket() {
         let m = configured()
-        // Unset falls to the default chain, not an explicit request for the
-        // bucket — with the bucket on (as here) that chain still reaches it.
-        #expect(m.sessionTarget == .automatic)
+        #expect(m.sessionTarget == .fallback)
         #expect(m.resolve(m.sessionTarget) == nil)
+        #expect(m.sessionTargetLabel == m.settings.fallbackName)
     }
 
     @Test func settingTheTargetPersistsIt() {
@@ -51,18 +50,15 @@ import Foundation
         #expect(m.records.last?.category == nil)   // bucket is on
     }
 
-    /// This is the case that actually discriminates between the old bug and
-    /// the fix: with the bucket switched off, an archived (or unset) target
-    /// must credit the marked default, not the bucket the user turned off.
-    @Test func anArchivedTargetWithTheBucketOffCreditsTheDefaultNotTheBucket() {
+    /// An archived target must not keep receiving pomodoros. It falls to the
+    /// bucket, which is the only destination an unset target has now.
+    @Test func anArchivedTargetCreditsTheBucket() {
         let m = configured()
-        m.settings.usesFallbackBucket = false
-        m.settings.defaultCategoryName = "Work"
         m.sessionTarget = .named("Music")
         m.settings.categories.removeAll { $0.name == "Music" }
         m.startWork()
         m.forceCompleteForTesting()
-        #expect(m.records.last?.category == "Work")
+        #expect(m.records.last?.category == nil)
     }
 
     @Test func aBreakCreditsNothing() {

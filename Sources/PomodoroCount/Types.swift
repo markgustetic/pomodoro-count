@@ -76,12 +76,12 @@ struct Settings: Codable {
     var categoriesEnabled = false
     /// The user's categories, in display order.
     var categories: [Category] = []
-    /// The always-present bucket that catches untapped pomodoros.
-    var usesFallbackBucket = true
+    /// The bucket that catches every pomodoro not aimed at a category. Always
+    /// present while categories are on — it is the terminal case of routing, so
+    /// making it optional only ever meant "route somewhere else *usually*", and
+    /// the paths that still produced an uncategorised record didn't go away.
     var fallbackName = "General"
     var fallbackGoal = 0
-    /// Destination for untapped pomodoros when the bucket is switched off.
-    var defaultCategoryName: String?
     /// Remembered target for the built-in timer. nil means the bucket.
     var sessionTargetName: String?
 
@@ -101,11 +101,11 @@ struct Settings: Codable {
         showsCountInMenuBar   = try c.decodeIfPresent(Bool.self, forKey: .showsCountInMenuBar) ?? true
         categoriesEnabled     = try c.decodeIfPresent(Bool.self, forKey: .categoriesEnabled) ?? false
         categories            = try c.decodeIfPresent([Category].self, forKey: .categories) ?? []
-        usesFallbackBucket    = try c.decodeIfPresent(Bool.self, forKey: .usesFallbackBucket) ?? true
         fallbackName          = try c.decodeIfPresent(String.self, forKey: .fallbackName) ?? "General"
         fallbackGoal          = try c.decodeIfPresent(Int.self, forKey: .fallbackGoal) ?? 0
-        defaultCategoryName   = try c.decodeIfPresent(String.self, forKey: .defaultCategoryName)
         sessionTargetName     = try c.decodeIfPresent(String.self, forKey: .sessionTargetName)
+        // `usesFallbackBucket` and `defaultCategoryName` were dropped. Decoding
+        // is key-by-key, so a data.json still carrying them just ignores them.
     }
 }
 

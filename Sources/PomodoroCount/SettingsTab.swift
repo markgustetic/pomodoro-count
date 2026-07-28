@@ -109,26 +109,20 @@ struct SettingsTab: View {
 
                         Divider()
 
-                        Toggle("Fallback category", isOn: $model.settings.usesFallbackBucket)
-                        if model.settings.usesFallbackBucket {
-                            HStack(spacing: 6) {
-                                FallbackNameField()
-                                Stepper(value: $model.settings.fallbackGoal, in: 0...20) {
-                                    Text("\(model.settings.fallbackGoal)")
-                                        .font(.caption.monospacedDigit())
-                                }
-                                .accessibilityLabel("Fallback daily goal")
+                        // Not a toggle any more: the bucket is where a pomodoro
+                        // that belongs to no category goes, so it is always
+                        // there. All that is left to set is what to call it and
+                        // whether it carries a goal of its own.
+                        Text("Everything else")
+                            .font(.caption)
+                            .foregroundStyle(palette.textDim)
+                        HStack(spacing: 6) {
+                            FallbackNameField()
+                            Stepper(value: $model.settings.fallbackGoal, in: 0...20) {
+                                Text("\(model.settings.fallbackGoal)")
+                                    .font(.caption.monospacedDigit())
                             }
-                        } else {
-                            Picker("Default", selection: Binding(
-                                get: { model.settings.defaultCategoryName ?? "" },
-                                set: { model.settings.defaultCategoryName = $0.isEmpty ? nil : $0 }
-                            )) {
-                                ForEach(model.settings.categories) { category in
-                                    Text(category.name).tag(category.name)
-                                }
-                            }
-                            .accessibilityLabel("Default category for untapped pomodoros")
+                            .accessibilityLabel("Fallback daily goal")
                         }
                     }
                 }

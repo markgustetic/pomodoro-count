@@ -157,17 +157,12 @@ struct RootView: View {
     }
 
     private var phaseSubtitle: String {
-        let target = model.settings.categoriesEnabled ? " · \(sessionTargetLabel)" : ""
+        let target = model.settings.categoriesEnabled ? " · \(model.sessionTargetLabel)" : ""
         switch model.phase {
         case .idle: return "Focus session · \(model.settings.workMinutes) min"
         case .work: return model.isRunning ? "Focus in progress\(target)" : "Paused"
         case .breakTime: return model.isRunning ? "Break time" : "Paused"
         }
-    }
-
-    private var sessionTargetLabel: String {
-        if case .named(let name) = model.sessionTarget { return name }
-        return model.settings.fallbackName
     }
 
     private var focusTab: some View {
@@ -200,7 +195,7 @@ struct RootView: View {
                     // dot can only ever be a black bullet that matches neither
                     // palette. The text and the chevron carry the meaning.
                     HStack(spacing: 4) {
-                        Text("towards \(sessionTargetLabel)")
+                        Text("towards \(model.sessionTargetLabel)")
                             .font(.caption)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -213,7 +208,7 @@ struct RootView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .accessibilityLabel("Session target")
-                .accessibilityValue(sessionTargetLabel)
+                .accessibilityValue(model.sessionTargetLabel)
             }
 
             HStack(spacing: 8) {
