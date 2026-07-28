@@ -320,6 +320,16 @@ struct CategoryList: View {
             }
         }
         .offset(y: dragging ? visualOffset : 0)
+        // The dragged row must not animate its own reorder, though its
+        // neighbours should. A committed move changes this row's position
+        // twice over: its layout slot moves one way and `visualOffset`
+        // compensates the other, and the two only cancel if they happen at the
+        // same instant. Animating the layout half made them disagree for the
+        // length of the spring, so the row lurched a full row and sprang back
+        // on every crossing — a drag read as jumping rather than as one
+        // movement. Clearing the animation here leaves the neighbours' slide
+        // animated and pins this row to the pointer.
+        .transaction { if dragging { $0.animation = nil } }
         .scaleEffect(dragging ? 1.02 : 1)
         .shadow(color: .black.opacity(dragging ? 0.28 : 0), radius: 7, y: 3)
         // Lifted clear of its neighbours, so it passes over them rather than
