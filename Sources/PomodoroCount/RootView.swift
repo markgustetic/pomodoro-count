@@ -167,14 +167,8 @@ struct RootView: View {
 
     private var focusTab: some View {
         VStack(spacing: 12) {
-            Text(AppModel.mmss(model.displayRemaining))
-                .font(.system(size: 48, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(phaseColor)
-                .neonGlow(phaseColor, enabled: palette.neon, radius: 12, opacity: 0.65)
-                // "50:00" is read as digits; say it in words instead.
-                .accessibilityLabel(phaseSubtitle)
-                .accessibilityValue(AppModel.spokenDuration(model.displayRemaining))
+            CountdownText(model: model, clock: model.clock,
+                          color: phaseColor, neon: palette.neon, subtitle: phaseSubtitle)
             Text(phaseSubtitle)
                 .font(.caption)
                 .foregroundStyle(palette.textDim)
@@ -237,6 +231,32 @@ struct RootView: View {
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity)
         .cardBackground(cornerRadius: 16)
+    }
+
+    // MARK: Countdown
+
+    /// The big timer readout — the one view in the panel that displays
+    /// seconds, so the one view that observes `SessionClock` and re-renders
+    /// on its half-second tick. Everything phase-shaped (colour, subtitle)
+    /// arrives as plain values from the parent, which still re-renders on
+    /// real model changes.
+    private struct CountdownText: View {
+        let model: AppModel
+        @ObservedObject var clock: SessionClock
+        let color: Color
+        let neon: Bool
+        let subtitle: String
+
+        var body: some View {
+            Text(AppModel.mmss(model.displayRemaining))
+                .font(.system(size: 48, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+                .neonGlow(color, enabled: neon, radius: 12, opacity: 0.65)
+                // "50:00" is read as digits; say it in words instead.
+                .accessibilityLabel(subtitle)
+                .accessibilityValue(AppModel.spokenDuration(model.displayRemaining))
+        }
     }
 
     // MARK: Footer

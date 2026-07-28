@@ -70,9 +70,27 @@ struct PomodoroCountApp: App {
             RootView()
                 .environmentObject(model)
         } label: {
-            Image(nsImage: model.statusImage)
+            StatusItemLabel(model: model)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// The menu bar item's image. Its own view because it is one of the two
+/// places that display seconds: it observes the clock so the countdown keeps
+/// moving, and the model so count and phase changes land. With `remaining`
+/// split out of `AppModel`, nothing else in the app re-renders on a tick.
+private struct StatusItemLabel: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var clock: SessionClock
+
+    init(model: AppModel) {
+        self.model = model
+        self.clock = model.clock
+    }
+
+    var body: some View {
+        Image(nsImage: model.statusImage)
     }
 }
 

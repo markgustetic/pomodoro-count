@@ -3,6 +3,18 @@ import AppKit
 
 // MARK: - App model
 
+/// The half-second heartbeat of a running session, kept apart from `AppModel`
+/// on purpose. Every view in the panel observes the model, so anything
+/// `@Published` there re-renders all of them — and `remaining` changes twice a
+/// second for the whole length of every session. Only two views actually
+/// display seconds (the big countdown and the menu bar item); they observe
+/// this clock directly, and everything else now re-renders only when
+/// something it shows has changed.
+@MainActor
+final class SessionClock: ObservableObject {
+    @Published fileprivate(set) var remaining: TimeInterval = 0
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     /// Shared instance used by the running app (so the AppDelegate and the
@@ -17,7 +29,12 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var isRunning = false
-    @Published private(set) var remaining: TimeInterval = 0
+
+    /// See `SessionClock` — the countdown lives there so its tick doesn't
+    /// invalidate the whole panel. Everything phase-shaped stays here: phase
+    /// and isRunning change a handful of times a session, not twice a second.
+    let clock = SessionClock()
+    var remaining: TimeInterval { clock.remaining }
 
     /// Which category a finished focus session credits. Persisted so it survives
     /// relaunch — re-picking it every day would be a papercut.
@@ -48,7 +65,7 @@ final class AppModel: ObservableObject {
     /// Drives the timer to completion immediately. Tests only — a real session
     /// takes 50 minutes.
     func forceCompleteForTesting() {
-        remaining = 0
+        clock.remaining = 0
         complete()
     }
 
@@ -200,13 +217,13 @@ final class AppModel: ObservableObject {
 
     func startWork() {
         phase = .work
-        remaining = TimeInterval(settings.workMinutes * 60)
+        clock.remaining = TimeInterval(settings.workMinutes * 60)
         beginCountdown()
     }
 
     func startBreak() {
         phase = .breakTime
-        remaining = TimeInterval(settings.breakMinutes * 60)
+        clock.remaining = TimeInterval(settings.breakMinutes * 60)
         beginCountdown()
     }
 
@@ -214,7 +231,7 @@ final class AppModel: ObservableObject {
         guard isRunning else { return }
         isRunning = false
         stopTimer()
-        if let endDate { remaining = max(0, endDate.timeIntervalSinceNow) }
+        if let endDate { clock.remaining = max(0, endDate.timeIntervalSinceNow) }
         endDate = nil
     }
 
@@ -228,7 +245,7 @@ final class AppModel: ObservableObject {
         isRunning = false
         phase = .idle
         endDate = nil
-        remaining = 0
+        clock.remaining = 0
     }
 
     private func beginCountdown() {
@@ -249,9 +266,9 @@ final class AppModel: ObservableObject {
 
     private func tick() {
         guard let endDate else { return }
-        remaining = endDate.timeIntervalSinceNow
+        clock.remaining = endDate.timeIntervalSinceNow
         if remaining <= 0 {
-            remaining = 0
+            clock.remaining = 0
             complete()
         }
     }
