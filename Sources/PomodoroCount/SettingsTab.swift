@@ -73,10 +73,23 @@ struct SettingsTab: View {
                     Toggle("Use categories", isOn: $model.settings.categoriesEnabled)
 
                     if model.settings.categoriesEnabled {
-                        ForEach(model.settings.categories) { category in
-                            CategorySettingsRow(category: category)
+                        // A List is required for SwiftUI to synthesise the drag-to-reorder
+                        // affordance for `.onMove` — a ForEach in a plain VStack never gets
+                        // one. It's given an explicit height sized to its row count so it
+                        // doesn't open its own internal scroller nested inside the tab's
+                        // outer ScrollView.
+                        List {
+                            ForEach(model.settings.categories) { category in
+                                CategorySettingsRow(category: category)
+                                    .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(Color.clear)
+                            }
+                            .onMove { model.moveCategories(fromOffsets: $0, toOffset: $1) }
                         }
-                        .onMove { model.moveCategories(fromOffsets: $0, toOffset: $1) }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .frame(height: CGFloat(model.settings.categories.count) * Self.categoryRowHeight)
 
                         Button {
                             addCategory()
@@ -131,11 +144,16 @@ struct SettingsTab: View {
                 }
             }
         }
-        .frame(maxHeight: 340)
+        .frame(maxHeight: 620)
         .toggleStyle(.switch)
         .tint(palette.accent)
         .font(.callout)
     }
+
+    /// Measured height of one `CategorySettingsRow` inside the `List`, including
+    /// its tamed row insets — used to size the list to its content instead of
+    /// letting it open an internal scroller.
+    private static let categoryRowHeight: CGFloat = 32
 
     /// Names a new category "Category 2", "Category 3"… so adding never fails
     /// on a collision the user did not choose.
@@ -189,10 +207,13 @@ struct CategorySettingsRow: View {
     }
 
     /// Renaming can fail on a collision, so the field snaps back rather than
-    /// silently keeping a name the model rejected.
+    /// silently keeping a name the model rejected. On success, the model
+    /// stores a trimmed name, so the field is resynced to match — otherwise it
+    /// would keep showing untrimmed whitespace the model already discarded.
     private func commit() {
         if model.renameCategory(id: category.id, to: draftName) {
             rejected = false
+            draftName = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
         } else {
             rejected = true
             draftName = category.name
