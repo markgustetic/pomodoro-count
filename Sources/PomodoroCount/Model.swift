@@ -48,8 +48,8 @@ final class AppModel: ObservableObject {
 
     private var endDate: Date?
     private var timer: Timer?
-    private var hotKey: HotKeyManager?
-    private var dayChangeObserver: NSObjectProtocol?
+    var hotKey: HotKeyManager?
+    var dayChangeObserver: NSObjectProtocol?
     private let customStoreURL: URL?
 
     /// `storeURL` overrides the on-disk location (used by tests so they never
@@ -266,78 +266,6 @@ final class AppModel: ObservableObject {
         guard let idx = records.indices.max(by: { records[$0].at < records[$1].at }) else { return }
         records.remove(at: idx)
         play(.countDown)
-    }
-
-    // MARK: Launch at login
-
-    var launchAtLogin: Bool {
-        get { SMAppService.mainApp.status == .enabled }
-        set {
-            do {
-                if newValue { try SMAppService.mainApp.register() }
-                else { try SMAppService.mainApp.unregister() }
-            } catch {
-                NSLog("Launch-at-login toggle failed: \(error)")
-            }
-            objectWillChange.send()
-        }
-    }
-
-    var isBundled: Bool { Bundle.main.bundleIdentifier != nil }
-
-    // MARK: Version
-
-    /// Shown in the panel footer so a bug report can name a version. Built app
-    /// bundles carry the number from `VERSION`; running from source has no
-    /// bundle to read, so it reports "dev".
-    var versionString: String { Self.version(from: Bundle.main.infoDictionary) }
-
-    static func version(from info: [String: Any]?) -> String {
-        guard let version = info?["CFBundleShortVersionString"] as? String,
-              !version.isEmpty else { return "dev" }
-        return version
-    }
-
-    // MARK: Global keyboard shortcut (⌃⌥⌘P → log a pomodoro)
-
-    /// Tears down any existing hotkey and re-registers it for the current
-    /// setting + combo. Called at launch, when toggled, and when re-recorded.
-    func syncGlobalShortcut() {
-        hotKey = nil   // deinit unregisters the old one
-        guard settings.globalShortcutEnabled else { return }
-        hotKey = HotKeyManager(
-            keyCode: settings.shortcut.keyCode,
-            modifiers: settings.shortcut.carbonModifiers
-        ) { [weak self] in
-            MainActor.assumeIsolated { self?.logExternal(announce: true) }
-        }
-    }
-
-    func setGlobalShortcut(_ enabled: Bool) {
-        settings.globalShortcutEnabled = enabled
-        syncGlobalShortcut()
-    }
-
-    // MARK: Daily rollover
-
-    /// Today's count is derived from dated records, so it is always 0 at the
-    /// start of a new day and older days stay in history. A long-running app,
-    /// though, won't recompute on its own — so refresh the UI when the calendar
-    /// day changes or the Mac wakes, rolling the visible count back to 0.
-    func startDayMonitoring() {
-        guard dayChangeObserver == nil else { return }
-        let refresh: @Sendable (Notification) -> Void = { [weak self] _ in
-            MainActor.assumeIsolated { self?.objectWillChange.send() }
-        }
-        dayChangeObserver = NotificationCenter.default.addObserver(
-            forName: .NSCalendarDayChanged, object: nil, queue: .main, using: refresh)
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: refresh)
-    }
-
-    func updateShortcut(_ shortcut: Shortcut) {
-        settings.shortcut = shortcut
-        syncGlobalShortcut()
     }
 
     // MARK: Persistence
