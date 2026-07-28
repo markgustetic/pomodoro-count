@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **History and Settings are their own pages.** Today's count and the category
+  log rows now appear on Focus only. They sat above every tab, so opening
+  Settings meant scrolling past a count card and four log buttons to reach the
+  first setting; the panel is roughly 250pt shorter on both tabs now. The
+  Focus / History / Settings strip stays where it is.
 - The History day list now respects the Week / Month range, instead of always
   showing up to 30 populated days regardless of the selected range. This
   changes History's behaviour even with categories switched off.

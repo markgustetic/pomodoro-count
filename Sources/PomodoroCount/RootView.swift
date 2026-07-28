@@ -13,10 +13,21 @@ struct RootView: View {
 
     private var palette: Palette { model.settings.theme.palette }
 
-    var body: some View {
-        VStack(spacing: 12) {
+    /// Today's count and the rows that log into it. They belong to Focus, and
+    /// only to Focus: History already charts today's count and lists it as its
+    /// first row, and Settings has nothing to do with logging. On both, all
+    /// they did was push the content the tab was opened for a card and four
+    /// buttons further down — Settings ran to around 930pt with them.
+    @ViewBuilder private var todaySection: some View {
+        if tab == .focus {
             logButton
             header
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            todaySection
 
             SegmentedControl(
                 items: Tab.allCases.map { (value: $0, label: $0.rawValue) },
