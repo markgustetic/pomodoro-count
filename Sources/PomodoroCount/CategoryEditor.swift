@@ -396,6 +396,7 @@ struct CategoryList: View {
 
                 let destination = Reorder.destination(
                     from: state.startIndex,
+                    current: state.currentIndex,
                     translation: state.translation,
                     pitch: pitch,
                     count: model.settings.categories.count)

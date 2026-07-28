@@ -267,44 +267,55 @@ import Foundation
     /// against the real implementations of both, tick by tick, the way a
     /// mouse drag would drive it.
     ///
-    /// Also pins the invariant that keeps the row under the pointer: once a
-    /// tick has moved the row into the slot its translation calls for, the
-    /// drawn offset — translation minus the distance already absorbed by
-    /// committed moves — stays within half a pitch.
+    /// Also pins the invariant that keeps the row under the pointer: the drawn
+    /// offset — translation minus the distance already absorbed by committed
+    /// moves — never exceeds the sticky band, which is the furthest the row is
+    /// allowed to get from its slot before the move commits.
     @discardableResult
     private func replayDrag(on m: AppModel, from startIndex: Int, through translations: [CGFloat]) -> Int {
         var currentIndex = startIndex
         for translation in translations {
             let destination = Reorder.destination(
-                from: startIndex, translation: translation, pitch: pitch,
+                from: startIndex, current: currentIndex, translation: translation, pitch: pitch,
                 count: m.settings.categories.count)
             if destination != currentIndex {
                 m.moveCategory(from: currentIndex, to: destination)
                 currentIndex = destination
             }
-            #expect(abs(translation - CGFloat(currentIndex - startIndex) * pitch) < pitch / 2)
+            let drawnOffset = abs(translation - CGFloat(currentIndex - startIndex) * pitch)
+            #expect(drawnOffset <= (0.5 + Reorder.stickiness) * pitch)
         }
         return currentIndex
     }
 
     @Test func aDownwardDragReplaysTheSameOrderAMouseDragWould() {
         let m = fourCategories()   // Work, Music, Admin, Reading
-        // Steps of 9pt, short of the 32pt pitch, so several ticks land in the
-        // same slot before the next boundary — 16, 48 and 80 are where
-        // `Reorder.destination` rounds to the next slot, and none of these
-        // translations lands exactly on one.
-        let end = replayDrag(on: m, from: 0, through: [0, 9, 18, 27, 36, 45, 54, 63, 72, 81])
+        // Steps of 9pt, well short of the 32pt pitch, so several ticks land in
+        // the same slot before the next boundary. With the sticky band those
+        // boundaries are at 22.4, 54.4 and 86.4pt, and no tick lands on one.
+        let end = replayDrag(on: m, from: 0, through: [0, 9, 18, 27, 36, 45, 54, 63, 72, 81, 90, 99])
         #expect(end == 3)
         #expect(m.settings.categories.map(\.name) == ["Music", "Admin", "Reading", "Work"])
     }
 
-    /// Shorter than the downward case above: fewer ticks, crossing two
-    /// boundaries instead of three, and moving the opposite direction.
+    /// The downward case in reverse: same tick size, crossing two boundaries
+    /// instead of three, moving the opposite way.
     @Test func anUpwardDragReplaysTheSameOrderAMouseDragWould() {
         let m = fourCategories()   // Work, Music, Admin, Reading
-        let end = replayDrag(on: m, from: 3, through: [0, -9, -18, -27, -36, -45, -54])
+        let end = replayDrag(on: m, from: 3, through: [0, -9, -18, -27, -36, -45, -54, -63])
         #expect(end == 1)
         #expect(m.settings.categories.map(\.name) == ["Work", "Reading", "Music", "Admin"])
+    }
+
+    /// The stutter this stickiness exists to stop: a pointer easing across a
+    /// boundary and wavering there. Every one of these ticks sits within the
+    /// band around the slot the row moved into, so the drag must commit exactly
+    /// one reorder rather than one per tremor.
+    @Test func waveringAtABoundaryCommitsOnlyOneMove() {
+        let m = fourCategories()
+        let end = replayDrag(on: m, from: 0, through: [0, 20, 23, 21, 24, 20, 25, 22, 26])
+        #expect(end == 1)
+        #expect(m.settings.categories.map(\.name) == ["Music", "Work", "Admin", "Reading"])
     }
 
     // MARK: Nudging (keyboard and VoiceOver)
