@@ -72,6 +72,33 @@ jobs:
           path: /tmp/panel.png
           if-no-files-found: error
 
+  uitest:
+    name: UI tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The UI test target exists because three reorder mechanisms silently
+      # did nothing, and neither the unit suite, the build, nor a rendered
+      # screenshot caught any of it — only driving the real menu bar item
+      # did. Leaving it out of CI would recreate the exact gap it was built
+      # to close. The drag cases skip themselves (synthetic drags cannot
+      # drive the panel's gesture — see CategoryReorderUITests); what runs
+      # here is reachability: status item → panel → Settings → seeded rows.
+      #
+      # XCUITest on a macOS runner depends on the runner session permitting
+      # accessibility-driven automation, which GitHub's images do. If this
+      # job ever starts failing with automation-permission errors rather
+      # than test failures, that is the runner image changing, not the app.
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the UI test project
+        run: xcodegen generate
+
+      - name: Drive the real app through its menu bar item
+        run: xcodebuild -project PomodoroCountUITests.xcodeproj -scheme UITests -destination 'platform=macOS' test
+
   consistency:
     name: Version and changelog
     runs-on: ubuntu-latest
