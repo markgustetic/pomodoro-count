@@ -173,6 +173,99 @@ import Foundation
         #expect(m.settings.categories.map(\.name) == ["Music", "Work"])
     }
 
+    /// Three categories, so a move can be tested as something other than a swap
+    /// of two — the direction-dependent off-by-one only shows up with three.
+    private func threeCategories() -> AppModel {
+        let m = configured()
+        m.addCategory(name: "Admin", dailyGoal: 2)
+        return m       // Work, Music, Admin
+    }
+
+    @Test func movingACategoryDownLandsInTheTargetSlot() {
+        let m = threeCategories()
+        m.moveCategory(from: 0, to: 2)
+        #expect(m.settings.categories.map(\.name) == ["Music", "Admin", "Work"])
+    }
+
+    /// The `toOffset` off-by-one, pinned: `move(fromOffsets:toOffset:)` measures
+    /// its offset before the removal, so passing the destination unadjusted here
+    /// would leave the order untouched and the row would look stuck.
+    @Test func movingACategoryDownByOneActuallyMovesIt() {
+        let m = threeCategories()
+        m.moveCategory(from: 0, to: 1)
+        #expect(m.settings.categories.map(\.name) == ["Music", "Work", "Admin"])
+    }
+
+    @Test func movingACategoryUpLandsInTheTargetSlot() {
+        let m = threeCategories()
+        m.moveCategory(from: 2, to: 0)
+        #expect(m.settings.categories.map(\.name) == ["Admin", "Work", "Music"])
+    }
+
+    @Test func movingToTheSlotItAlreadyOccupiesChangesNothing() {
+        let m = threeCategories()
+        m.moveCategory(from: 1, to: 1)
+        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
+    }
+
+    @Test func outOfRangeIndicesChangeNothing() {
+        let m = threeCategories()
+        m.moveCategory(from: 5, to: 0)
+        m.moveCategory(from: 0, to: 9)
+        m.moveCategory(from: -1, to: 1)
+        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
+    }
+
+    @Test func reorderingLeavesTheRecordsAlone() {
+        let m = threeCategories()
+        m.records = [Record(at: Date(), source: "manual", category: "Music")]
+        m.moveCategory(from: 1, to: 0)
+        #expect(m.todayCount(inCategory: "Music") == 1)
+    }
+
+    @Test func thePanelFollowsTheNewOrderWithTheBucketStillLast() {
+        let m = threeCategories()
+        m.moveCategory(from: 2, to: 0)
+        #expect(m.todayProgress.map(\.name) == ["Admin", "Work", "Music", "General"])
+    }
+
+    @Test func theNewOrderSurvivesAReload() {
+        let (m, url) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.addCategory(name: "Work", dailyGoal: 4)
+        m.addCategory(name: "Music", dailyGoal: 1)
+        m.moveCategory(from: 1, to: 0)
+
+        let reloaded = AppModel(storeURL: url)
+        #expect(reloaded.settings.categories.map(\.name) == ["Music", "Work"])
+    }
+
+    // MARK: Nudging (keyboard and VoiceOver)
+
+    @Test func nudgingMovesACategoryOneSlot() {
+        let m = threeCategories()
+        let admin = m.settings.categories[2].id
+        m.nudgeCategory(id: admin, by: -1)
+        #expect(m.settings.categories.map(\.name) == ["Work", "Admin", "Music"])
+        m.nudgeCategory(id: admin, by: 1)
+        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
+    }
+
+    /// The row at either end has nowhere to go, and says so by doing nothing
+    /// rather than by needing a special case at the call site.
+    @Test func nudgingPastEitherEndChangesNothing() {
+        let m = threeCategories()
+        m.nudgeCategory(id: m.settings.categories[0].id, by: -1)
+        m.nudgeCategory(id: m.settings.categories[2].id, by: 1)
+        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
+    }
+
+    @Test func nudgingAnUnknownCategoryChangesNothing() {
+        let m = threeCategories()
+        m.nudgeCategory(id: UUID(), by: 1)
+        #expect(m.settings.categories.map(\.name) == ["Work", "Music", "Admin"])
+    }
+
     // MARK: Fallback name
 
     /// Uniqueness is binding across categories *and* the fallback — this is
