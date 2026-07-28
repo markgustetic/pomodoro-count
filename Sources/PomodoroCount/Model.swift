@@ -229,6 +229,20 @@ final class AppModel: ObservableObject {
             .map { $0 }
     }
 
+    /// Days within the last `days` days (ending today) that have at least one
+    /// record, newest first. Powers the History tab's day list, so the
+    /// Week/Month control governs it the same way it governs `dailySeries` and
+    /// `categoryTotals`. Unlike `dailySeries`, empty days are not padded in —
+    /// the day list has always shown only days you actually logged something.
+    func history(days: Int) -> [DayStat] {
+        let cal = Calendar.current
+        let cutoff = cal.date(byAdding: .day, value: -(days - 1), to: cal.startOfDay(for: Date()))!
+        let groups = Dictionary(grouping: records.filter { $0.at >= cutoff }) { cal.startOfDay(for: $0.at) }
+        return groups
+            .map { DayStat(date: $0.key, count: $0.value.count) }
+            .sorted { $0.date > $1.date }
+    }
+
     /// Text shown next to the icon in the menu bar (count when idle, else clock).
     /// Empty means icon-only — see `Settings.showsCountInMenuBar`. The count is
     /// still announced to VoiceOver either way; this hides it visually only.

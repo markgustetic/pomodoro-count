@@ -58,6 +58,42 @@ import Foundation
         #expect(m.history().count == 1)
     }
 
+    // MARK: history(days:) — the range-scoped day list
+
+    /// This backs the History tab's day list, which the Week/Month control must
+    /// govern the same way it already governs the chart and category breakdown.
+
+    @Test func historyDaysIncludesARecordInsideTheRange() {
+        let (m, _) = makeModel()
+        m.records = [Record(at: .daysAgo(3), source: "manual")]
+        #expect(m.history(days: 7).count == 1)
+    }
+
+    @Test func historyDaysExcludesARecordOutsideTheRange() {
+        let (m, _) = makeModel()
+        m.records = [Record(at: .daysAgo(10), source: "manual")]
+        #expect(m.history(days: 7).isEmpty)
+    }
+
+    @Test func historyDaysWeekAndMonthDifferForTheSameData() {
+        let (m, _) = makeModel()
+        m.records = [Record(at: .daysAgo(20), source: "manual")]
+        #expect(m.history(days: 7).isEmpty)
+        #expect(m.history(days: 30).count == 1)
+    }
+
+    /// Unlike `dailySeries`, the day list has never padded in empty days — it
+    /// only lists days you actually logged something. Sparse data over a
+    /// 7-day window should come back as 2 rows, not 7.
+    @Test func historyDaysDoesNotPadEmptyDays() {
+        let (m, _) = makeModel()
+        m.records = [
+            Record(at: Date(), source: "manual"),
+            Record(at: .daysAgo(3), source: "manual"),
+        ]
+        #expect(m.history(days: 7).count == 2)
+    }
+
     @Test(arguments: [7, 30]) func dailySeriesIsZeroFilledAndExactlyNDays(days: Int) {
         let (m, _) = makeModel()
         m.records = [Record(at: Date(), source: "manual")]

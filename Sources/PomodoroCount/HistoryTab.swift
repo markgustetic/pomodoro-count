@@ -19,7 +19,7 @@ struct HistoryTab: View {
     enum Grouping: String, CaseIterable { case day = "By day", category = "By category" }
 
     var body: some View {
-        let stats = model.history()
+        let stats = model.history(days: range.days)
         VStack(spacing: 10) {
             SegmentedControl(
                 items: ChartRange.allCases.map { (value: $0, label: $0.rawValue) },
