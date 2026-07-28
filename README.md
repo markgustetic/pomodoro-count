@@ -98,6 +98,12 @@ all-time totals. Today's count resets at midnight; past days stay in history.
 **Export CSV…** writes the lot to a spreadsheet — one row per pomodoro, so you
 can group it however you like.
 
+**Categories** are optional. Turn them on in Settings and the log button becomes
+one row per category, each with its own daily goal — Work 4, AI study 1, Music 1
+— so a tap files the pomodoro and your progress is the first thing you see. Point
+a focus session at one with the **towards…** picker, and History gains a **By
+category** view. Deleting a category never deletes its history.
+
 **VoiceOver** works throughout. The menu bar item announces today's count, or
 the phase and time remaining while a session runs.
 

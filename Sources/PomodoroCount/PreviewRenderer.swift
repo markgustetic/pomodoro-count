@@ -9,15 +9,33 @@ enum PreviewRenderer {
         let model = AppModel(storeURL: URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("pomo-preview-\(UUID().uuidString).json"))
 
-        // Seed a week of sample history so the panel looks realistic.
+        // Seed a week of sample history so the panel looks realistic. Each
+        // entry is that day's pomodoros, one category name per record (nil
+        // means the fallback bucket). Row counts per day still sum to the
+        // original perDay = [3, 5, 2, 6, 4, 1, 4], but *which* category each
+        // record belongs to is chosen so today's panel shows every row state
+        // honestly: Work sits partway to its goal (partial dots), AI study
+        // has met its goal (met-goal accent), Music has none yet (empty
+        // dots), and the fallback bucket still holds one (bare count, no
+        // dots, since its goal is 0).
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let perDay = [3, 5, 2, 6, 4, 1, 4]   // 6 days ago … today
+        let categoryPlan: [[String?]] = [
+            ["Work", "Work", nil],                                    // 6 days ago (3)
+            ["Work", "Work", "Work", "AI study", "Music"],             // 5 days ago (5)
+            ["Work", nil],                                             // 4 days ago (2)
+            ["Work", "Work", "Work", "Work", "AI study", "Music"],     // 3 days ago (6)
+            ["Work", "Work", "AI study", nil],                         // 2 days ago (4)
+            ["Music"],                                                 // yesterday (1)
+            ["Work", "Work", "AI study", nil],                         // today (4): Work 2/4, AI study 1/1, Music 0/1, General 1
+        ]
         var seeded: [Record] = []
-        for (i, count) in perDay.enumerated() {
+        for (i, categories) in categoryPlan.enumerated() {
             let day = cal.date(byAdding: .day, value: i - 6, to: today)!
             let stamp = cal.date(byAdding: .hour, value: 10, to: day)!
-            for _ in 0..<count { seeded.append(Record(at: stamp, source: "manual")) }
+            for category in categories {
+                seeded.append(Record(at: stamp, source: "manual", category: category))
+            }
         }
         model.records = seeded
         model.settings.categoriesEnabled = true

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Categories with daily goals.** Optional named categories, each with a daily
+  goal. Tapping a category's row logs a pomodoro to it, focus sessions can be
+  aimed at one, and History gains a By category breakdown. Deleting a category
+  archives it — its pomodoros stay in your history, totals, and CSV export.
+- CSV export gains a `category` column.
+
 ## [1.0.0] - 2026-07-27
 
 First public release.
