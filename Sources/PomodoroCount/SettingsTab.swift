@@ -6,6 +6,7 @@ struct SettingsTab: View {
     @EnvironmentObject var model: AppModel
     @ObservedObject private var updater = Updater.shared
     @Environment(\.palette) private var palette
+    @State private var addingCategory = false
 
     var body: some View {
         ScrollView {
@@ -91,12 +92,15 @@ struct SettingsTab: View {
                         .frame(height: CGFloat(model.settings.categories.count) * CategorySettingsRow.rowHeight)
 
                         Button {
-                            addCategory()
+                            addingCategory = true
                         } label: {
                             Label("Add category", systemImage: "plus")
                         }
                         .buttonStyle(HoverTextButtonStyle())
                         .font(.caption)
+                        .popover(isPresented: $addingCategory, arrowEdge: .bottom) {
+                            AddCategoryForm(model: model, isPresented: $addingCategory)
+                        }
 
                         Divider()
 
@@ -146,15 +150,73 @@ struct SettingsTab: View {
         .tint(palette.accent)
         .font(.callout)
     }
+}
 
-    /// Names a new category "Category 2", "Category 3"… so adding never fails
-    /// on a collision the user did not choose.
-    private func addCategory() {
-        var index = model.settings.categories.count + 1
-        while !model.addCategory(name: "Category \(index)", dailyGoal: 1) {
-            index += 1
-            if index > 99 { return }
+/// The little form behind "Add category".
+///
+/// A popover rather than an NSAlert: an alert takes key status away from the
+/// menu bar panel, which dismisses the moment it loses focus — you would name a
+/// category and come back to a closed panel. A popover stays inside the panel's
+/// own window.
+///
+/// The model is passed in rather than read from the environment. SwiftUI has
+/// historically been inconsistent about propagating `@EnvironmentObject` into
+/// popover content, and the failure mode is a crash rather than a glitch.
+struct AddCategoryForm: View {
+    @ObservedObject var model: AppModel
+    @Binding var isPresented: Bool
+
+    @State private var name = ""
+    @FocusState private var nameFocused: Bool
+    @Environment(\.palette) private var palette
+
+    /// `isCategoryNameAvailable` already rejects empty, whitespace-only, and
+    /// anything colliding with a category or the fallback name, so it can drive
+    /// the button state directly.
+    private var canAdd: Bool { model.isCategoryNameAvailable(name) }
+
+    private var trimmed: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("New category")
+                .font(.caption)
+                .foregroundStyle(palette.textDim)
+
+            TextField("Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .focused($nameFocused)
+                .onSubmit(add)
+                .accessibilityLabel("New category name")
+
+            // Say why Add is disabled rather than leaving a dead button. Stays
+            // quiet while the field is still empty — that isn't a mistake yet.
+            if !trimmed.isEmpty && !canAdd {
+                Text("That name is already taken.")
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+            }
+
+            HStack(spacing: 8) {
+                Spacer()
+                Button("Cancel") { isPresented = false }
+                    .keyboardShortcut(.cancelAction)
+                Button("Add", action: add)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canAdd)
+            }
         }
+        .padding(12)
+        .frame(width: 200)
+        .onAppear { nameFocused = true }
+    }
+
+    private func add() {
+        guard model.addCategory(name: name, dailyGoal: 1) else { return }
+        name = ""
+        isPresented = false
     }
 }
 
