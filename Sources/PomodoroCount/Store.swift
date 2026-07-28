@@ -64,8 +64,34 @@ extension AppModel {
         settings = persisted.settings
     }
 
+    /// Holds off the store write that each change to `records` or `settings`
+    /// would otherwise trigger, until `resumeSaves()`.
+    ///
+    /// For a burst of related changes where only the end state matters. A drag
+    /// reorder is the case this exists for: it moves the array every time the
+    /// pointer crosses a row, and each move would otherwise encode the whole
+    /// store and write it to disk synchronously, on the main actor, in the
+    /// middle of a gesture — which the user could see.
+    ///
+    /// Idempotent, and safe to leave balanced by more than one `resumeSaves()`:
+    /// the caller here resumes both when the drag ends and when it is cancelled,
+    /// because a suspend that never resumed would silently stop persisting
+    /// everything.
+    func suspendSaves() {
+        savesSuspended = true
+    }
+
+    /// Resumes writing, and performs the write that was held off, if any.
+    func resumeSaves() {
+        savesSuspended = false
+        guard savePending else { return }
+        savePending = false
+        save()
+    }
+
     func save() {
         guard !isLoading else { return }
+        guard !savesSuspended else { savePending = true; return }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted]

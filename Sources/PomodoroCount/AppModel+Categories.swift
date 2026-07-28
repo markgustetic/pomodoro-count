@@ -175,7 +175,7 @@ extension AppModel {
         settings.categories.removeAll { $0.id == id }
     }
 
-    /// Moves one category into another's slot.
+    /// Moves one category to a destination index.
     ///
     /// `Array.move(fromOffsets:toOffset:)` takes an *insertion offset measured
     /// before the removal*, not a destination index: moving a row down by one
@@ -184,8 +184,8 @@ extension AppModel {
     /// caller has to know about it.
     ///
     /// Out-of-range indices, and a move to the slot the category already
-    /// occupies, change nothing — so a row dropped back where it came from
-    /// writes nothing to the store.
+    /// occupies, change nothing — so a drag that ends where it began writes
+    /// nothing to the store.
     func moveCategory(from source: Int, to destination: Int) {
         let indices = settings.categories.indices
         guard indices.contains(source), indices.contains(destination),
@@ -196,10 +196,10 @@ extension AppModel {
             toOffset: destination > source ? destination + 1 : destination)
     }
 
-    /// Moves a category one slot up (`-1`) or down (`+1`), for VoiceOver, which
-    /// has no drag to offer. A category at either end simply stays put:
-    /// `moveCategory` already ignores a destination off the end, so this needs
-    /// no special case for it.
+    /// Moves a category one slot up (`-1`) or down (`+1`), for the keyboard and
+    /// VoiceOver, which have no drag to offer. A category at either end simply
+    /// stays put: `moveCategory` already ignores a destination off the end, so
+    /// this needs no special case for it.
     func nudgeCategory(id: UUID, by delta: Int) {
         guard let index = settings.categories.firstIndex(where: { $0.id == id })
         else { return }

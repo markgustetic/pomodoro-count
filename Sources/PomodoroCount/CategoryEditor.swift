@@ -239,119 +239,202 @@ struct CategoryList: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.palette) private var palette
 
+    /// The gap between rows. Half the drag pitch, so it is named rather than
+    /// inlined into the `VStack`.
+    private static let spacing: CGFloat = 6
+
+    /// One row's measured height. Zero until the first layout has run, which
+    /// makes `pitch` zero too — see its doc comment for why that matters.
+    @State private var rowHeight: CGFloat = 0
+    @State private var drag: DragState?
+
     /// Which grip the pointer is over. An id rather than a `Bool` because every
-    /// row's grip is built by the same expression — a shared flag would light
-    /// all of them at once.
+    /// row's grip is built by the same function — a shared flag would light all
+    /// of them at once.
     @State private var hoveredGrip: UUID?
 
-    /// The row a drag is currently hovering over, highlighted as the place the
-    /// dragged category will land.
-    @State private var dropTarget: UUID?
+    /// True only while a drag is actually live. `@GestureState` resets itself
+    /// when a gesture is cancelled as well as when it ends, and a cancelled
+    /// drag is the one case `onEnded` never reports — so this, not `drag`
+    /// itself, is what can be trusted to say whether a gesture is still going.
+    @GestureState private var dragIsLive = false
+
+    /// A reorder in progress. `startIndex` is where the row was picked up,
+    /// `currentIndex` where it sits now; they diverge as the drag commits moves,
+    /// and the gap between them is what keeps the row under the pointer.
+    private struct DragState {
+        let id: UUID
+        let startIndex: Int
+        var currentIndex: Int
+        var translation: CGFloat = 0
+    }
+
+    /// Distance from one row's top edge to the next. Zero, not just `spacing`,
+    /// until a row has actually been measured — otherwise an unmeasured list
+    /// would report a 6pt pitch and a short drag would fling a row the length
+    /// of it. `Reorder.destination` treats a zero pitch as "cannot move yet",
+    /// and this is what makes that guard reachable.
+    private var pitch: CGFloat { rowHeight > 0 ? rowHeight + Self.spacing : 0 }
+
+    /// Where the dragged row is drawn: the raw translation less the distance
+    /// already absorbed by moves it has committed. Without that subtraction the
+    /// row would jump a full slot away from the pointer every time it swapped.
+    private var visualOffset: CGFloat {
+        guard let drag else { return 0 }
+        return drag.translation - CGFloat(drag.currentIndex - drag.startIndex) * pitch
+    }
 
     var body: some View {
-        // Plain stack plus the system's own drag and drop, after two other
-        // mechanisms failed here. A hand-built `DragGesture` worked but
-        // flickered: it reordered the array on every crossing, wrote the store
-        // each time, and compensated the dragged row's offset by hand against
-        // an animation. A `List` with `.onMove` would have handed the whole
-        // problem to AppKit, but its reorder does not function in this
-        // context — a `List` sized to its contents inside the Settings
-        // `ScrollView` — and dragging did nothing at all.
-        //
-        // `.draggable`/`.dropDestination` depends on neither. Nothing in the
-        // list moves while a drag is in flight: the system carries a preview
-        // under the pointer, the target row lights up, and the order changes
-        // once, on drop. There is no per-frame arithmetic here to get wrong,
-        // which is the point.
-        VStack(spacing: 6) {
-            ForEach(model.settings.categories) { category in
-                row(category)
+        VStack(spacing: Self.spacing) {
+            ForEach(Array(model.settings.categories.enumerated()), id: \.element.id) { index, category in
+                row(category, at: index)
+            }
+        }
+        // The normal path clears `drag` in `onEnded`. This catches the path
+        // where `onEnded` never comes: the gesture state going false is
+        // SwiftUI telling us the drag is over however it ended. Without it a
+        // dead drag's indices survive to steer the next one.
+        .onChange(of: dragIsLive) { _, live in
+            if !live, drag != nil {
+                // Resume here too, not only in `onEnded`. A cancelled drag
+                // never reaches `onEnded`, and a suspend left unbalanced would
+                // silently stop the app persisting anything at all.
+                model.resumeSaves()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { drag = nil }
             }
         }
     }
 
-    private func row(_ category: Category) -> some View {
-        HStack(spacing: 6) {
-            grip(for: category)
+    private func row(_ category: Category, at index: Int) -> some View {
+        let dragging = drag?.id == category.id
+        return HStack(spacing: 6) {
+            grip(for: category, at: index)
             CategorySettingsRow(category: category)
         }
         .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(dropTarget == category.id ? palette.accent.opacity(0.16) : .clear)
+            // Every row is the same shape, so they all report the same height
+            // and it does not matter which one lands last. Measured rather than
+            // hardcoded: the old `List` needed a fixed row height that had to be
+            // re-measured by hand whenever the row's font or padding changed.
+            GeometryReader { geo in
+                // `.task(id:)` rather than `.onChange(of:initial:)`: it runs
+                // after the layout that produced the height, so writing state
+                // here cannot land in the middle of a view update.
+                Color.clear.task(id: geo.size.height) { rowHeight = geo.size.height }
+            }
         }
-        .animation(.easeOut(duration: 0.12), value: dropTarget)
-        .dropDestination(for: String.self) { items, _ in
-            drop(items, onto: category)
-        } isTargeted: { over in
-            dropTarget = over ? category.id : (dropTarget == category.id ? nil : dropTarget)
-        }
-        // Without a `List` there is no system reorder action, so VoiceOver gets
-        // these. They sit on the row, which already carries the category's
-        // name, rather than on the grip, which is a bare glyph.
+        .offset(y: dragging ? visualOffset : 0)
+        // The dragged row must not animate its own reorder, though its
+        // neighbours should. A committed move changes this row's position
+        // twice over: its layout slot moves one way and `visualOffset`
+        // compensates the other, and the two only cancel if they happen at the
+        // same instant. Animating the layout half made them disagree for the
+        // length of the spring, so the row lurched a full row and sprang back
+        // on every crossing — a drag read as jumping rather than as one
+        // movement. Clearing the animation here leaves the neighbours' slide
+        // animated and pins this row to the pointer.
+        .transaction { if dragging { $0.animation = nil } }
+        .scaleEffect(dragging ? 1.02 : 1)
+        .shadow(color: .black.opacity(dragging ? 0.28 : 0), radius: 7, y: 3)
+        // Lifted clear of its neighbours, so it passes over them rather than
+        // under while it is being dragged.
+        .zIndex(dragging ? 1 : 0)
+        // A drag is the only way to reorder with a mouse, so VoiceOver and the
+        // keyboard get these instead. They sit on the row, which already carries
+        // the category's name, rather than on the grip, which is a bare glyph.
         .accessibilityElement(children: .contain)
         .accessibilityLabel(category.name)
         .accessibilityAction(named: "Move up") { nudge(category, by: -1) }
         .accessibilityAction(named: "Move down") { nudge(category, by: 1) }
     }
 
-    /// The drag source. Only the grip is draggable, so the name field keeps
-    /// drag-to-select and the stepper and remove button are untouched.
-    private func grip(for category: Category) -> some View {
-        Image(systemName: "line.3.horizontal")
+    /// The drag handle. Deliberately not a `Button`: it performs no action when
+    /// clicked, and button semantics would promise one. The reorder actions for
+    /// VoiceOver and the keyboard live on the row instead.
+    private func grip(for category: Category, at index: Int) -> some View {
+        let lit = drag?.id == category.id || hoveredGrip == category.id
+        return Image(systemName: "line.3.horizontal")
             .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(hoveredGrip == category.id ? palette.text : palette.textDim)
+            .foregroundStyle(lit ? palette.text : palette.textDim)
             .animation(.easeOut(duration: 0.12), value: hoveredGrip)
             .frame(width: 12, height: 22)
             .contentShape(Rectangle())
             .onHover { inside in
                 hoveredGrip = inside ? category.id : (hoveredGrip == category.id ? nil : hoveredGrip)
                 // The open hand is the macOS convention for "this can be
-                // dragged". The system takes the cursor over during the drag.
-                if inside { NSCursor.openHand.set() } else { NSCursor.arrow.set() }
+                // dragged"; the gesture swaps it for the closed one while a drag
+                // is actually running.
+                if inside {
+                    NSCursor.openHand.set()
+                } else if drag == nil {
+                    // Only reclaim the cursor when no drag is running. A drag
+                    // leaves this 12pt frame almost at once, and the closed hand
+                    // set by the gesture has to survive that.
+                    NSCursor.arrow.set()
+                }
             }
-            // The id, not the name: names can be edited mid-drag and are not
-            // unique until `isCategoryNameAvailable` has had its say.
-            .draggable(category.id.uuidString) {
-                // What the pointer carries. The row itself is 300pt of
-                // controls; its name is what identifies it.
-                Text(category.name)
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                    .foregroundStyle(palette.text)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background { CardBackground(cornerRadius: 8) }
-            }
-            .help("Drag onto another category to reorder")
-            // Decorative: the row it sits on carries the name and the reorder
-            // actions, so announcing the glyph too would only add noise.
+            .gesture(dragGesture(for: category, at: index))
+            .help("Drag to reorder")
+            // Decorative to VoiceOver: the row it sits on already carries the
+            // category's name and the Move up / Move down actions.
             .accessibilityHidden(true)
     }
 
-    /// Moves the dragged category into this row's slot.
-    ///
-    /// Both ends are resolved by id rather than by position: the payload is an
-    /// id precisely so that a list which changed under the drag cannot land the
-    /// move on the wrong row. Returns false — declining the drop — when the
-    /// payload is not one of ours or names the row it is already in.
-    private func drop(_ items: [String], onto category: Category) -> Bool {
-        dropTarget = nil
-        guard let raw = items.first,
-              let draggedID = UUID(uuidString: raw),
-              let from = model.settings.categories.firstIndex(where: { $0.id == draggedID }),
-              let to = model.settings.categories.firstIndex(where: { $0.id == category.id }),
-              from != to
-        else { return false }
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-            model.moveCategory(from: from, to: to)
-        }
-        return true
+    /// `minimumDistance: 3` so a stray click on the grip is not a reorder.
+    private func dragGesture(for category: Category, at index: Int) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .local)
+            .updating($dragIsLive) { _, live, _ in live = true }
+            .onChanged { value in
+                // Initialize or reinitialize drag state if this is a fresh drag or a stale
+                // drag left behind by an interrupted gesture. `onEnded` is not guaranteed to
+                // fire — if the view is torn out of the hierarchy mid-gesture, the drag state
+                // persists. Checking identity ensures we start fresh whenever the drag moves
+                // to a different row, so stale `startIndex` or `currentIndex` cannot drive a
+                // move on the wrong category.
+                if drag?.id != category.id {
+                    drag = DragState(id: category.id, startIndex: index, currentIndex: index)
+                    NSCursor.closedHand.set()
+                    // Every crossing moves the array, and each move would
+                    // otherwise write the whole store to disk on the main
+                    // actor, mid-gesture. One write, when the drag is over.
+                    model.suspendSaves()
+                }
+                guard var state = drag else { return }
+                state.translation = value.translation.height
+
+                let destination = Reorder.destination(
+                    from: state.startIndex,
+                    current: state.currentIndex,
+                    translation: state.translation,
+                    pitch: pitch,
+                    count: model.settings.categories.count)
+
+                if destination != state.currentIndex {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                        model.moveCategory(from: state.currentIndex, to: destination)
+                    }
+                    state.currentIndex = destination
+                }
+                drag = state
+            }
+            .onEnded { _ in
+                NSCursor.openHand.set()
+                model.resumeSaves()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { drag = nil }
+            }
     }
 
-    /// Animates a one-slot nudge, so a VoiceOver move reads like a drop.
-    /// A row at either end stays put — `nudgeCategory` ignores a destination
-    /// off the end, so there is no special case here.
+    /// Animates a one-slot nudge, so a keyboard move reads the same as a drag.
+    /// A row at either end stays put — `nudgeCategory` ignores a destination off
+    /// the end, so there is no special case here.
+    ///
+    /// Declines while a drag is live. A drag holds indices of its own that a
+    /// nudge would shift out from under it, leaving it reordering a row the
+    /// pointer is no longer on. The two ways of reordering are alternatives, not
+    /// things to do at once, and the drag is the one already in progress.
     private func nudge(_ category: Category, by delta: Int) {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+        guard drag == nil else { return }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
             model.nudgeCategory(id: category.id, by: delta)
         }
     }

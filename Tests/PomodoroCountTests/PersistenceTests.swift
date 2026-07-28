@@ -27,6 +27,55 @@ import Foundation
         #expect(restored.source == "manual")
     }
 
+    // MARK: Suspended saves
+
+    /// A drag reorders on every crossing, and each move would otherwise encode
+    /// the whole store and write it to disk mid-gesture. Suspending holds the
+    /// write; resuming performs exactly one.
+    @Test func aSuspendedChangeDoesNotReachDiskUntilResumed() {
+        let (m, url) = makeModel()
+        m.suspendSaves()
+        m.settings.workMinutes = 45
+
+        #expect(AppModel(storeURL: url).settings.workMinutes == 50)   // still the default
+
+        m.resumeSaves()
+        #expect(AppModel(storeURL: url).settings.workMinutes == 45)
+    }
+
+    /// Several changes while suspended collapse into the single write on
+    /// resume — the point of the mechanism, not an incidental detail.
+    @Test func manySuspendedChangesCostOneWrite() {
+        let (m, url) = makeModel()
+        m.suspendSaves()
+        for minutes in 20...40 { m.settings.workMinutes = minutes }
+        m.resumeSaves()
+        #expect(AppModel(storeURL: url).settings.workMinutes == 40)
+    }
+
+    /// Resuming must restore normal saving, or every later change would be
+    /// silently dropped.
+    @Test func savingResumesNormallyAfterwards() {
+        let (m, url) = makeModel()
+        m.suspendSaves()
+        m.settings.workMinutes = 45
+        m.resumeSaves()
+
+        m.settings.breakMinutes = 12
+        #expect(AppModel(storeURL: url).settings.breakMinutes == 12)
+    }
+
+    /// A drag can end twice over — `onEnded` and the cancellation path both
+    /// resume — so a second resume with nothing pending must be harmless.
+    @Test func resumingTwiceIsHarmless() {
+        let (m, url) = makeModel()
+        m.suspendSaves()
+        m.settings.workMinutes = 45
+        m.resumeSaves()
+        m.resumeSaves()
+        #expect(AppModel(storeURL: url).settings.workMinutes == 45)
+    }
+
     @Test func missingFileStartsEmptyRatherThanFailing() {
         let model = AppModel(storeURL: temporaryStoreURL())
         #expect(model.totalCount == 0)

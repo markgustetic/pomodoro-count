@@ -168,7 +168,7 @@ import Foundation
     // MARK: Reordering
 
     /// Three categories, so a move can be tested as something other than a swap
-    /// of two — the direction-dependent insertion offset only shows up with three.
+    /// of two — the direction-dependent off-by-one only shows up with three.
     private func threeCategories() -> AppModel {
         let m = configured()
         m.addCategory(name: "Admin", dailyGoal: 2)
@@ -196,7 +196,6 @@ import Foundation
         #expect(m.settings.categories.map(\.name) == ["Admin", "Work", "Music"])
     }
 
-    /// A row dropped back onto itself.
     @Test func movingToTheSlotItAlreadyOccupiesChangesNothing() {
         let m = threeCategories()
         m.moveCategory(from: 1, to: 1)
@@ -242,23 +241,84 @@ import Foundation
     @Test func reorderingLeavesTheSessionTargetPointingAtTheSameCategory() {
         let m = threeCategories()   // Work, Music, Admin
         m.settings.sessionTargetName = "Music"
-        m.moveCategory(from: 1, to: 0)
+        m.moveCategory(from: 1, to: 0)   // Music moves to the front
         #expect(m.resolve(m.sessionTarget) == "Music")
     }
 
-    /// The drop handler resolves both ends by id rather than by position, since
-    /// a drag carries the category's id as its payload. This is that lookup.
-    @Test func aDropResolvesBothEndsByIdentity() {
-        let m = threeCategories()   // Work, Music, Admin
-        let dragged = m.settings.categories[2].id      // Admin
-        let target = m.settings.categories[0].id       // Work
-        let from = m.settings.categories.firstIndex { $0.id == dragged }!
-        let to = m.settings.categories.firstIndex { $0.id == target }!
-        m.moveCategory(from: from, to: to)
-        #expect(m.settings.categories.map(\.name) == ["Admin", "Work", "Music"])
+    // MARK: Drag replay
+
+    /// Four categories, so a drag can cross three slot boundaries — enough
+    /// for several ticks to land in the same slot before the next one commits.
+    private func fourCategories() -> AppModel {
+        let m = threeCategories()
+        m.addCategory(name: "Reading", dailyGoal: 1)
+        return m   // Work, Music, Admin, Reading
     }
 
-    // MARK: Nudging (VoiceOver)
+    /// `pitch` matches `ReorderTests`: one row's height plus the gap to the
+    /// next, so 16 is the rounding boundary between two slots.
+    private let pitch: CGFloat = 32
+
+    /// Every seam here is unit-tested alone — `Reorder.destination` in
+    /// `ReorderTests`, `moveCategory` above — but nothing previously proved
+    /// the two agree on which index is "from". `CategoryList.dragGesture`
+    /// passes `startIndex` to `Reorder.destination` and `currentIndex` to
+    /// `moveCategory`, three lines apart; this replays that exact bookkeeping
+    /// against the real implementations of both, tick by tick, the way a
+    /// mouse drag would drive it.
+    ///
+    /// Also pins the invariant that keeps the row under the pointer: the drawn
+    /// offset — translation minus the distance already absorbed by committed
+    /// moves — never exceeds the sticky band, which is the furthest the row is
+    /// allowed to get from its slot before the move commits.
+    @discardableResult
+    private func replayDrag(on m: AppModel, from startIndex: Int, through translations: [CGFloat]) -> Int {
+        var currentIndex = startIndex
+        for translation in translations {
+            let destination = Reorder.destination(
+                from: startIndex, current: currentIndex, translation: translation, pitch: pitch,
+                count: m.settings.categories.count)
+            if destination != currentIndex {
+                m.moveCategory(from: currentIndex, to: destination)
+                currentIndex = destination
+            }
+            let drawnOffset = abs(translation - CGFloat(currentIndex - startIndex) * pitch)
+            #expect(drawnOffset <= (0.5 + Reorder.stickiness) * pitch)
+        }
+        return currentIndex
+    }
+
+    @Test func aDownwardDragReplaysTheSameOrderAMouseDragWould() {
+        let m = fourCategories()   // Work, Music, Admin, Reading
+        // Steps of 9pt, well short of the 32pt pitch, so several ticks land in
+        // the same slot before the next boundary. With the sticky band those
+        // boundaries are at 22.4, 54.4 and 86.4pt, and no tick lands on one.
+        let end = replayDrag(on: m, from: 0, through: [0, 9, 18, 27, 36, 45, 54, 63, 72, 81, 90, 99])
+        #expect(end == 3)
+        #expect(m.settings.categories.map(\.name) == ["Music", "Admin", "Reading", "Work"])
+    }
+
+    /// The downward case in reverse: same tick size, crossing two boundaries
+    /// instead of three, moving the opposite way.
+    @Test func anUpwardDragReplaysTheSameOrderAMouseDragWould() {
+        let m = fourCategories()   // Work, Music, Admin, Reading
+        let end = replayDrag(on: m, from: 3, through: [0, -9, -18, -27, -36, -45, -54, -63])
+        #expect(end == 1)
+        #expect(m.settings.categories.map(\.name) == ["Work", "Reading", "Music", "Admin"])
+    }
+
+    /// The stutter this stickiness exists to stop: a pointer easing across a
+    /// boundary and wavering there. Every one of these ticks sits within the
+    /// band around the slot the row moved into, so the drag must commit exactly
+    /// one reorder rather than one per tremor.
+    @Test func waveringAtABoundaryCommitsOnlyOneMove() {
+        let m = fourCategories()
+        let end = replayDrag(on: m, from: 0, through: [0, 20, 23, 21, 24, 20, 25, 22, 26])
+        #expect(end == 1)
+        #expect(m.settings.categories.map(\.name) == ["Music", "Work", "Admin", "Reading"])
+    }
+
+    // MARK: Nudging (keyboard and VoiceOver)
 
     @Test func nudgingMovesACategoryOneSlot() {
         let m = threeCategories()

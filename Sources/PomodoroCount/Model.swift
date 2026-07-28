@@ -59,6 +59,12 @@ final class AppModel: ObservableObject {
     let customStoreURL: URL?
     var isLoading = false
 
+    /// Set while a burst of related changes is in flight, so they cost one
+    /// store write between them instead of one each. See `suspendSaves()`.
+    var savesSuspended = false
+    /// A save asked for while suspended, to be honoured on resume.
+    var savePending = false
+
     /// `storeURL` overrides the on-disk location (used by tests so they never
     /// touch the user's real data). Defaults to Application Support.
     init(storeURL: URL? = nil) {
