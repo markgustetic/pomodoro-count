@@ -19,3 +19,50 @@ struct Category: Codable, Identifiable, Equatable {
         name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
+
+/// Where a pomodoro should be filed.
+///
+/// `.automatic` means "work it out" — used by the global hotkey and by a timer
+/// session with no target. `.fallback` is an explicit request for the bucket,
+/// which is not the same thing: with the bucket switched off, `.automatic`
+/// resolves to a real category while `.fallback` still means the bucket.
+enum CategoryTarget: Equatable {
+    case automatic
+    case fallback
+    case named(String)
+}
+
+@MainActor
+extension AppModel {
+
+    /// The category a pomodoro lands in when nothing was chosen.
+    ///
+    /// Order: the marked default when the bucket is off and it still exists;
+    /// then the bucket; then the first category in display order; then the
+    /// bucket regardless. The last two exist so archiving the marked default can
+    /// never leave a pomodoro with nowhere to go.
+    var automaticCategoryName: String? {
+        guard settings.categoriesEnabled else { return nil }
+        guard !settings.usesFallbackBucket else { return nil }
+
+        if let marked = settings.defaultCategoryName, categoryExists(marked) {
+            return marked
+        }
+        return settings.categories.first?.name
+    }
+
+    func resolve(_ target: CategoryTarget) -> String? {
+        switch target {
+        case .automatic:      return automaticCategoryName
+        case .fallback:       return nil
+        case .named(let name): return settings.categoriesEnabled ? name : nil
+        }
+    }
+
+    /// True when a category with this name is currently in the list. Archived
+    /// names return false — they hold history but receive nothing new.
+    func categoryExists(_ name: String) -> Bool {
+        let wanted = Category.normalized(name)
+        return settings.categories.contains { Category.normalized($0.name) == wanted }
+    }
+}

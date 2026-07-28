@@ -311,7 +311,7 @@ final class AppModel: ObservableObject {
         endDate = nil
 
         if finished == .work {
-            records.append(Record(at: Date(), source: "timer"))
+            records.append(Record(at: Date(), source: "timer", category: resolve(.automatic)))
             play(.sessionDone)
             notify("Pomodoro complete", "Nice — that's \(todayCount) today.")
             if settings.autoStartBreak {
@@ -331,8 +331,8 @@ final class AppModel: ObservableObject {
     /// Records a pomodoro completed outside the app, e.g. on a physical timer.
     /// `announce` (used by the global hotkey) also posts a confirmation banner,
     /// since the panel may not be open to show the count change.
-    func logExternal(announce: Bool = false) {
-        records.append(Record(at: Date(), source: "manual"))
+    func logExternal(to target: CategoryTarget = .automatic, announce: Bool = false) {
+        records.append(Record(at: Date(), source: "manual", category: resolve(target)))
         play(.countUp)
         if announce {
             notify("Pomodoro logged", "That's \(todayCount) today.")
