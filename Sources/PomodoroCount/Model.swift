@@ -1,8 +1,5 @@
-import SwiftUI
+import Foundation
 import AppKit
-import ServiceManagement
-import UserNotifications
-import Carbon.HIToolbox
 
 // MARK: - App model
 
