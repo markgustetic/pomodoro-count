@@ -49,7 +49,7 @@ struct AddCategoryForm: View {
             if !trimmed.isEmpty && !canAdd {
                 Text("That name is already taken.")
                     .font(.caption2)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(palette.error)
             }
 
             HStack(spacing: 8) {
@@ -142,11 +142,12 @@ struct CommittableNameField: View {
 
     @State private var draft = ""
     @State private var rejected = false
+    @Environment(\.palette) private var palette
 
     var body: some View {
         TextField("Name", text: $draft)
             .textFieldStyle(.roundedBorder)
-            .foregroundStyle(rejected ? Color.red : Color.primary)
+            .foregroundStyle(rejected ? palette.error : palette.text)
             .onSubmit(submit)
             .onAppear { draft = current() }
             .accessibilityLabel(accessibilityLabel)

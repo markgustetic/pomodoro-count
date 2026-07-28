@@ -79,6 +79,7 @@ struct Palette {
     // Accents
     var accent: Color        // brand: count, chart bars
     var accent2: Color       // gradient partner for bars
+    var error: Color         // rejected input, "name taken" notices
     var cool: Color          // secondary controls, stat numbers
     var idleColor: Color     // timer text when idle
     var focusColor: Color    // timer text while focusing
@@ -104,6 +105,9 @@ struct Palette {
         textDim: .secondary,
         accent: Color(red: 0.88, green: 0.22, blue: 0.19),
         accent2: Color(red: 0.72, green: 0.15, blue: 0.13),
+        // The brand red doubles as the error red: Classic's errors always
+        // rendered in this family, and a second red would just compete.
+        error: Color(red: 0.88, green: 0.22, blue: 0.19),
         cool: .primary,
         idleColor: .secondary,
         focusColor: Color(red: 0.88, green: 0.22, blue: 0.19),
@@ -132,6 +136,9 @@ struct Palette {
         textDim: Color(hex: 0xC0ABE6),
         accent: Color(hex: 0xFF2A6D),
         accent2: Color(hex: 0xB026FF),
+        // Hot pink, not system red: plain red is the one warm colour the
+        // neon set doesn't contain, and it read as a rendering glitch there.
+        error: Color(hex: 0xFF2A6D),
         cool: Color(hex: 0x05D9E8),
         idleColor: Color(hex: 0x05D9E8),
         focusColor: Color(hex: 0xB026FF),
