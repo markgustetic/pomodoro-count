@@ -15,9 +15,12 @@ import Foundation
         return m
     }
 
-    @Test func theTargetDefaultsToTheBucket() {
+    @Test func theTargetDefaultsToAutomaticNotTheBucket() {
         let m = configured()
-        #expect(m.sessionTarget == .fallback)
+        // Unset falls to the default chain, not an explicit request for the
+        // bucket — with the bucket on (as here) that chain still reaches it.
+        #expect(m.sessionTarget == .automatic)
+        #expect(m.resolve(m.sessionTarget) == nil)
     }
 
     @Test func settingTheTargetPersistsIt() {
@@ -46,6 +49,20 @@ import Foundation
         m.startWork()
         m.forceCompleteForTesting()
         #expect(m.records.last?.category == nil)   // bucket is on
+    }
+
+    /// This is the case that actually discriminates between the old bug and
+    /// the fix: with the bucket switched off, an archived (or unset) target
+    /// must credit the marked default, not the bucket the user turned off.
+    @Test func anArchivedTargetWithTheBucketOffCreditsTheDefaultNotTheBucket() {
+        let m = configured()
+        m.settings.usesFallbackBucket = false
+        m.settings.defaultCategoryName = "Work"
+        m.sessionTarget = .named("Music")
+        m.settings.categories.removeAll { $0.name == "Music" }
+        m.startWork()
+        m.forceCompleteForTesting()
+        #expect(m.records.last?.category == "Work")
     }
 
     @Test func aBreakCreditsNothing() {

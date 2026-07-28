@@ -146,7 +146,7 @@ final class AppModel: ObservableObject {
     var sessionTarget: CategoryTarget {
         get {
             guard let name = settings.sessionTargetName, categoryExists(name) else {
-                return .fallback
+                return .automatic
             }
             return .named(name)
         }

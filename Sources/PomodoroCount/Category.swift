@@ -75,6 +75,9 @@ struct CategoryProgress: Identifiable {
     let goal: Int
     /// True for the fallback bucket, whose records carry no category name.
     let isFallback: Bool
+    /// True while a focus session is actually running and aimed at this
+    /// category — not merely while one is paused or idle.
+    let isSessionTarget: Bool
 
     /// A goal of 0 means "no target", so it can never be met.
     var isMet: Bool { goal > 0 && done >= goal }
@@ -110,13 +113,20 @@ extension AppModel {
     /// still holds pomodoros after being switched off — the same rule an
     /// archived category follows.
     var todayProgress: [CategoryProgress] {
+        // "Running" means an actual focus session in progress, not idle or
+        // paused — a paused session's target row should not stay outlined.
+        let sessionRunning = phase == .work && isRunning
+        let targetName = sessionRunning ? resolve(sessionTarget) : nil
+        let normalizedTarget = targetName.map(Category.normalized)
+
         var rows = settings.categories.map { category in
             CategoryProgress(
                 id: category.id.uuidString,
                 name: category.name,
                 done: todayCount(inCategory: category.name),
                 goal: category.dailyGoal,
-                isFallback: false)
+                isFallback: false,
+                isSessionTarget: sessionRunning && normalizedTarget == Category.normalized(category.name))
         }
 
         let bucketCount = todayCount(inCategory: nil)
@@ -126,7 +136,8 @@ extension AppModel {
                 name: settings.fallbackName,
                 done: bucketCount,
                 goal: settings.fallbackGoal,
-                isFallback: true))
+                isFallback: true,
+                isSessionTarget: sessionRunning && targetName == nil))
         }
         return rows
     }
@@ -146,6 +157,38 @@ extension AppModel {
         }
     }
 
+    /// Mirrors `isCategoryNameAvailable` from the fallback bucket's side: its
+    /// name must be non-empty and not collide with any current category,
+    /// case-insensitively with whitespace trimmed. Names are unique across
+    /// categories *and* the fallback name — this is the other half of that
+    /// rule, which nothing previously enforced.
+    func isFallbackNameAvailable(_ name: String) -> Bool {
+        let wanted = Category.normalized(name)
+        guard !wanted.isEmpty else { return false }
+        return !settings.categories.contains { Category.normalized($0.name) == wanted }
+    }
+
+    /// Returns false and changes nothing when the name is empty or collides
+    /// with a current category.
+    @discardableResult
+    func setFallbackName(_ name: String) -> Bool {
+        guard isFallbackNameAvailable(name) else { return false }
+        settings.fallbackName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return true
+    }
+
+    /// True when records already carry this name but no *current* category
+    /// owns it — i.e. the name belongs to something archived. Renaming into
+    /// such a name would silently absorb that history and then, on a later
+    /// rename away, permanently relabel it. The sanctioned way to reunite
+    /// with archived history is to delete and re-add a category with the
+    /// same name, not to rename over it.
+    private func hasArchivedRecords(named name: String) -> Bool {
+        guard !categoryExists(name) else { return false }
+        let wanted = Category.normalized(name)
+        return records.contains { $0.category.map(Category.normalized) == wanted }
+    }
+
     /// Returns false and changes nothing when the name is empty or taken.
     @discardableResult
     func addCategory(name: String, dailyGoal: Int) -> Bool {
@@ -157,28 +200,38 @@ extension AppModel {
     }
 
     /// Rewrites every record that referenced the old name, in one pass, so no
-    /// history is orphaned. Returns false and changes nothing when the new name
-    /// is empty or taken by a different category.
+    /// history is orphaned. Returns false and changes nothing when the new
+    /// name is empty, taken by a different category, or already has archived
+    /// records under it that don't belong to this category.
+    ///
+    /// `records` and `settings` are each built up locally and assigned once,
+    /// so a rename costs at most two saves total — not one per record.
     @discardableResult
     func renameCategory(id: UUID, to newName: String) -> Bool {
         guard let index = settings.categories.firstIndex(where: { $0.id == id }),
-              isCategoryNameAvailable(newName, excluding: id)
+              isCategoryNameAvailable(newName, excluding: id),
+              !hasArchivedRecords(named: newName)
         else { return false }
 
         let old = Category.normalized(settings.categories[index].name)
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        for i in records.indices where records[i].category.map(Category.normalized) == old {
-            records[i].category = trimmed
+        var updatedRecords = records
+        for i in updatedRecords.indices where updatedRecords[i].category.map(Category.normalized) == old {
+            updatedRecords[i].category = trimmed
         }
-        settings.categories[index].name = trimmed
+        records = updatedRecords
 
-        if settings.defaultCategoryName.map(Category.normalized) == old {
-            settings.defaultCategoryName = trimmed
+        var updatedSettings = settings
+        updatedSettings.categories[index].name = trimmed
+        if updatedSettings.defaultCategoryName.map(Category.normalized) == old {
+            updatedSettings.defaultCategoryName = trimmed
         }
-        if settings.sessionTargetName.map(Category.normalized) == old {
-            settings.sessionTargetName = trimmed
+        if updatedSettings.sessionTargetName.map(Category.normalized) == old {
+            updatedSettings.sessionTargetName = trimmed
         }
+        settings = updatedSettings
+
         return true
     }
 

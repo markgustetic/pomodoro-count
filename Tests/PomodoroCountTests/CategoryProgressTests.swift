@@ -117,4 +117,51 @@ import Foundation
         let bucket = m.todayProgress.first { $0.isFallback }!
         #expect(bucket.accessibilityValue == "1 pomodoro")
     }
+
+    // MARK: Session-target outline
+
+    @Test func isSessionTargetMarksOnlyTheRunningTargetCategory() {
+        let m = configured()
+        m.sessionTarget = .named("Work")
+        m.settings.workMinutes = 1
+        m.startWork()
+        let work = m.todayProgress.first { $0.name == "Work" }!
+        let ai = m.todayProgress.first { $0.name == "AI study" }!
+        #expect(work.isSessionTarget)
+        #expect(!ai.isSessionTarget)
+    }
+
+    @Test func isSessionTargetMarksTheBucketWhenThatIsTheRunningTarget() {
+        let m = configured()   // sessionTarget unset -> automatic -> bucket (bucket on)
+        m.settings.workMinutes = 1
+        m.startWork()
+        let bucket = m.todayProgress.first { $0.isFallback }!
+        #expect(bucket.isSessionTarget)
+    }
+
+    @Test func isSessionTargetIsFalseWithNoSessionRunning() {
+        let m = configured()
+        m.sessionTarget = .named("Work")
+        let work = m.todayProgress.first { $0.name == "Work" }!
+        #expect(!work.isSessionTarget)
+    }
+
+    @Test func isSessionTargetIsFalseDuringABreak() {
+        let m = configured()
+        m.sessionTarget = .named("Work")
+        m.settings.breakMinutes = 1
+        m.startBreak()
+        let work = m.todayProgress.first { $0.name == "Work" }!
+        #expect(!work.isSessionTarget)
+    }
+
+    @Test func isSessionTargetIsFalseWhilePaused() {
+        let m = configured()
+        m.sessionTarget = .named("Work")
+        m.settings.workMinutes = 1
+        m.startWork()
+        m.pause()
+        let work = m.todayProgress.first { $0.name == "Work" }!
+        #expect(!work.isSessionTarget)
+    }
 }

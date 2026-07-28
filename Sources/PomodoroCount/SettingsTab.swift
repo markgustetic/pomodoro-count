@@ -104,9 +104,7 @@ struct SettingsTab: View {
                         Toggle("Fallback category", isOn: $model.settings.usesFallbackBucket)
                         if model.settings.usesFallbackBucket {
                             HStack(spacing: 6) {
-                                TextField("Name", text: $model.settings.fallbackName)
-                                    .textFieldStyle(.roundedBorder)
-                                    .accessibilityLabel("Fallback category name")
+                                FallbackNameField()
                                 Stepper(value: $model.settings.fallbackGoal, in: 0...20) {
                                     Text("\(model.settings.fallbackGoal)")
                                         .font(.caption.monospacedDigit())
@@ -223,6 +221,39 @@ struct CategorySettingsRow: View {
         } else {
             rejected = true
             draftName = category.name
+        }
+    }
+}
+
+/// The fallback bucket's editable name. Its name shares the same uniqueness
+/// space as every category's, so it uses the same draft + reject-and-snap-back
+/// pattern as `CategorySettingsRow` rather than binding straight to the
+/// setting — which would accept a colliding or empty name and rewrite the
+/// store on every keystroke.
+struct FallbackNameField: View {
+    @EnvironmentObject var model: AppModel
+    @State private var draftName: String = ""
+    @State private var rejected = false
+
+    var body: some View {
+        TextField("Name", text: $draftName)
+            .textFieldStyle(.roundedBorder)
+            .foregroundStyle(rejected ? Color.red : Color.primary)
+            .onSubmit(commit)
+            .onAppear { draftName = model.settings.fallbackName }
+            .accessibilityLabel("Fallback category name")
+    }
+
+    /// Same rejection contract as `CategorySettingsRow.commit`: on success the
+    /// field is resynced to the model's trimmed name; on failure it snaps back
+    /// to the name the model still has.
+    private func commit() {
+        if model.setFallbackName(draftName) {
+            rejected = false
+            draftName = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            rejected = true
+            draftName = model.settings.fallbackName
         }
     }
 }

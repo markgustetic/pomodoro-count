@@ -73,6 +73,14 @@ struct CategoryRow: View {
                         RoundedRectangle(cornerRadius: 11, style: .continuous)
                             .strokeBorder(palette.cardStroke, lineWidth: 1)
                     }
+                    .overlay {
+                        // The running session's target row stays outlined so
+                        // it's clear where the next completed pomodoro lands.
+                        if progress.isSessionTarget {
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .strokeBorder(palette.accent.opacity(0.8), lineWidth: 1.5)
+                        }
+                    }
             }
         }
         .buttonStyle(.plain)
