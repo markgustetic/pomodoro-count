@@ -9,11 +9,14 @@ struct HistoryTab: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.palette) private var palette
     @State private var range: ChartRange = .week
+    @State private var grouping: Grouping = .day
 
     enum ChartRange: String, CaseIterable {
         case week = "Week", month = "Month"
         var days: Int { self == .week ? 7 : 30 }
     }
+
+    enum Grouping: String, CaseIterable { case day = "By day", category = "By category" }
 
     var body: some View {
         let stats = model.history()
@@ -37,39 +40,33 @@ struct HistoryTab: View {
                     .accessibilityHint("Saves your whole history as a spreadsheet file")
             }
 
+            if model.settings.categoriesEnabled {
+                SegmentedControl(
+                    items: Grouping.allCases.map { (value: $0, label: $0.rawValue) },
+                    selection: $grouping,
+                    accessibilityLabel: "Group history by")
+            }
+
             if stats.isEmpty {
                 Text("No pomodoros logged yet.")
                     .font(.caption)
                     .foregroundStyle(palette.textDim)
                     .frame(maxWidth: .infinity, minHeight: 40)
             } else {
-                let maxCount = max(1, stats.map(\.count).max() ?? 1)
                 ScrollView {
                     VStack(spacing: 7) {
-                        ForEach(stats) { s in
-                            HStack(spacing: 8) {
-                                Text(model.dayLabel(s.date))
-                                    .font(.caption)
-                                    .foregroundStyle(palette.textDim)
-                                    .frame(width: 84, alignment: .leading)
-                                GeometryReader { geo in
-                                    Capsule()
-                                        .fill(LinearGradient(
-                                            colors: [palette.accent, palette.accent2],
-                                            startPoint: .leading, endPoint: .trailing))
-                                        .frame(width: max(4, geo.size.width * CGFloat(s.count) / CGFloat(maxCount)))
-                                        .frame(maxHeight: .infinity, alignment: .center)
-                                        .neonGlow(palette.accent, enabled: palette.neon, radius: 4, opacity: 0.5)
-                                }
-                                .frame(height: 10)
-                                Text("\(s.count)")
-                                    .font(.caption.monospacedDigit())
-                                    .frame(width: 24, alignment: .trailing)
+                        if grouping == .day || !model.settings.categoriesEnabled {
+                            let maxCount = max(1, stats.map(\.count).max() ?? 1)
+                            ForEach(stats) { s in
+                                HistoryBar(label: model.dayLabel(s.date),
+                                           count: s.count, maxCount: maxCount)
                             }
-                            // One stop per day rather than label, bar, number.
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(model.dayLabel(s.date))
-                            .accessibilityValue("\(s.count) \(s.count == 1 ? "pomodoro" : "pomodoros")")
+                        } else {
+                            let totals = model.categoryTotals(days: range.days)
+                            let maxCount = max(1, totals.map(\.count).max() ?? 1)
+                            ForEach(totals) { t in
+                                HistoryBar(label: t.name, count: t.count, maxCount: maxCount)
+                            }
                         }
                     }
                 }
@@ -158,5 +155,40 @@ struct HistoryTab: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue("\(value) \(value == 1 ? "pomodoro" : "pomodoros")")
+    }
+}
+
+/// One bar row in the History list — used by both groupings so they stay
+/// visually identical.
+private struct HistoryBar: View {
+    let label: String
+    let count: Int
+    let maxCount: Int
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(palette.textDim)
+                .frame(width: 84, alignment: .leading)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            GeometryReader { geo in
+                Capsule()
+                    .fill(LinearGradient(colors: [palette.accent, palette.accent2],
+                                         startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(4, geo.size.width * CGFloat(count) / CGFloat(maxCount)))
+                    .frame(maxHeight: .infinity, alignment: .center)
+                    .neonGlow(palette.accent, enabled: palette.neon, radius: 4, opacity: 0.5)
+            }
+            .frame(height: 10)
+            Text("\(count)")
+                .font(.caption.monospacedDigit())
+                .frame(width: 24, alignment: .trailing)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue("\(count) \(count == 1 ? "pomodoro" : "pomodoros")")
     }
 }

@@ -192,3 +192,57 @@ extension AppModel {
         settings.categories.move(fromOffsets: source, toOffset: destination)
     }
 }
+
+/// One row of the History breakdown.
+struct CategoryTotal: Identifiable {
+    let id: String
+    let name: String
+    let count: Int
+}
+
+@MainActor
+extension AppModel {
+
+    /// Totals per category over the last `days` days, ending today.
+    ///
+    /// Current categories come first in display order and appear even at zero —
+    /// a neglected category should be visible, not absent. Then the bucket, then
+    /// any archived names that still have records in range, alphabetically.
+    func categoryTotals(days: Int) -> [CategoryTotal] {
+        let calendar = Calendar.current
+        let cutoff = calendar.date(
+            byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: Date()))!
+        let inRange = records.filter { $0.at >= cutoff }
+
+        var counts: [String: Int] = [:]     // normalized name (or "") -> count
+        for record in inRange {
+            counts[record.category.map(Category.normalized) ?? "", default: 0] += 1
+        }
+
+        var totals = settings.categories.map { category in
+            CategoryTotal(
+                id: category.id.uuidString,
+                name: category.name,
+                count: counts.removeValue(forKey: Category.normalized(category.name)) ?? 0)
+        }
+
+        if let bucket = counts.removeValue(forKey: ""), bucket > 0 {
+            totals.append(CategoryTotal(id: "fallback", name: settings.fallbackName, count: bucket))
+        } else if settings.usesFallbackBucket {
+            totals.append(CategoryTotal(id: "fallback", name: settings.fallbackName, count: 0))
+        }
+
+        // Whatever is left is archived: it has records in range but no category.
+        // Their display name comes from the first record that used it, so the
+        // user's original capitalisation survives.
+        let archivedNames = Dictionary(
+            grouping: inRange.compactMap(\.category),
+            by: Category.normalized)
+        for (normalized, count) in counts.sorted(by: { $0.key < $1.key }) {
+            let display = archivedNames[normalized]?.first ?? normalized
+            totals.append(CategoryTotal(id: "archived-\(normalized)", name: display, count: count))
+        }
+
+        return totals
+    }
+}
