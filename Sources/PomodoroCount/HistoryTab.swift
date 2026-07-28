@@ -20,6 +20,9 @@ struct HistoryTab: View {
 
     var body: some View {
         let stats = model.history(days: range.days)
+        let categoryTotals = model.categoryTotals(days: range.days)
+        let showsCategoryBreakdown = grouping == .category && model.settings.categoriesEnabled
+        let isEmpty = showsCategoryBreakdown ? categoryTotals.isEmpty : stats.isEmpty
         VStack(spacing: 10) {
             SegmentedControl(
                 items: ChartRange.allCases.map { (value: $0, label: $0.rawValue) },
@@ -47,7 +50,7 @@ struct HistoryTab: View {
                     accessibilityLabel: "Group history by")
             }
 
-            if stats.isEmpty {
+            if isEmpty {
                 Text("No pomodoros logged yet.")
                     .font(.caption)
                     .foregroundStyle(palette.textDim)
@@ -55,17 +58,16 @@ struct HistoryTab: View {
             } else {
                 ScrollView {
                     VStack(spacing: 7) {
-                        if grouping == .day || !model.settings.categoriesEnabled {
+                        if showsCategoryBreakdown {
+                            let maxCount = max(1, categoryTotals.map(\.count).max() ?? 1)
+                            ForEach(categoryTotals) { t in
+                                HistoryBar(label: t.name, count: t.count, maxCount: maxCount)
+                            }
+                        } else {
                             let maxCount = max(1, stats.map(\.count).max() ?? 1)
                             ForEach(stats) { s in
                                 HistoryBar(label: model.dayLabel(s.date),
                                            count: s.count, maxCount: maxCount)
-                            }
-                        } else {
-                            let totals = model.categoryTotals(days: range.days)
-                            let maxCount = max(1, totals.map(\.count).max() ?? 1)
-                            ForEach(totals) { t in
-                                HistoryBar(label: t.name, count: t.count, maxCount: maxCount)
                             }
                         }
                     }

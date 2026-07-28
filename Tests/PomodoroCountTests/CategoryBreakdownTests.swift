@@ -76,4 +76,24 @@ import Foundation
         let daily = m.dailySeries(days: 7).map(\.count).reduce(0, +)
         #expect(breakdown == daily)
     }
+
+    /// With categories configured but nothing logged inside the range,
+    /// `categoryTotals` still returns the zero-filled current categories while
+    /// `history` returns nothing at all for the same window. The History view's
+    /// "No pomodoros logged yet." gate must track whichever of these the
+    /// rendered branch actually consults — not always `history` — or the
+    /// category list gets hidden behind an empty-state message it shouldn't
+    /// show.
+    @Test func categoryTotalsSurviveAnEmptyRangeThatEmptiesHistory() {
+        let m = configured()
+        m.records = [Record(at: .daysAgo(20), source: "manual", category: "Work")]
+
+        #expect(m.history(days: 7).isEmpty)
+
+        let totals = m.categoryTotals(days: 7)
+        #expect(!totals.isEmpty)
+        #expect(totals.map(\.name).contains("Work"))
+        #expect(totals.map(\.name).contains("Music"))
+        #expect(totals.allSatisfy { $0.count == 0 })
+    }
 }
