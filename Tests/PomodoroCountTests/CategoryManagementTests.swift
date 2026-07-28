@@ -234,6 +234,79 @@ import Foundation
         #expect(reloaded.settings.categories.map(\.name) == ["Music", "Work"])
     }
 
+    /// A reorder must not disturb the session target. The coupling between
+    /// them is by name, not index — there is nothing to keep in sync, but
+    /// that is exactly the kind of invariant a future index-based change
+    /// could break without any existing test noticing.
+    @Test func reorderingLeavesTheSessionTargetPointingAtTheSameCategory() {
+        let m = threeCategories()   // Work, Music, Admin
+        m.settings.sessionTargetName = "Music"
+        m.moveCategory(from: 1, to: 0)   // Music moves to the front
+        #expect(m.resolve(m.sessionTarget) == "Music")
+    }
+
+    // MARK: Drag replay
+
+    /// Four categories, so a drag can cross three slot boundaries — enough
+    /// for several ticks to land in the same slot before the next one commits.
+    private func fourCategories() -> AppModel {
+        let m = threeCategories()
+        m.addCategory(name: "Reading", dailyGoal: 1)
+        return m   // Work, Music, Admin, Reading
+    }
+
+    /// `pitch` matches `ReorderTests`: one row's height plus the gap to the
+    /// next, so 16 is the rounding boundary between two slots.
+    private let pitch: CGFloat = 32
+
+    /// Every seam here is unit-tested alone — `Reorder.destination` in
+    /// `ReorderTests`, `moveCategory` above — but nothing previously proved
+    /// the two agree on which index is "from". `CategoryList.dragGesture`
+    /// passes `startIndex` to `Reorder.destination` and `currentIndex` to
+    /// `moveCategory`, three lines apart; this replays that exact bookkeeping
+    /// against the real implementations of both, tick by tick, the way a
+    /// mouse drag would drive it.
+    ///
+    /// Also pins the invariant that keeps the row under the pointer: once a
+    /// tick has moved the row into the slot its translation calls for, the
+    /// drawn offset — translation minus the distance already absorbed by
+    /// committed moves — stays within half a pitch.
+    @discardableResult
+    private func replayDrag(on m: AppModel, from startIndex: Int, through translations: [CGFloat]) -> Int {
+        var currentIndex = startIndex
+        for translation in translations {
+            let destination = Reorder.destination(
+                from: startIndex, translation: translation, pitch: pitch,
+                count: m.settings.categories.count)
+            if destination != currentIndex {
+                m.moveCategory(from: currentIndex, to: destination)
+                currentIndex = destination
+            }
+            #expect(abs(translation - CGFloat(currentIndex - startIndex) * pitch) < pitch / 2)
+        }
+        return currentIndex
+    }
+
+    @Test func aDownwardDragReplaysTheSameOrderAMouseDragWould() {
+        let m = fourCategories()   // Work, Music, Admin, Reading
+        // Steps of 9pt, short of the 32pt pitch, so several ticks land in the
+        // same slot before the next boundary — 16, 48 and 80 are where
+        // `Reorder.destination` rounds to the next slot, and none of these
+        // translations lands exactly on one.
+        let end = replayDrag(on: m, from: 0, through: [0, 9, 18, 27, 36, 45, 54, 63, 72, 81])
+        #expect(end == 3)
+        #expect(m.settings.categories.map(\.name) == ["Music", "Admin", "Reading", "Work"])
+    }
+
+    /// Shorter than the downward case above: fewer ticks, crossing two
+    /// boundaries instead of three, and moving the opposite direction.
+    @Test func anUpwardDragReplaysTheSameOrderAMouseDragWould() {
+        let m = fourCategories()   // Work, Music, Admin, Reading
+        let end = replayDrag(on: m, from: 3, through: [0, -9, -18, -27, -36, -45, -54])
+        #expect(end == 1)
+        #expect(m.settings.categories.map(\.name) == ["Work", "Reading", "Music", "Admin"])
+    }
+
     // MARK: Nudging (keyboard and VoiceOver)
 
     @Test func nudgingMovesACategoryOneSlot() {
