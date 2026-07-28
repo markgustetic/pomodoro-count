@@ -12,6 +12,10 @@ struct Record: Codable, Identifiable {
     var id = UUID()
     var at: Date
     var source: String
+    /// The category NAME, or nil for the fallback bucket. Optional so that
+    /// Swift's synthesized decoder treats it as decodeIfPresent and every
+    /// existing data.json still loads.
+    var category: String?
 }
 
 /// A global hotkey combination. Modifiers are stored as Carbon masks (as
