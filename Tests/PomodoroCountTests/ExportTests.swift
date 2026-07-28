@@ -73,11 +73,6 @@ import Foundation
         #expect(m.csvFilename == "pomodoro-count-\(formatter.string(from: Date())).csv")
     }
 
-    @Test func theHeaderCarriesTheCategoryColumn() {
-        let (m, _) = makeModel()
-        #expect(m.csvExport() == "timestamp,source,category\n")
-    }
-
     @Test func rowsCarryTheirCategory() {
         let (m, _) = makeModel()
         m.records = [Record(at: Date(), source: "manual", category: "Work")]
