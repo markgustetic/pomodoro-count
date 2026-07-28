@@ -75,9 +75,9 @@ struct SettingsTab: View {
                     if model.settings.categoriesEnabled {
                         // A List is required for SwiftUI to synthesise the drag-to-reorder
                         // affordance for `.onMove` — a ForEach in a plain VStack never gets
-                        // one. It's given an explicit height sized to its row count so it
-                        // doesn't open its own internal scroller nested inside the tab's
-                        // outer ScrollView.
+                        // one. It's disabled from scrolling and fixed to its content size so it
+                        // sizes to its rows instead of opening an internal scroller nested inside
+                        // the tab's outer ScrollView.
                         List {
                             ForEach(model.settings.categories) { category in
                                 CategorySettingsRow(category: category)
@@ -89,7 +89,8 @@ struct SettingsTab: View {
                         }
                         .listStyle(.plain)
                         .scrollContentBackground(.hidden)
-                        .frame(height: CGFloat(model.settings.categories.count) * Self.categoryRowHeight)
+                        .scrollDisabled(true)
+                        .fixedSize(horizontal: false, vertical: true)
 
                         Button {
                             addCategory()
@@ -149,11 +150,6 @@ struct SettingsTab: View {
         .tint(palette.accent)
         .font(.callout)
     }
-
-    /// Measured height of one `CategorySettingsRow` inside the `List`, including
-    /// its tamed row insets — used to size the list to its content instead of
-    /// letting it open an internal scroller.
-    private static let categoryRowHeight: CGFloat = 32
 
     /// Names a new category "Category 2", "Category 3"… so adding never fails
     /// on a collision the user did not choose.
