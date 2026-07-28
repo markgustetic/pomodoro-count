@@ -153,6 +153,12 @@ struct SettingsTab: View {
     /// Measured height of one `CategorySettingsRow` inside the `List`, including
     /// its tamed row insets — used to size the list to its content instead of
     /// letting it open an internal scroller.
+    ///
+    /// A hardcoded measurement is unsatisfying, and the obvious replacement does
+    /// not work: `.scrollDisabled(true)` plus `.fixedSize(horizontal: false,
+    /// vertical: true)` collapses the `List` to zero height and the rows vanish
+    /// from Settings entirely. That was tried and reverted. If you change this
+    /// row's font, padding, or controls, re-measure this number.
     private static let categoryRowHeight: CGFloat = 32
 
     /// Names a new category "Category 2", "Category 3"… so adding never fails
