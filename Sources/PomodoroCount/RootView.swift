@@ -188,10 +188,14 @@ struct RootView: View {
                         Button(category.name) { model.sessionTarget = .named(category.name) }
                     }
                 } label: {
+                    // No decorative dot here, and it isn't an oversight.
+                    // `.menuStyle(.borderlessButton)` draws this label through
+                    // NSPopUpButton, which drops arbitrary Shape content entirely
+                    // (a Circle rendered as nothing) and paints an Image in the
+                    // control's own text colour, ignoring foregroundStyle. So a
+                    // dot can only ever be a black bullet that matches neither
+                    // palette. The text and the chevron carry the meaning.
                     HStack(spacing: 4) {
-                        Circle()
-                            .fill(palette.accent)
-                            .frame(width: 7, height: 7)
                         Text("towards \(sessionTargetLabel)")
                             .font(.caption)
                             .lineLimit(1)
