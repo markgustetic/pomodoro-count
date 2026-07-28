@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A data file that fails to read is now backed up before the app's next save
+  can overwrite it, so a corrupted store can never silently erase your history.
+
 ### Added
 
 - **Reorder categories** — drag a category by the grip handle on its Settings

@@ -51,7 +51,20 @@ extension AppModel {
         guard let data = try? Data(contentsOf: storeURL) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        guard let persisted = try? decoder.decode(Persisted.self, from: data) else { return }
+        guard let persisted = try? decoder.decode(Persisted.self, from: data) else {
+            // Starting empty is the easy half of surviving a corrupt file. The
+            // hard half: the very next save re-encodes that empty state over
+            // data.json, erasing the only copy of the user's history. Keep the
+            // unreadable bytes first, exactly as the newer-schema path below
+            // does — a decode failure must never cost anyone their data.
+            // Timestamped so a later, unrelated corruption cannot overwrite
+            // the evidence of this one.
+            let backup = storeURL.deletingLastPathComponent()
+                .appendingPathComponent("data-unreadable-\(Int(Date().timeIntervalSince1970))-backup.json")
+            try? data.write(to: backup, options: .atomic)
+            NSLog("data.json failed to decode; original bytes kept in \(backup.lastPathComponent)")
+            return
+        }
 
         // A newer build wrote this file. We'll read what we understand and then
         // save in our own older format, which would drop whatever we don't — so

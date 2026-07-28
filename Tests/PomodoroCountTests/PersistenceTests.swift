@@ -116,6 +116,26 @@ import Foundation
         #expect(m.settings.workMinutes == 50)
     }
 
+    /// Starting empty is only safe if the unreadable file survives: the very
+    /// next save re-encodes the empty state over data.json, and without a
+    /// backup that write would silently erase the only copy of the user's
+    /// history. Same principle the newer-schema path already applies —
+    /// a decode failure must never cost anyone their data either.
+    @Test func anUnreadableStoreIsBackedUpBeforeTheNextSaveCanEraseIt() throws {
+        let contents = "{\"records\":\"wrong type\",\"clue\":\"the original bytes\"}"
+        let url = try storeURL(containing: contents)
+        let m = AppModel(storeURL: url)
+
+        m.settings.workMinutes = 45   // fires save(), overwriting data.json
+
+        let dir = url.deletingLastPathComponent()
+        let backups = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0.contains("unreadable") }
+        let backup = try #require(backups.first, "no backup of the unreadable store was written")
+        let preserved = try String(contentsOf: dir.appendingPathComponent(backup), encoding: .utf8)
+        #expect(preserved == contents, "the backup must be the original bytes, not a re-encode")
+    }
+
     @Test func settingsChangesArePersistedImmediately() {
         let (m, url) = makeModel()
         m.settings.autoStartBreak = false
