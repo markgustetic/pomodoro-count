@@ -385,7 +385,13 @@ struct CategoryList: View {
     /// Animates a one-slot nudge, so a keyboard move reads the same as a drag.
     /// A row at either end stays put — `nudgeCategory` ignores a destination off
     /// the end, so there is no special case here.
+    ///
+    /// Declines while a drag is live. A drag holds indices of its own that a
+    /// nudge would shift out from under it, leaving it reordering a row the
+    /// pointer is no longer on. The two ways of reordering are alternatives, not
+    /// things to do at once, and the drag is the one already in progress.
     private func nudge(_ category: Category, by delta: Int) {
+        guard drag == nil else { return }
         withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
             model.nudgeCategory(id: category.id, by: delta)
         }
