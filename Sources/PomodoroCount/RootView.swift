@@ -243,7 +243,9 @@ struct RootView: View {
                 }
                 .buttonStyle(SoftIconButtonStyle())
                 .disabled(model.phase == .idle)
-                .help("Stop and reset")
+                // Says what the label doesn't: the hint and the tooltip share
+                // this string, and repeating the label would double-speak.
+                .help("Abandons the session — nothing is logged")
                 .accessibilityLabel("Stop and reset")
 
                 if model.phase != .breakTime {
@@ -251,7 +253,7 @@ struct RootView: View {
                         Image(systemName: "cup.and.saucer.fill")
                     }
                     .buttonStyle(SoftIconButtonStyle())
-                    .help("Start a break now")
+                    .help("Rest now — an unfinished focus session isn't logged")
                     .accessibilityLabel("Start a break now")
                 }
             }

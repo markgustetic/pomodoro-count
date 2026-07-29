@@ -30,16 +30,25 @@ struct SettingsTab: View {
                     }
                 }
 
+                // Each duration stepper carries an explicit label and value:
+                // left to the Text label, VoiceOver reads the embedded number
+                // as the label and then again as the stepper's value.
                 Stepper(value: $model.settings.workMinutes, in: 1...180) {
                     Text("Focus: **\(model.settings.workMinutes)** min")
                 }
+                .accessibilityLabel("Focus duration")
+                .accessibilityValue("\(model.settings.workMinutes) minutes")
                 Stepper(value: $model.settings.breakMinutes, in: 1...60) {
                     Text("Break: **\(model.settings.breakMinutes)** min")
                 }
+                .accessibilityLabel("Break duration")
+                .accessibilityValue("\(model.settings.breakMinutes) minutes")
                 VStack(alignment: .leading, spacing: 2) {
                     Stepper(value: $model.settings.longBreakMinutes, in: 1...60) {
                         Text("Long break: **\(model.settings.longBreakMinutes)** min")
                     }
+                    .accessibilityLabel("Long break duration")
+                    .accessibilityValue("\(model.settings.longBreakMinutes) minutes")
                     Text("Every 4th focus session earns the long one.")
                         .font(.caption2)
                         .foregroundStyle(palette.textDim)
@@ -59,6 +68,8 @@ struct SettingsTab: View {
                         ), in: 0...23) {
                             Text("At **\(hour):00**")
                         }
+                        .accessibilityLabel("Reminder hour")
+                        .accessibilityValue("\(hour):00")
                         Text("One notification if the day's goal isn't met yet.")
                             .font(.caption2)
                             .foregroundStyle(palette.textDim)
@@ -84,7 +95,10 @@ struct SettingsTab: View {
                                 Image(systemName: "arrow.counterclockwise")
                             }
                             .buttonStyle(SoftIconButtonStyle(width: 34, height: 26))
-                            .help("Reset to ⌃⌥⌘P")
+                            // Spelled out, not glyphs: this string doubles as
+                            // the spoken hint, and VoiceOver reads ⌃⌥⌘P
+                            // unreliably — the same reason spokenDisplay exists.
+                            .help("Reset to \(Shortcut.default.spokenDisplay)")
                             .accessibilityLabel("Reset shortcut to control option command P")
                         }
                     }

@@ -116,6 +116,19 @@ import Foundation
     }
 
     /// A met goal must be conveyed in the value, not by colour alone.
+    /// The outline marking the session's target row is colour; the fact it
+    /// marks must reach VoiceOver on the row itself, not only via the picker.
+    @Test func accessibilityValueNamesTheSessionTarget() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Work", dailyGoal: 4)]
+        m.sessionTarget = .named("Work")
+        m.startWork()
+        let work = m.todayProgress.first { $0.name == "Work" }!
+        #expect(work.accessibilityValue.hasSuffix(", current session target"))
+        m.reset()
+    }
+
     @Test func accessibilityValueSaysWhenAGoalIsMet() {
         let m = configured()
         m.records = [Record(at: Date(), source: "manual", category: "AI study")]

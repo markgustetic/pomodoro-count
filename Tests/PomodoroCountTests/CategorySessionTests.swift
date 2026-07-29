@@ -40,18 +40,9 @@ import Foundation
         #expect(m.records.last?.source == "timer")
     }
 
-    /// An archived target must not strand the session's pomodoro.
-    @Test func anArchivedTargetFallsBackToTheDefaultChain() {
-        let m = configured()
-        m.sessionTarget = .named("Music")
-        m.settings.categories.removeAll { $0.name == "Music" }
-        m.startWork()
-        m.forceCompleteForTesting()
-        #expect(m.records.last?.category == nil)   // bucket is on
-    }
-
-    /// An archived target must not keep receiving pomodoros. It falls to the
-    /// bucket, which is the only destination an unset target has now.
+    /// An archived target must not keep receiving pomodoros, and must not
+    /// strand the session's one either. It falls to the bucket, the only
+    /// destination an unset target has.
     @Test func anArchivedTargetCreditsTheBucket() {
         let m = configured()
         m.sessionTarget = .named("Music")

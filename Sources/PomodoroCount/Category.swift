@@ -53,13 +53,15 @@ struct CategoryProgress: Identifiable {
     /// that the row draws a bar in the same space.
     var showsDots: Bool { goal > 0 && goal <= 8 }
 
-    /// What VoiceOver reads. A met goal is stated here rather than being left to
-    /// the accent colour.
+    /// What VoiceOver reads. A met goal and the session-target mark are both
+    /// stated here rather than being left to the accent colour — the outline
+    /// says it to the eye, this says it on the row itself.
     var accessibilityValue: String {
+        let target = isSessionTarget ? ", current session target" : ""
         guard goal > 0 else {
-            return "\(done) \(done == 1 ? "pomodoro" : "pomodoros")"
+            return "\(done) \(done == 1 ? "pomodoro" : "pomodoros")" + target
         }
-        return "\(done) of \(goal) pomodoros" + (isMet ? ", goal met" : "")
+        return "\(done) of \(goal) pomodoros" + (isMet ? ", goal met" : "") + target
     }
 }
 
