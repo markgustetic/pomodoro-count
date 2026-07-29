@@ -32,7 +32,7 @@ struct HistoryTab: View {
         let stats = showsCategoryBreakdown ? [] : model.history(days: range.days)
         let categoryTotals = showsCategoryBreakdown ? model.categoryTotals(days: range.days) : []
         let isEmpty = showsCategoryBreakdown ? categoryTotals.isEmpty : stats.isEmpty
-        ScrollView {
+        PanelTabScroller {
             VStack(spacing: 10) {
             SegmentedControl(
                 items: ChartRange.allCases.map { (value: $0, label: $0.rawValue) },
@@ -94,7 +94,6 @@ struct HistoryTab: View {
             }
             }
         }
-        .frame(maxHeight: PanelMetrics.tabHeightCap)
     }
 
     private func exportCSV() {

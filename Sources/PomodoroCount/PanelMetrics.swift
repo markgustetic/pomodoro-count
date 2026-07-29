@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// How tall a tab's content may grow inside the menu bar panel.
 ///
@@ -46,5 +47,38 @@ enum PanelMetrics {
     @MainActor static var tabHeightCap: CGFloat {
         let visible = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame.height ?? 900
         return tabHeightCap(visibleHeight: visible)
+    }
+}
+
+/// The scroller every long tab sits in.
+///
+/// A cap alone is not enough in the real panel. The `MenuBarExtra` window
+/// sizes itself to its content's *ideal* height, and a bare `ScrollView`'s
+/// ideal is next to nothing — measured with the accessibility API: tabs
+/// wrapped in one collapsed the panel to 255pt while the Focus tab, which has
+/// no scroller, stood at 537. (`--preview` and the harness window never
+/// showed it: both propose generous heights the panel does not.) So the
+/// content is measured and the scroller's height pinned to exactly what the
+/// screen can afford of it: the content's own height when it fits, the
+/// screen-derived cap when it doesn't — never blank space, never a collapse.
+struct PanelTabScroller<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    /// Measured at layout time; zero until the first pass has run, in which
+    /// case the frame stays unconstrained for that one frame.
+    @State private var contentHeight: CGFloat = 0
+
+    var body: some View {
+        ScrollView {
+            content.background {
+                GeometryReader { geo in
+                    // `.task(id:)` runs after the layout that produced the
+                    // height, so this write cannot land mid-view-update —
+                    // same pattern the category list uses for row height.
+                    Color.clear.task(id: geo.size.height) { contentHeight = geo.size.height }
+                }
+            }
+        }
+        .frame(height: contentHeight > 0 ? min(contentHeight, PanelMetrics.tabHeightCap) : nil)
     }
 }
