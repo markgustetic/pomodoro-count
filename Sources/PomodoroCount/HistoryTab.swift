@@ -32,7 +32,8 @@ struct HistoryTab: View {
         let stats = showsCategoryBreakdown ? [] : model.history(days: range.days)
         let categoryTotals = showsCategoryBreakdown ? model.categoryTotals(days: range.days) : []
         let isEmpty = showsCategoryBreakdown ? categoryTotals.isEmpty : stats.isEmpty
-        VStack(spacing: 10) {
+        ScrollView {
+            VStack(spacing: 10) {
             SegmentedControl(
                 items: ChartRange.allCases.map { (value: $0, label: $0.rawValue) },
                 selection: $range,
@@ -72,25 +73,28 @@ struct HistoryTab: View {
                     .foregroundStyle(palette.textDim)
                     .frame(maxWidth: .infinity, minHeight: 40)
             } else {
-                ScrollView {
-                    VStack(spacing: 7) {
-                        if showsCategoryBreakdown {
-                            let maxCount = max(1, categoryTotals.map(\.count).max() ?? 1)
-                            ForEach(categoryTotals) { t in
-                                HistoryBar(label: t.name, count: t.count, maxCount: maxCount)
-                            }
-                        } else {
-                            let maxCount = max(1, stats.map(\.count).max() ?? 1)
-                            ForEach(stats) { s in
-                                HistoryBar(label: model.dayLabel(s.date),
-                                           count: s.count, maxCount: maxCount)
-                            }
+                // No scroller of its own and no hand-picked cap any more: the
+                // whole tab scrolls inside the screen-derived frame below, the
+                // way Settings does, so the list gets whatever height the
+                // display can spare. Lazy because Year puts 365 rows here.
+                LazyVStack(spacing: 7) {
+                    if showsCategoryBreakdown {
+                        let maxCount = max(1, categoryTotals.map(\.count).max() ?? 1)
+                        ForEach(categoryTotals) { t in
+                            HistoryBar(label: t.name, count: t.count, maxCount: maxCount)
+                        }
+                    } else {
+                        let maxCount = max(1, stats.map(\.count).max() ?? 1)
+                        ForEach(stats) { s in
+                            HistoryBar(label: model.dayLabel(s.date),
+                                       count: s.count, maxCount: maxCount)
                         }
                     }
                 }
-                .frame(maxHeight: 190)
+            }
             }
         }
+        .frame(maxHeight: PanelMetrics.tabHeightCap)
     }
 
     private func exportCSV() {
