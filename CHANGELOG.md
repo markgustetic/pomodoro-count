@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-29
+
 ### Fixed
 
 - A data file that fails to read is now backed up before the app's next save
@@ -90,5 +92,6 @@ First public release.
 - Releases are unsigned. macOS Gatekeeper asks for a one-time confirmation on
   first launch — see [Installing](README.md#install) for the two-second step.
 
-[Unreleased]: https://github.com/markgustetic/pomodoro-count/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/markgustetic/pomodoro-count/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/markgustetic/pomodoro-count/releases/tag/v1.0.0
