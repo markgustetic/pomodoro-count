@@ -145,7 +145,7 @@ struct SettingsTab: View {
                 }
             }
         }
-        .frame(maxHeight: 0)
+        .frame(maxHeight: 700)
         .toggleStyle(.switch)
         .tint(palette.accent)
         .font(.callout)

@@ -154,6 +154,31 @@ final class AppModel: ObservableObject {
             .sorted { $0.date > $1.date }
     }
 
+    /// Consecutive days with at least one pomodoro, ending today — or ending
+    /// yesterday, because a streak must not read as broken at midnight before
+    /// today's first pomodoro has had a chance to happen. One pass to bucket
+    /// the days, then a walk backwards.
+    var streakDays: Int {
+        let cal = Calendar.current
+        let days = Set(records.map { cal.startOfDay(for: $0.at) })
+        guard !days.isEmpty else { return 0 }
+
+        var cursor = cal.startOfDay(for: Date())
+        if !days.contains(cursor) {
+            guard let yesterday = cal.date(byAdding: .day, value: -1, to: cursor),
+                  days.contains(yesterday) else { return 0 }
+            cursor = yesterday
+        }
+
+        var count = 0
+        while days.contains(cursor) {
+            count += 1
+            guard let previous = cal.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previous
+        }
+        return count
+    }
+
     /// Text shown next to the icon in the menu bar (count when idle, else clock).
     /// Empty means icon-only — see `Settings.showsCountInMenuBar`. The count is
     /// still announced to VoiceOver either way; this hides it visually only.

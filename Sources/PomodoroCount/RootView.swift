@@ -85,6 +85,20 @@ struct RootView: View {
                           accent2: palette.accent2,
                           neon: palette.neon)
                     .frame(width: 78)
+                // A one-day "streak" is just today; the flame appears once
+                // there is actually a run to protect.
+                if model.streakDays >= 2 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 9))
+                        Text("\(model.streakDays)")
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                    }
+                    .foregroundStyle(palette.accent)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(model.streakDays) day streak")
+                    .help("\(model.streakDays) days in a row")
+                }
             }
         }
         .padding(.vertical, 10)
