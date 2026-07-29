@@ -161,7 +161,9 @@ struct RootView: View {
         switch model.phase {
         case .idle: return "Focus session · \(model.settings.workMinutes) min"
         case .work: return model.isRunning ? "Focus in progress\(target)" : "Paused"
-        case .breakTime: return model.isRunning ? "Break time" : "Paused"
+        case .breakTime:
+            guard model.isRunning else { return "Paused" }
+            return model.currentBreakIsLong ? "Long break — earned" : "Break time"
         }
     }
 

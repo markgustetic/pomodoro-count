@@ -221,9 +221,27 @@ final class AppModel: ObservableObject {
         beginCountdown()
     }
 
+    /// Completed focus sessions since the last long break. In memory only: a
+    /// relaunch restarts the cycle, which is the least surprising thing a
+    /// counter nobody can see can do. Abandoned sessions don't count — only
+    /// `complete()` advances it.
+    private(set) var focusSessionsThisCycle = 0
+
+    /// True while the running break is the long one, so the UI can say so.
+    private(set) var currentBreakIsLong = false
+
+    /// The classic rhythm: every fourth completed focus session earns the
+    /// long break. `>=` rather than `==` so declining the fourth break (auto-
+    /// start off, straight into a fifth session) keeps the long break owed
+    /// rather than skipping it.
+    var nextBreakIsLong: Bool { focusSessionsThisCycle >= 4 }
+
     func startBreak() {
+        let long = nextBreakIsLong
+        if long { focusSessionsThisCycle = 0 }   // taking it restarts the cycle
+        currentBreakIsLong = long
         phase = .breakTime
-        clock.remaining = TimeInterval(settings.breakMinutes * 60)
+        clock.remaining = TimeInterval((long ? settings.longBreakMinutes : settings.breakMinutes) * 60)
         beginCountdown()
     }
 
@@ -280,6 +298,7 @@ final class AppModel: ObservableObject {
         endDate = nil
 
         if finished == .work {
+            focusSessionsThisCycle += 1
             records.append(Record(at: Date(), source: "timer",
                                   category: resolve(sessionTarget)))
             play(.sessionDone)

@@ -36,6 +36,14 @@ struct SettingsTab: View {
                 Stepper(value: $model.settings.breakMinutes, in: 1...60) {
                     Text("Break: **\(model.settings.breakMinutes)** min")
                 }
+                VStack(alignment: .leading, spacing: 2) {
+                    Stepper(value: $model.settings.longBreakMinutes, in: 1...60) {
+                        Text("Long break: **\(model.settings.longBreakMinutes)** min")
+                    }
+                    Text("Every 4th focus session earns the long one.")
+                        .font(.caption2)
+                        .foregroundStyle(palette.textDim)
+                }
                 Toggle("Auto-start break after focus", isOn: $model.settings.autoStartBreak)
                 Toggle("Sound effects", isOn: $model.settings.soundEnabled)
 

@@ -61,6 +61,9 @@ enum ThemeChoice: String, Codable, CaseIterable {
 struct Settings: Codable {
     var workMinutes = 50
     var breakMinutes = 10
+    /// Every fourth completed focus session earns a break of this length —
+    /// the classic pomodoro rhythm.
+    var longBreakMinutes = 15
     var autoStartBreak = true
     var soundEnabled = true
     var globalShortcutEnabled = true
@@ -93,6 +96,7 @@ struct Settings: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         workMinutes           = try c.decodeIfPresent(Int.self, forKey: .workMinutes) ?? 50
         breakMinutes          = try c.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 10
+        longBreakMinutes      = try c.decodeIfPresent(Int.self, forKey: .longBreakMinutes) ?? 15
         autoStartBreak        = try c.decodeIfPresent(Bool.self, forKey: .autoStartBreak) ?? true
         soundEnabled          = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         globalShortcutEnabled = try c.decodeIfPresent(Bool.self, forKey: .globalShortcutEnabled) ?? true
