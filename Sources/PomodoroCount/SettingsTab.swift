@@ -47,6 +47,24 @@ struct SettingsTab: View {
                 Toggle("Auto-start break after focus", isOn: $model.settings.autoStartBreak)
                 Toggle("Sound effects", isOn: $model.settings.soundEnabled)
 
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("End-of-day reminder", isOn: Binding(
+                        get: { model.settings.nudgeHour != nil },
+                        set: { model.setNudgeHour($0 ? 18 : nil) }
+                    ))
+                    if let hour = model.settings.nudgeHour {
+                        Stepper(value: Binding(
+                            get: { hour },
+                            set: { model.setNudgeHour($0) }
+                        ), in: 0...23) {
+                            Text("At **\(hour):00**")
+                        }
+                        Text("One notification if the day's goal isn't met yet.")
+                            .font(.caption2)
+                            .foregroundStyle(palette.textDim)
+                    }
+                }
+
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle(isOn: Binding(
                         get: { model.settings.globalShortcutEnabled },

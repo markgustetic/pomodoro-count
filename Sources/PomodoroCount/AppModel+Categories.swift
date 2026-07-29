@@ -217,6 +217,20 @@ extension AppModel {
     }
 }
 
+// MARK: - The day's whole goal
+
+@MainActor
+extension AppModel {
+
+    /// Every category's daily goal plus the bucket's, i.e. the number the day
+    /// is aiming at. Zero while categories are off — goals are invisible then
+    /// and must not drive anything.
+    var todayGoalTotal: Int {
+        guard settings.categoriesEnabled else { return 0 }
+        return settings.categories.reduce(0) { $0 + $1.dailyGoal } + settings.fallbackGoal
+    }
+}
+
 // MARK: - History breakdown
 
 @MainActor

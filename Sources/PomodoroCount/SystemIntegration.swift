@@ -63,6 +63,62 @@ extension AppModel {
     }
 }
 
+// MARK: - End-of-day nudge
+
+@MainActor
+extension AppModel {
+
+    /// What the nudge would say right now, or nil for silence. With goals,
+    /// silence once they're met; without goals there is still a day worth not
+    /// losing, so an empty day nudges and a logged one doesn't.
+    func nudgeMessage() -> String? {
+        let goal = todayGoalTotal
+        if goal > 0 {
+            let left = goal - todayCount
+            guard left > 0 else { return nil }
+            return "\(left) to go to hit today's goal."
+        }
+        guard todayCount == 0 else { return nil }
+        return "No pomodoros logged today."
+    }
+
+    /// The next time an `hour`-o'clock nudge should fire: later today if the
+    /// hour is still ahead, otherwise tomorrow.
+    static func nextNudgeDate(hour: Int, after now: Date,
+                              calendar: Calendar = .current) -> Date {
+        let todayAt = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: now)!
+        if todayAt > now { return todayAt }
+        return calendar.date(byAdding: .day, value: 1, to: todayAt)!
+    }
+
+    func setNudgeHour(_ hour: Int?) {
+        settings.nudgeHour = hour
+        scheduleNudge()
+    }
+
+    /// (Re)arms the one-shot timer for the next nudge. The app runs for weeks,
+    /// so each firing checks the goal *at that moment* and then arms the next
+    /// day's — scheduling the message text in advance would bake in a count
+    /// that the evening's pomodoros should have changed.
+    func scheduleNudge() {
+        nudgeTimer?.invalidate()
+        nudgeTimer = nil
+        guard let hour = settings.nudgeHour else { return }
+        let t = Timer(fire: Self.nextNudgeDate(hour: hour, after: Date()),
+                      interval: 0, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                if let message = self.nudgeMessage() {
+                    self.notify("Pomodoro Count", message)
+                }
+                self.scheduleNudge()
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        nudgeTimer = t
+    }
+}
+
 // MARK: - Screen lock
 
 @MainActor

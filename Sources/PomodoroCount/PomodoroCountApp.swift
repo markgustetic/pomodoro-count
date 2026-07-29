@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppModel.shared.startDayMonitoring()
         // Pause a running session when the Mac goes unattended.
         AppModel.shared.startScreenLockMonitoring()
+        // Arm the end-of-day reminder, if one is configured.
+        AppModel.shared.scheduleNudge()
         // Start Sparkle now rather than lazily from the Settings tab, or its
         // scheduled background checks would never run for anyone who doesn't
         // open Settings — which is most people.

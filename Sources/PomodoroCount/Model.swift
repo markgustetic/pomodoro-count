@@ -71,6 +71,7 @@ final class AppModel: ObservableObject {
 
     private var endDate: Date?
     private var timer: Timer?
+    var nudgeTimer: Timer?
     var hotKey: HotKeyManager?
     var dayChangeObserver: NSObjectProtocol?
     let customStoreURL: URL?
