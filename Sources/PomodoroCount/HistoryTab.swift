@@ -33,7 +33,10 @@ struct HistoryTab: View {
         let categoryTotals = showsCategoryBreakdown ? model.categoryTotals(days: range.days) : []
         let isEmpty = showsCategoryBreakdown ? categoryTotals.isEmpty : stats.isEmpty
         PanelTabScroller {
-            VStack(spacing: 10) {
+            // 14 rather than the panel's usual 10: this tab is dense with
+            // distinct sections — picker, chart, tiles, picker, list — and
+            // they read as one slab without the extra air between them.
+            VStack(spacing: 14) {
             SegmentedControl(
                 items: ChartRange.allCases.map { (value: $0, label: $0.rawValue) },
                 selection: $range,
@@ -77,7 +80,7 @@ struct HistoryTab: View {
                 // whole tab scrolls inside the screen-derived frame below, the
                 // way Settings does, so the list gets whatever height the
                 // display can spare. Lazy because Year puts 365 rows here.
-                LazyVStack(spacing: 7) {
+                LazyVStack(spacing: 10) {
                     if showsCategoryBreakdown {
                         let maxCount = max(1, categoryTotals.map(\.count).max() ?? 1)
                         ForEach(categoryTotals) { t in
@@ -196,11 +199,12 @@ private struct HistoryBar: View {
                     .frame(maxHeight: .infinity, alignment: .center)
                     .neonGlow(palette.accent, enabled: palette.neon, radius: 4, opacity: 0.5)
             }
-            .frame(height: 10)
+            .frame(height: 11)
             Text("\(count)")
                 .font(.caption.monospacedDigit())
                 .frame(width: 24, alignment: .trailing)
         }
+        .padding(.vertical, 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityValue("\(count) \(count == 1 ? "pomodoro" : "pomodoros")")
