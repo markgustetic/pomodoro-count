@@ -18,6 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   row to change the order categories appear in, both in Settings and in the
   Focus panel; the other rows part to show where it will land. Each row also
   carries "Move up" and "Move down" actions for VoiceOver.
+- **Log from anywhere** — `open "pomodorocount://log"` (optionally with
+  `?category=Name`) records a pomodoro from a Stream Deck button, a Shortcuts
+  automation, or a script, and confirms with a notification. An unknown
+  category logs to the bucket; a URL can never invent one.
+- **Long breaks** — every fourth completed focus session earns a longer break
+  (15 minutes by default, adjustable in Settings).
+- **Auto-pause when the Mac goes unattended** — locking the screen or the
+  displays sleeping pauses a running session, so time away never counts as
+  focus. Resuming stays your call.
+- **Streaks** — a flame and a count in the header once you're two or more
+  consecutive days in. Today being empty doesn't break yesterday's streak; it
+  just hasn't grown yet.
+- **End-of-day reminder** — optional, at an hour you pick: one notification if
+  the day's goal isn't met yet, silence once it is.
+- **Goal progress in the menu bar** — a thin strip under the icon: one dot per
+  goal unit filled as you go (a bar past eight), costing no menu bar width.
+- **Year heatmap** — History gains a Year range showing each day of the last
+  365 as a grid, ink proportional to the count.
 
 ## [1.0.0] - 2026-07-28
 
