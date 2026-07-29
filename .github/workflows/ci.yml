@@ -19,7 +19,7 @@ jobs:
     name: Tests
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Show toolchain
         run: |
@@ -38,7 +38,7 @@ jobs:
     name: App bundle
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build the .app
         run: ./build-app.sh
@@ -81,7 +81,7 @@ jobs:
     name: UI reachability
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The UI test target exists because three reorder mechanisms silently
       # did nothing, and neither the unit suite, the build, nor a rendered
@@ -108,7 +108,7 @@ jobs:
     name: Version and changelog
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: VERSION has a matching CHANGELOG section
         run: |
