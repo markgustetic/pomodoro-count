@@ -163,7 +163,11 @@ struct SettingsTab: View {
                 }
             }
         }
-        .frame(maxHeight: 700)
+        // As tall as the screen allows rather than a number picked by hand: the
+        // tab has grown a section at a time, and a fixed cap meant each new one
+        // was paid for by scrolling while the panel still stopped short of the
+        // bottom of the display.
+        .frame(maxHeight: PanelMetrics.tabHeightCap)
         .toggleStyle(.switch)
         .tint(palette.accent)
         .font(.callout)
