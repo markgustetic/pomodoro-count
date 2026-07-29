@@ -87,6 +87,10 @@ struct Settings: Codable {
     var fallbackGoal = 0
     /// Remembered target for the built-in timer. nil means the bucket.
     var sessionTargetName: String?
+    /// When on, a target whose goal is met hands off to the next category that
+    /// still has one. Defaults on: it can only ever fire once the user has set
+    /// goals, and the panel's "towards …" pill shows it happen.
+    var autoAdvanceTarget = true
     /// The hour (0–23) of the end-of-day reminder. nil means no reminder.
     var nudgeHour: Int?
 
@@ -110,6 +114,7 @@ struct Settings: Codable {
         fallbackName          = try c.decodeIfPresent(String.self, forKey: .fallbackName) ?? "General"
         fallbackGoal          = try c.decodeIfPresent(Int.self, forKey: .fallbackGoal) ?? 0
         sessionTargetName     = try c.decodeIfPresent(String.self, forKey: .sessionTargetName)
+        autoAdvanceTarget     = try c.decodeIfPresent(Bool.self, forKey: .autoAdvanceTarget) ?? true
         nudgeHour             = try c.decodeIfPresent(Int.self, forKey: .nudgeHour)
         // `usesFallbackBucket` and `defaultCategoryName` were dropped. Decoding
         // is key-by-key, so a data.json still carrying them just ignores them.

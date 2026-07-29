@@ -105,6 +105,7 @@ import Foundation
         #expect(m.settings.shortcut.display == "⌃⌥⌘P")
         #expect(m.settings.globalShortcutEnabled)
         #expect(m.settings.theme == .classic)
+        #expect(m.settings.autoAdvanceTarget)
     }
 
     /// A truncated or hand-edited file must not take the app down on launch.
