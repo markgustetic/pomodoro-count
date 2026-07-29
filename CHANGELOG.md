@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The panel uses your screen** — Settings and History now grow to what the
   display can spare instead of stopping at a fixed height, and History got
   more air between its sections.
+- **Timer first** — the Focus tab now leads with the timer and Start focus,
+  with the log rows and today's count below, and the tab picker holds the
+  same top position on every tab.
 
 ## [1.0.0] - 2026-07-28
 

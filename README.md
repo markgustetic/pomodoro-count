@@ -85,6 +85,12 @@ The panel closes and the count goes up. Mis-tapped? **Undo last**.
 **Without opening anything.** <kbd>⌃</kbd><kbd>⌥</kbd><kbd>⌘</kbd><kbd>P</kbd>
 logs one from any app. Record your own combo in Settings, or turn it off.
 
+**From hardware and scripts.** `open "pomodorocount://log"` logs one too —
+wire it to a Stream Deck button, a Shortcuts automation, or whatever your
+physical timer can trigger. Add `?category=Deep%20Work` to aim it at a
+category; a name your list doesn't hold falls back to the bucket, and either
+way a notification confirms the count.
+
 **Right-click the menu bar icon** to quit without opening the panel.
 
 **The menu bar shows** today's count when idle, or a live countdown while a
@@ -93,10 +99,13 @@ menu bar is crowded, turn off **Show count in menu bar** and it shrinks to just
 the icon while idle, still showing the timer during a session.
 
 **Run a timer** if you want one. 50 / 10 minutes by default, configurable, with
-optional auto-start break, a completion sound, and a notification.
+optional auto-start break, a completion sound, and a notification. Every 4th
+completed session earns a longer break (15 minutes, adjustable). Locking the
+screen pauses a running session — time away never counts as focus.
 
-**History** gives you a Week / Month chart, a per-day list, and this-week and
-all-time totals. Today's count resets at midnight; past days stay in history.
+**History** gives you a Week / Month chart, a Year heatmap, a per-day list, and
+this-week and all-time totals. Today's count resets at midnight; past days stay
+in history.
 **Export CSV…** writes the lot to a spreadsheet — one row per pomodoro, so you
 can group it however you like.
 
@@ -105,6 +114,11 @@ one row per category, each with its own daily goal — Work 4, AI study 1, Music
 — so a tap files the pomodoro and your progress is the first thing you see. Point
 a focus session at one with the **towards…** picker, and History gains a **By
 category** view. Deleting a category never deletes its history.
+
+**Streaks and reminders.** Two or more consecutive days with a pomodoro puts a
+flame and a count in the header — and an empty morning doesn't break
+yesterday's run. An optional end-of-day reminder says how many are left if the
+day's goal isn't met yet, and stays quiet once it is.
 
 **VoiceOver** works throughout. The menu bar item announces today's count, or
 the phase and time remaining while a session runs.
