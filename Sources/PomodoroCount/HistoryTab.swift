@@ -12,8 +12,14 @@ struct HistoryTab: View {
     @State private var grouping: Grouping = .day
 
     enum ChartRange: String, CaseIterable {
-        case week = "Week", month = "Month"
-        var days: Int { self == .week ? 7 : 30 }
+        case week = "Week", month = "Month", year = "Year"
+        var days: Int {
+            switch self {
+            case .week: return 7
+            case .month: return 30
+            case .year: return 365
+            }
+        }
     }
 
     enum Grouping: String, CaseIterable { case day = "By day", category = "By category" }
@@ -32,7 +38,13 @@ struct HistoryTab: View {
                 selection: $range,
                 accessibilityLabel: "Chart range")
 
-            chart
+            // A year of daily bars is texture pretending to be data; the
+            // heatmap grid is the honest form at that scale.
+            if range == .year {
+                HeatmapView(stats: model.dailySeries(days: range.days))
+            } else {
+                chart
+            }
 
             HStack(spacing: 8) {
                 statTile("This week", model.weekCount)
