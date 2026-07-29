@@ -279,3 +279,26 @@ extension AppModel {
         return totals
     }
 }
+
+// MARK: - Following the day's plan
+
+@MainActor
+extension AppModel {
+
+    /// Moves the session target on when it has met its goal, so the next
+    /// pomodoro lands on something unfinished.
+    ///
+    /// Called after every record is appended — a completed session and every
+    /// external log — because a goal is met by whichever of those happens to
+    /// fill the last slot, and external hardware is this app's headline source.
+    ///
+    /// Nothing re-checks this when a session starts, and that is deliberate: it
+    /// is what lets a deliberate re-pick of a finished category stick, so
+    /// overshooting a goal on purpose still works.
+    func advanceTargetIfMet() {
+        guard settings.categoriesEnabled, settings.autoAdvanceTarget else { return }
+        guard let next = CategoryAdvance.next(after: sessionTarget, in: todayProgress)
+        else { return }
+        sessionTarget = next
+    }
+}
