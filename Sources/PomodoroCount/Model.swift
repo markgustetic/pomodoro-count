@@ -190,19 +190,10 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Today against the whole day's goal, for the menu bar's progress strip.
-    /// nil while categories are off or no goal is set — no goal, no strip.
-    var menuBarGoalProgress: (done: Int, goal: Int)? {
-        let goal = todayGoalTotal
-        guard goal > 0 else { return nil }
-        return (done: todayCount, goal: goal)
-    }
-
     /// The full menu bar item: custom icon + text, rendered as one template image.
     var statusImage: NSImage {
         StatusIcon.render(phase: phase, running: isRunning, text: statusText,
-                          description: statusDescription,
-                          goalProgress: menuBarGoalProgress)
+                          description: statusDescription)
     }
 
     /// What VoiceOver announces for the menu bar item.

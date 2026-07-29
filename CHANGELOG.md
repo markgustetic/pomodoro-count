@@ -32,8 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   just hasn't grown yet.
 - **End-of-day reminder** — optional, at an hour you pick: one notification if
   the day's goal isn't met yet, silence once it is.
-- **Goal progress in the menu bar** — a thin strip under the icon: one dot per
-  goal unit filled as you go (a bar past eight), costing no menu bar width.
 - **Year heatmap** — History gains a Year range showing each day of the last
   365 as a grid, ink proportional to the count.
 

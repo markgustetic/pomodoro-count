@@ -31,44 +31,6 @@ import Foundation
         #expect(m.statusText.contains(":"))
     }
 
-    // MARK: Goal progress in the item
-
-    /// The pips only exist where goals do: categories on and a positive total.
-    @Test func goalProgressIsAbsentWithoutGoals() {
-        let (m, _) = makeModel()
-        #expect(m.menuBarGoalProgress == nil)
-
-        m.settings.categoriesEnabled = true
-        #expect(m.menuBarGoalProgress == nil, "no goals set means nothing to show")
-    }
-
-    @Test func goalProgressReportsTheDayAgainstTheWholeGoal() {
-        let (m, _) = makeModel()
-        m.settings.categoriesEnabled = true
-        m.settings.categories = [Category(name: "Deep work", dailyGoal: 3)]
-        m.settings.fallbackGoal = 1
-        m.logExternal(to: .named("Deep work"))
-        m.logExternal()
-
-        let progress = m.menuBarGoalProgress
-        #expect(progress?.done == 2)
-        #expect(progress?.goal == 4)
-    }
-
-    /// Progress participates in the render: a changed count must not be
-    /// served the previous image, and the drawn pixels must actually differ.
-    @Test func goalProgressChangesTheRenderedImage() {
-        let none = StatusIcon.render(phase: .idle, running: false, text: "2")
-        let some = StatusIcon.render(phase: .idle, running: false, text: "2",
-                                     goalProgress: (done: 2, goal: 4))
-        let more = StatusIcon.render(phase: .idle, running: false, text: "2",
-                                     goalProgress: (done: 3, goal: 4))
-        #expect(some !== none)
-        #expect(more !== some)
-        #expect(some.tiffRepresentation != none.tiffRepresentation)
-        #expect(more.tiffRepresentation != some.tiffRepresentation)
-    }
-
     /// The timer fires every 0.5s but `ceil` moves the countdown text only
     /// once a second, so half of all renders repeat the previous inputs
     /// exactly. Those must return the cached image, not redraw an identical
