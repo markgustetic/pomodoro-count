@@ -23,6 +23,14 @@ import Foundation
         #expect(URLCommand.parse(URL(string: "PomodoroCount://log")!) == .log(category: nil))
     }
 
+    /// Automation tools title-case things they shouldn't. The host is no more
+    /// case-significant than the scheme, and a silent no-op on LOG would be
+    /// the worst kind of failure for a hardware button.
+    @Test func theHostIsCaseInsensitiveToo() {
+        #expect(URLCommand.parse(URL(string: "pomodorocount://LOG")!) == .log(category: nil))
+        #expect(URLCommand.parse(URL(string: "pomodorocount://Log?category=X")!) == .log(category: "X"))
+    }
+
     @Test func foreignSchemesAndUnknownCommandsParseToNothing() {
         #expect(URLCommand.parse(URL(string: "https://log")!) == nil)
         #expect(URLCommand.parse(URL(string: "pomodorocount://reset")!) == nil)

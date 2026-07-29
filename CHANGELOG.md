@@ -34,6 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the day's goal isn't met yet, silence once it is.
 - **Year heatmap** — History gains a Year range showing each day of the last
   365 as a grid, ink proportional to the count.
+- **Tooltips everywhere, and goals that glow** — every button explains itself
+  on hover, and a category row washes in the accent colour once its daily
+  goal is met.
+- **The panel uses your screen** — Settings and History now grow to what the
+  display can spare instead of stopping at a fixed height, and History got
+  more air between its sections.
 
 ## [1.0.0] - 2026-07-28
 

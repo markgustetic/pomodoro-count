@@ -17,7 +17,9 @@ struct CategoryRows: View {
                     .padding(.vertical, 14)
             } else {
                 // Six rows is roughly 200pt; past that the list scrolls so the
-                // panel stops growing, the same rule the History day-list uses.
+                // panel stops growing. Deliberately NOT PanelTabScroller's
+                // screen-derived cap: this list shares the Focus tab with the
+                // timer card, which must stay in reach without scrolling.
                 ScrollView {
                     VStack(spacing: 5) {
                         ForEach(rows) { row in

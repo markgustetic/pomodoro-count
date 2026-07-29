@@ -75,7 +75,8 @@ enum URLCommand: Equatable {
     case log(category: String?)
 
     static func parse(_ url: URL) -> URLCommand? {
-        guard url.scheme?.lowercased() == "pomodorocount", url.host == "log" else { return nil }
+        guard url.scheme?.lowercased() == "pomodorocount",
+              url.host?.lowercased() == "log" else { return nil }
         let category = URLComponents(url: url, resolvingAgainstBaseURL: false)?
             .queryItems?.first { $0.name == "category" }?.value
         return .log(category: category)

@@ -26,8 +26,9 @@ struct HistoryTab: View {
 
     var body: some View {
         // Only the visible grouping's query runs — each is a full pass over
-        // the window's records, and body re-evaluates on every model change,
-        // including the 0.5s tick while a session runs with this tab open.
+        // the window's records, and body re-evaluates on every model change:
+        // a log, an undo, any settings edit. (Not on the timer tick — that
+        // publishes from SessionClock, which this tab doesn't observe.)
         let showsCategoryBreakdown = grouping == .category && model.settings.categoriesEnabled
         let stats = showsCategoryBreakdown ? [] : model.history(days: range.days)
         let categoryTotals = showsCategoryBreakdown ? model.categoryTotals(days: range.days) : []
