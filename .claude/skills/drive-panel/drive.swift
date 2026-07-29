@@ -9,6 +9,8 @@ import ApplicationServices
 //   drag <from> <to>     — slow-drag row <from>'s grip to row <to>'s centre,
 //                          sampling every row's Y position along the way
 //   rows                 — print each category row's frame
+//   advance <row>        — read the session-target pill, click row <row> to meet
+//                          its goal, read the pill again, without reopening
 
 let pid = pid_t(CommandLine.arguments[1])!
 let command = CommandLine.arguments[2]
@@ -243,6 +245,56 @@ case "openclick":
     let bf = frame(target)
     click(CGPoint(x: bf.midX, y: bf.midY))
     print("clicked '\(name)'")
+
+case "advance":
+    // Open the panel, read the session-target pill, click a category row to
+    // log the pomodoro that meets its goal, then read the pill again — all in
+    // one process. The claim under test is that the pill changes *without the
+    // panel being reopened*, and a two-invocation version could not tell a
+    // live update from a fresh render of a value that changed while it was shut.
+    let rowName = CommandLine.arguments[3]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    let itemFrame = frame(item)
+    click(CGPoint(x: itemFrame.midX, y: itemFrame.midY))
+    usleep(1_500_000)
+
+    // The pill is a Menu carrying accessibilityLabel "Session target"; the
+    // category it names is its accessibilityValue, so this reads the promise
+    // the panel is making rather than pixels (see rule 5).
+    func pillValue() -> String {
+        for root in roots() {
+            if let pill = find(root, where: { el in
+                str(el, kAXTitleAttribute) == "Session target"
+                    || str(el, kAXDescriptionAttribute) == "Session target"
+            }) {
+                return (attr(pill, kAXValueAttribute) as? String) ?? "<no value>"
+            }
+        }
+        return "<pill not found>"
+    }
+
+    print("pill before: \(pillValue())")
+
+    var rowEls: [AXUIElement] = []
+    for root in roots() {
+        findAll(root, into: &rowEls) { el in
+            str(el, kAXTitleAttribute) == rowName || str(el, kAXDescriptionAttribute) == rowName
+        }
+    }
+    // A category's name also labels its Settings text field, so prefer the
+    // element whose value is a progress string — that one is the Focus row.
+    let row = rowEls.first {
+        ((attr($0, kAXValueAttribute) as? String) ?? "").contains("pomodoro")
+    } ?? rowEls.first { frame($0).height > 0 }
+    guard let row else { print("no row '\(rowName)' (matched \(rowEls.count) elements)"); exit(1) }
+
+    let rf = frame(row)
+    print("clicking row '\(rowName)' value='\((attr(row, kAXValueAttribute) as? String) ?? "")'")
+    click(CGPoint(x: rf.midX, y: rf.midY))
+    usleep(1_200_000)
+    print("pill after:  \(pillValue())")
+    print("row after:   '\((attr(row, kAXValueAttribute) as? String) ?? "")'")
 
 case "window":
     // The app's window frames, from AX and from the window server. Compare
