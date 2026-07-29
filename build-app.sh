@@ -79,6 +79,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>$BUNDLE_ID</string>
+            <key>CFBundleURLSchemes</key>
+            <array><string>pomodorocount</string></array>
+        </dict>
+    </array>
     <key>NSHumanReadableCopyright</key><string>Pomodoro Count</string>$SPARKLE_KEYS
 </dict>
 </plist>

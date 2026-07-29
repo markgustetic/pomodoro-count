@@ -63,6 +63,43 @@ extension AppModel {
     }
 }
 
+// MARK: - URL commands (the hardware door)
+
+/// What a `pomodorocount://` URL asks for. Logging from a Stream Deck button,
+/// a Shortcuts automation, or a shell script is the app's whole reason to
+/// exist; the URL is how they knock:
+///
+///     open "pomodorocount://log"
+///     open "pomodorocount://log?category=Deep%20Work"
+enum URLCommand: Equatable {
+    case log(category: String?)
+
+    static func parse(_ url: URL) -> URLCommand? {
+        guard url.scheme?.lowercased() == "pomodorocount", url.host == "log" else { return nil }
+        let category = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "category" }?.value
+        return .log(category: category)
+    }
+}
+
+@MainActor
+extension AppModel {
+
+    /// Carries out a `pomodorocount://` URL. A URL may not invent categories
+    /// or attach names the list doesn't hold — an unknown name logs to the
+    /// bucket, never a new label — and it announces, because the sender is by
+    /// definition not looking at the panel.
+    func handle(_ url: URL) {
+        guard let command = URLCommand.parse(url) else { return }
+        switch command {
+        case .log(let name):
+            let target: CategoryTarget =
+                name.flatMap { categoryExists($0) ? .named($0) : nil } ?? .fallback
+            logExternal(to: target, announce: true)
+        }
+    }
+}
+
 // MARK: - End-of-day nudge
 
 @MainActor

@@ -2,6 +2,12 @@ import SwiftUI
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// pomodorocount:// URLs — see `URLCommand`. Launch Services starts the
+    /// app if it isn't running and delivers here either way.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls { AppModel.shared.handle(url) }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu-bar-only app: never show a Dock icon.
         NSApp.setActivationPolicy(.accessory)
