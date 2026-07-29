@@ -74,6 +74,8 @@ final class AppModel: ObservableObject {
     var nudgeTimer: Timer?
     var hotKey: HotKeyManager?
     var dayChangeObserver: NSObjectProtocol?
+    var screenLockObserver: NSObjectProtocol?
+    var clockChangeObserver: NSObjectProtocol?
     let customStoreURL: URL?
     var isLoading = false
 

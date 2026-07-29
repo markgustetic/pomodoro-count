@@ -134,6 +134,21 @@ extension AppModel {
         scheduleNudge()
     }
 
+    /// Arms the nudge and keeps it honest against a moving clock: a timezone
+    /// or system-clock change re-derives the fire date, so "at 18:00" keeps
+    /// meaning the user's local 18:00 rather than the one they left behind.
+    func startNudgeMonitoring() {
+        scheduleNudge()
+        guard clockChangeObserver == nil else { return }
+        let rearm: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated { self?.scheduleNudge() }
+        }
+        clockChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSSystemClockDidChange, object: nil, queue: .main, using: rearm)
+        NotificationCenter.default.addObserver(
+            forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main, using: rearm)
+    }
+
     /// (Re)arms the one-shot timer for the next nudge. The app runs for weeks,
     /// so each firing checks the goal *at that moment* and then arms the next
     /// day's — scheduling the message text in advance would bake in a count
@@ -175,12 +190,14 @@ extension AppModel {
     /// Watches for the screen locking or the displays sleeping — the two ways
     /// a Mac goes unattended with the app still running. Distributed rather
     /// than workspace notifications for the lock itself: AppKit offers no
-    /// public equivalent.
+    /// public equivalent. Guarded like `startDayMonitoring`, so a second call
+    /// can never mean a second pause per lock.
     func startScreenLockMonitoring() {
+        guard screenLockObserver == nil else { return }
         let onLock: @Sendable (Notification) -> Void = { [weak self] _ in
             MainActor.assumeIsolated { self?.handleScreenLocked() }
         }
-        DistributedNotificationCenter.default().addObserver(
+        screenLockObserver = DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("com.apple.screenIsLocked"),
             object: nil, queue: .main, using: onLock)
         NSWorkspace.shared.notificationCenter.addObserver(

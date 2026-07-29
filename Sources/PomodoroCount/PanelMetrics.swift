@@ -68,6 +68,12 @@ struct PanelTabScroller<Content: View>: View {
     /// case the frame stays unconstrained for that one frame.
     @State private var contentHeight: CGFloat = 0
 
+    /// Bumped when the screen arrangement changes, purely to re-evaluate
+    /// `body` — the cap is computed there from the current screen, and
+    /// without this a panel left open across a display change would keep
+    /// the old screen's cap.
+    @State private var screenGeneration = 0
+
     var body: some View {
         ScrollView {
             content.background {
@@ -80,5 +86,9 @@ struct PanelTabScroller<Content: View>: View {
             }
         }
         .frame(height: contentHeight > 0 ? min(contentHeight, PanelMetrics.tabHeightCap) : nil)
+        .onReceive(NotificationCenter.default.publisher(
+            for: NSApplication.didChangeScreenParametersNotification)) { _ in
+            screenGeneration += 1
+        }
     }
 }
