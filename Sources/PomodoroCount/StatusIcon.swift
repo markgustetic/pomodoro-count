@@ -6,6 +6,7 @@ enum StatusIcon {
 
     private struct Key: Equatable {
         let phase: Phase, running: Bool, text: String, description: String?
+        let done: Int, goal: Int          // -1/-1 when no goal strip is drawn
     }
 
     /// The last render. One entry is the right size: the item re-renders on
@@ -15,19 +16,26 @@ enum StatusIcon {
     @MainActor private static var lastRender: (key: Key, image: NSImage)?
 
     /// `description` is what VoiceOver announces; the drawn text alone ("3") is
-    /// meaningless read aloud.
+    /// meaningless read aloud. `goalProgress`, when present, draws a thin strip
+    /// along the item's bottom edge: dots while the goal is small enough to
+    /// count at a glance, a bar once it isn't — the same language the panel's
+    /// category rows speak.
     @MainActor
     static func render(phase: Phase, running: Bool, text: String,
-                       description: String? = nil) -> NSImage {
-        let key = Key(phase: phase, running: running, text: text, description: description)
+                       description: String? = nil,
+                       goalProgress: (done: Int, goal: Int)? = nil) -> NSImage {
+        let key = Key(phase: phase, running: running, text: text, description: description,
+                      done: goalProgress?.done ?? -1, goal: goalProgress?.goal ?? -1)
         if let lastRender, lastRender.key == key { return lastRender.image }
-        let image = draw(phase: phase, running: running, text: text, description: description)
+        let image = draw(phase: phase, running: running, text: text,
+                         description: description, goalProgress: goalProgress)
         lastRender = (key, image)
         return image
     }
 
     private static func draw(phase: Phase, running: Bool, text: String,
-                             description: String?) -> NSImage {
+                             description: String?,
+                             goalProgress: (done: Int, goal: Int)?) -> NSImage {
         let font = NSFont.systemFont(ofSize: 13, weight: .medium)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
@@ -49,6 +57,10 @@ enum StatusIcon {
                 let textY = (height - textSize.height) / 2
                 (text as NSString).draw(at: NSPoint(x: iconSize + gap, y: textY), withAttributes: attrs)
             }
+            if let goalProgress {
+                drawGoalStrip(done: goalProgress.done, goal: goalProgress.goal,
+                              width: width)
+            }
             return true
         }
         image.isTemplate = true
@@ -67,6 +79,37 @@ enum StatusIcon {
             symbol("cup.and.saucer.fill")?.draw(in: rect)
         case .idle, .work:
             drawTomato(in: rect)
+        }
+    }
+
+    /// The goal strip along the item's bottom edge. Dots up to eight — one per
+    /// goal unit, filled up to what's done — then a bar, because nine 2pt dots
+    /// stop being countable and start being noise. Unfilled shapes draw at a
+    /// quarter alpha: this is a template image, so opacity is the only shade
+    /// of grey it has.
+    private static func drawGoalStrip(done: Int, goal: Int, width: CGFloat) {
+        let filled = min(done, goal)
+        if goal <= 8 {
+            let diameter: CGFloat = 2.5
+            let step = width / CGFloat(goal)
+            for index in 0..<goal {
+                let x = step * (CGFloat(index) + 0.5) - diameter / 2
+                let dot = NSBezierPath(ovalIn: NSRect(x: x, y: 0, width: diameter, height: diameter))
+                NSColor.black.withAlphaComponent(index < filled ? 1 : 0.25).setFill()
+                dot.fill()
+            }
+        } else {
+            let track = NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: width, height: 2),
+                                     xRadius: 1, yRadius: 1)
+            NSColor.black.withAlphaComponent(0.25).setFill()
+            track.fill()
+            let fraction = min(1, CGFloat(filled) / CGFloat(goal))
+            if fraction > 0 {
+                let fill = NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: width * fraction, height: 2),
+                                        xRadius: 1, yRadius: 1)
+                NSColor.black.setFill()
+                fill.fill()
+            }
         }
     }
 
