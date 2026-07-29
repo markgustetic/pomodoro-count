@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppModel.shared.syncGlobalShortcut()
         // Roll today's count back to 0 when the calendar day changes.
         AppModel.shared.startDayMonitoring()
+        // Pause a running session when the Mac goes unattended.
+        AppModel.shared.startScreenLockMonitoring()
         // Start Sparkle now rather than lazily from the Settings tab, or its
         // scheduled background checks would never run for anyone who doesn't
         // open Settings — which is most people.

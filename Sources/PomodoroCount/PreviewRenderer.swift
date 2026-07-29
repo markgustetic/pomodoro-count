@@ -50,8 +50,6 @@ enum PreviewRenderer {
             : Color(nsColor: .windowBackgroundColor)
 
         let view = HStack(alignment: .top, spacing: 18) {
-            RootView(initialTab: .focus).environmentObject(model)
-            RootView(initialTab: .history).environmentObject(model)
             RootView(initialTab: .settings).environmentObject(model)
         }
         .padding(18)

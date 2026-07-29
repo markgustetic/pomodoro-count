@@ -63,6 +63,38 @@ extension AppModel {
     }
 }
 
+// MARK: - Screen lock
+
+@MainActor
+extension AppModel {
+
+    /// Pauses a running session. A timer that keeps burning while the Mac is
+    /// locked says 50 minutes of focus happened while the chair was empty;
+    /// pausing keeps the count honest. Deliberately no auto-resume on unlock —
+    /// only the user knows whether the time away should count, and `pause()`
+    /// already preserves what's on the clock.
+    func handleScreenLocked() {
+        guard isRunning else { return }
+        pause()
+    }
+
+    /// Watches for the screen locking or the displays sleeping — the two ways
+    /// a Mac goes unattended with the app still running. Distributed rather
+    /// than workspace notifications for the lock itself: AppKit offers no
+    /// public equivalent.
+    func startScreenLockMonitoring() {
+        let onLock: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated { self?.handleScreenLocked() }
+        }
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.apple.screenIsLocked"),
+            object: nil, queue: .main, using: onLock)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.screensDidSleepNotification,
+            object: nil, queue: .main, using: onLock)
+    }
+}
+
 // MARK: - Daily rollover
 
 @MainActor
