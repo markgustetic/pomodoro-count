@@ -69,6 +69,14 @@ struct CategoryRow: View {
             .background {
                 CardBackground(cornerRadius: 11, fillOpacity: hover ? 1.6 : 1.0)
                     .overlay {
+                        // A met goal soaks the whole card in a wash of the
+                        // accent — the count text already turns accent at the
+                        // same moment, this just makes it readable from across
+                        // the room. Under the target stroke, so both can show.
+                        if progress.isMet {
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .fill(palette.accent.opacity(0.12))
+                        }
                         // The running session's target row stays outlined so
                         // it's clear where the next completed pomodoro lands.
                         if progress.isSessionTarget {
@@ -80,6 +88,8 @@ struct CategoryRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+        .help(progress.isMet ? "\(progress.name): goal met — one more still counts"
+                             : "Log one pomodoro to \(progress.name)")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(progress.name)
         .accessibilityValue(progress.accessibilityValue)

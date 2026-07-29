@@ -148,6 +148,7 @@ struct RootView: View {
                 Button("Undo last", action: model.undoLast)
                     .buttonStyle(HoverTextButtonStyle())
                     .font(.caption)
+                    .help("Take back the most recent pomodoro")
             }
         }
     }
@@ -167,6 +168,16 @@ struct RootView: View {
         case .idle: return palette.idleButton
         case .work: return palette.focusButton
         case .breakTime: return palette.breakButton
+        }
+    }
+
+    /// What the big button will do, for its tooltip — the title alone says
+    /// "Resume" without saying what of.
+    private var primaryHelp: String {
+        if model.isRunning { return "Pause the timer" }
+        switch model.phase {
+        case .idle: return "Start a \(model.settings.workMinutes)-minute focus session"
+        case .work, .breakTime: return "Resume where you left off"
         }
     }
 
@@ -217,6 +228,7 @@ struct RootView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+                .help("Which category a finished session credits")
                 .accessibilityLabel("Session target")
                 .accessibilityValue(model.sessionTargetLabel)
             }
@@ -224,6 +236,7 @@ struct RootView: View {
             HStack(spacing: 8) {
                 Button(model.primaryTitle) { model.toggle() }
                     .buttonStyle(GradientButtonStyle(tint: timerTint, cornerRadius: 12, vPadding: 9, elevation: 5))
+                    .help(primaryHelp)
 
                 Button { model.reset() } label: {
                     Image(systemName: "stop.fill")
@@ -286,6 +299,7 @@ struct RootView: View {
             Button("Quit") { NSApp.terminate(nil) }
                 .buttonStyle(HoverTextButtonStyle())
                 .font(.caption)
+                .help("Quit Pomodoro Count")
         }
     }
 }

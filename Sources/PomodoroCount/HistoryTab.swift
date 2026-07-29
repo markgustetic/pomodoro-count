@@ -55,6 +55,7 @@ struct HistoryTab: View {
                 Button("Export CSV…", action: exportCSV)
                     .buttonStyle(HoverTextButtonStyle())
                     .font(.caption)
+                    .help("Save your whole history as a spreadsheet")
                     .accessibilityHint("Saves your whole history as a spreadsheet file")
             }
 
