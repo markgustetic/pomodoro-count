@@ -55,11 +55,10 @@ extension AppModel {
         let targetName = sessionRunning ? resolve(sessionTarget) : nil
         let normalizedTarget = targetName.map(Category.normalized)
 
-        // One tally pass over the records, not one full scan per category:
-        // this sits on the Focus tab, re-rendered on every 0.5s tick of a
-        // running session, and the per-category scans grew with both the
-        // category count and the age of the store. Bucketless records tally
-        // under "" — same convention `categoryTotals` uses.
+        // One tally pass over the records, not one full scan per category —
+        // the per-category scans grew with both the category count and the
+        // age of the store. Bucketless records tally under "" — same
+        // convention `categoryTotals` uses.
         let cal = Calendar.current
         var doneToday: [String: Int] = [:]
         for record in records where cal.isDateInToday(record.at) {

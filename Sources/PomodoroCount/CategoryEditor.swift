@@ -150,6 +150,15 @@ struct CommittableNameField: View {
             .foregroundStyle(rejected ? palette.error : palette.text)
             .onSubmit(submit)
             .onAppear { draft = current() }
+            // Red means "the model refused what you submitted", and it should
+            // lift the moment the user starts over. The guard matters: the
+            // rejection branch of submit() programmatically snaps `draft` back
+            // to the stored name, and without it that very assignment would
+            // clear the flag it had just set — the red would never show at
+            // all. A change *away* from the stored name can only be typing.
+            .onChange(of: draft) { _, new in
+                if rejected && new != current() { rejected = false }
+            }
             .accessibilityLabel(accessibilityLabel)
     }
 
