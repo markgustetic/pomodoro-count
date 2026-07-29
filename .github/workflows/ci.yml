@@ -73,7 +73,12 @@ jobs:
           if-no-files-found: error
 
   uitest:
-    name: UI tests
+    # Named for what it proves TODAY: the drag cases in the target skip
+    # themselves (synthetic drags cannot drive the panel's gesture), so a
+    # green run demonstrates reachability — status item → panel → Settings →
+    # seeded rows — and nothing about dragging. Rename this back to "UI
+    # tests" when harness-driven drag cases land and actually execute here.
+    name: UI reachability
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
