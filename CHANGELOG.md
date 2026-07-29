@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The target follows the day's plan** — when a category meets its daily goal,
+  the session target moves on by itself to the next category with a goal left,
+  and the Focus tab's "towards …" pill says so straight away. Picking a finished
+  category by hand still sticks, so overshooting one on purpose works. Switch it
+  off with "Move on when a goal is met" in Settings.
+
 ## [1.1.0] - 2026-07-29
 
 ### Fixed

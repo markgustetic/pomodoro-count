@@ -131,6 +131,18 @@ struct SettingsTab: View {
                                 .themed(palette)
                         }
 
+                        // A sub-option of the category list, so it sits above
+                        // the divider that starts the bucket's own section.
+                        // Caption2 explanation underneath, matching how the
+                        // long-break and shortcut settings carry theirs.
+                        VStack(alignment: .leading, spacing: 2) {
+                            Toggle("Move on when a goal is met",
+                                   isOn: $model.settings.autoAdvanceTarget)
+                            Text("A finished category hands the target to the next one with a goal left.")
+                                .font(.caption2)
+                                .foregroundStyle(palette.textDim)
+                        }
+
                         Divider()
 
                         // Not a toggle any more: the bucket is where a pomodoro
