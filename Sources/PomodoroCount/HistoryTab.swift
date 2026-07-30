@@ -8,8 +8,17 @@ import UniformTypeIdentifiers
 struct HistoryTab: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.palette) private var palette
-    @State private var range: ChartRange = .week
+    // Week unless a preview asked for another: the Year heatmap is otherwise
+    // unreachable headlessly, since nothing can drive the picker in a render.
+    @State private var range: ChartRange =
+        PreviewOverrides.historyRange.flatMap(ChartRange.init(rawValue:)) ?? .week
     @State private var grouping: Grouping = .day
+    @State private var hoveredIndex: Int?
+    @State private var hoverPoint: CGPoint?
+    // Starts .zero and keeps the previous card's size across hovers, so a
+    // newly-shown card lays out once at the wrong width before the
+    // preference below lands. Invisible at 60Hz — not a bug.
+    @State private var tooltipSize: CGSize = .zero
 
     enum ChartRange: String, CaseIterable {
         case week = "Week", month = "Month", year = "Year"
@@ -25,12 +34,20 @@ struct HistoryTab: View {
     enum Grouping: String, CaseIterable { case day = "By day", category = "By category" }
 
     var body: some View {
-        // Only the visible grouping's query runs — each is a full pass over
-        // the window's records, and body re-evaluates on every model change:
-        // a log, an undo, any settings edit. (Not on the timer tick — that
-        // publishes from SessionClock, which this tab doesn't observe.)
+        // Only the visible grouping's full pass runs — series and
+        // categoryTotals each walk the window's records, and body
+        // re-evaluates on every model change: a log, an undo, any settings
+        // edit — and, now that hoverPoint is @State on this view too, every
+        // pointer move over the graph. stats used to be its own pass
+        // (history(days:)); it's derived from series below instead, so a
+        // hover doesn't cost two full passes over the records on every move.
         let showsCategoryBreakdown = grouping == .category && model.settings.categoriesEnabled
-        let stats = showsCategoryBreakdown ? [] : model.history(days: range.days)
+        let series = model.dailySeries(days: range.days)
+        // Equivalent to history(days: range.days) — same window, same
+        // startOfDay bucketing — just newest-first instead of oldest-first
+        // and without the zero-count days. Pinned in HistoryTests so this
+        // substitution can't drift from what history(days:) actually does.
+        let stats = showsCategoryBreakdown ? [] : series.reversed().filter { $0.count > 0 }
         let categoryTotals = showsCategoryBreakdown ? model.categoryTotals(days: range.days) : []
         let isEmpty = showsCategoryBreakdown ? categoryTotals.isEmpty : stats.isEmpty
         PanelTabScroller {
@@ -45,11 +62,18 @@ struct HistoryTab: View {
 
             // A year of daily bars is texture pretending to be data; the
             // heatmap grid is the honest form at that scale.
-            if range == .year {
-                HeatmapView(stats: model.dailySeries(days: range.days))
-            } else {
-                chart
+            Group {
+                if range == .year {
+                    HeatmapView(stats: series, hovered: $hoveredIndex,
+                                hoverPoint: $hoverPoint)
+                } else {
+                    chart(series)
+                }
             }
+            // On the graph's own container, so the card's coordinates and the
+            // cursor's are the same space. Not inside the Canvas — that clips,
+            // and a card flipped below a 40pt heatmap is entirely outside it.
+            .overlay(alignment: .topLeading) { tooltip(series) }
 
             HStack(spacing: 8) {
                 statTile("This week", model.weekCount)
@@ -97,6 +121,7 @@ struct HistoryTab: View {
                 }
             }
             }
+            .onChange(of: range) { hoveredIndex = nil; hoverPoint = nil }
         }
     }
 
@@ -120,17 +145,20 @@ struct HistoryTab: View {
         }
     }
 
-    @ViewBuilder private var chart: some View {
-        let series = model.dailySeries(days: range.days)
-        Chart(series) { day in
+    @ViewBuilder private func chart(_ series: [DayStat]) -> some View {
+        let hovered = effectiveHover
+        Chart(Array(series.enumerated()), id: \.element.id) { item in
             BarMark(
-                x: .value("Day", day.date, unit: .day),
-                y: .value("Pomodoros", day.count)
+                x: .value("Day", item.element.date, unit: .day),
+                y: .value("Pomodoros", item.element.count)
             )
             .cornerRadius(3)
             .foregroundStyle(LinearGradient(
                 colors: [palette.accent, palette.accent2],
                 startPoint: .top, endPoint: .bottom))
+            // Only the hovered bar stays lit, so the card at the pointer
+            // can't be read as describing some other day.
+            .opacity(hovered == nil || hovered == item.offset ? 1 : 0.45)
         }
         .chartYAxis {
             AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
@@ -153,6 +181,59 @@ struct HistoryTab: View {
                 }
             }
         }
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let point):
+                            // `plotFrame` is where the bars actually are: the
+                            // leading y-axis makes the plot narrower than the
+                            // view, and hand-computing that inset would drift
+                            // the moment an axis label got wider.
+                            guard let plot = proxy.plotFrame,
+                                  let date: Date = proxy.value(atX: point.x - geo[plot].origin.x)
+                            else { hoveredIndex = nil; hoverPoint = nil; return }
+                            hoveredIndex = HistoryReadout.index(for: date, in: series)
+                            hoverPoint = point
+                        case .ended:
+                            hoveredIndex = nil
+                            hoverPoint = nil
+                        }
+                    }
+                    .onAppear {
+                        // Same reason as the heatmap: a render has no pointer.
+                        // The bar's own x, at mid-height of the plot.
+                        //
+                        // `position(forX:)` returns the *leading edge* of the
+                        // date's band, not its centre, and the bands are not
+                        // exactly plotWidth/count wide — measuring one step
+                        // off the scale is exact whatever padding Charts puts
+                        // around the temporal domain. (plotWidth/count was
+                        // tried first: ~0.5pt off mid-row, but +4pt / −10pt at
+                        // the row's own ends — precisely the indices this flag
+                        // exists to check.) Measured against a render: without
+                        // the half-step the card sat left of the bar it named.
+                        guard let forced = PreviewOverrides.hoveredGraphIndex,
+                              series.indices.contains(forced),
+                              series.count >= 2,
+                              let plot = proxy.plotFrame,
+                              let x = proxy.position(forX: series[forced].date)
+                        else { return }
+                        // No neighbour past the last index, so borrow the
+                        // previous step — the one other case position(forX:)
+                        // can't supply a forward pair for.
+                        let neighbor = forced + 1 < series.count ? forced + 1 : forced - 1
+                        guard let neighborX = proxy.position(forX: series[neighbor].date)
+                        else { return }
+                        let step = abs(neighborX - x)
+                        hoverPoint = CGPoint(x: geo[plot].origin.x + x + step / 2,
+                                             y: geo[plot].midY)
+                    }
+            }
+        }
         .frame(height: 108)
     }
 
@@ -173,6 +254,31 @@ struct HistoryTab: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue("\(value) \(value == 1 ? "pomodoro" : "pomodoros")")
+    }
+
+    /// The effective hover: a real pointer, or a preview's forced one.
+    private var effectiveHover: Int? { hoveredIndex ?? PreviewOverrides.hoveredGraphIndex }
+
+    @ViewBuilder private func tooltip(_ series: [DayStat]) -> some View {
+        if let text = HistoryReadout.tooltip(hoveredIndex: effectiveHover,
+                                             series: series, dayLabel: model.dayLabel),
+           let cursor = hoverPoint {
+            GeometryReader { geo in
+                let at = TooltipPlacement.origin(cursor: cursor, tooltip: tooltipSize,
+                                                 in: geo.size)
+                HoverTooltip(text: text)
+                    .background {
+                        GeometryReader { card in
+                            Color.clear.preference(key: TooltipSizeKey.self, value: card.size)
+                        }
+                    }
+                    .offset(x: at.x, y: at.y)
+            }
+            .onPreferenceChange(TooltipSizeKey.self) { tooltipSize = $0 }
+            // Never intercept the pointer: the card would fight the hover that
+            // summons it.
+            .allowsHitTesting(false)
+        }
     }
 }
 

@@ -182,6 +182,10 @@ of graph, and "Jul 28 · 4 pomodoros" at `.caption` is near 120pt — a card
 covering 40% of the plot, anchored to a 4pt cell, moving as the pointer moves.
 It obscures the comparison the hover exists to support.
 
+**This rejection was overturned — see the amendment below.** The measurement
+was sound but the premise wasn't: it priced a card carrying the readout line's
+wording, and the wording was never fixed.
+
 **A readout line with no highlight.** Simpler, and adequate for seven bars. It
 fails on the heatmap: 53 columns of 4pt squares under a pointer whose hotspot
 is bigger than a cell, with no mark saying which one was read.
@@ -189,3 +193,84 @@ is bigger than a cell, with no mark saying which one was read.
 **A `RuleMark` on the chart and no readout.** Charts-idiomatic and it does mark
 the bar, but it carries no number unless annotated, and an annotation is the
 floating card again — with the same width problem, in the same 300pt.
+
+---
+
+## Amendment — the readout line becomes a cursor tooltip
+
+*2026-07-30, after the readout shipped on the branch and was looked at.*
+
+The readout line under the graph is replaced by a small card floating at the
+cursor. The hover plumbing, the hit test, the bar dimming and the heatmap ring
+are all unchanged — this swaps the display, not the mechanism.
+
+### Why the original rejection doesn't hold
+
+The rejection above priced the wrong card. It costed "Jul 28 · 4 pomodoros" —
+the readout line's wording, chosen for a line that had a whole 276pt row to
+itself. A card doesn't need the noun: the pointer is over a graph of pomodoros
+in an app about pomodoros, and the count is the only number on screen.
+
+Dropping it changes the arithmetic that drove the decision:
+
+| content | width at `.caption2` | share of the ~276pt plot |
+|---|---|---|
+| `Sun, Jul 26 · 2 pomodoros` | ~142pt | 51% |
+| `Sun, Jul 26 · 2` | ~84pt | 30% |
+
+(Measured off a real render — `dayLabel` produces `"EEE, MMM d"`, not the bare
+`"MMM d"` this doc first guessed at, so the card is a full weekday wider than
+the original estimate. `Today` and `Yesterday` are the short cases, not the
+typical one: a `Yesterday`-named card at the same font measures ~77pt, close
+to the long-form no-noun row above.)
+
+30% is a different affordance from 51%. The objection was real and is now
+answered by making the card smaller, not by deciding the objection was wrong.
+
+### What it costs
+
+The window total goes with the line. It only ever existed because a line whose
+height must be reserved needs something to say when nothing is hovered; a card
+that isn't shown needs nothing. Nothing else displayed it, so Month and Year
+lose their only visible total. A third stat tile would restore it — deliberately
+not built, because it wasn't wanted before the line invented the need.
+
+### Placement
+
+- **Horizontally:** centred on the cursor, clamped so the card never crosses
+  the graph's edges. At 300pt of panel the clamp is load-bearing, not a
+  formality — a card centred on the last heatmap column would otherwise leave
+  the panel.
+- **Vertically:** 10pt above the cursor, flipping to 10pt below when it would
+  not fit above *within the graph's own bounds*. On the 108pt chart it sits
+  above nearly always; on the 40pt heatmap it flips below nearly always. Both
+  read correctly, and the rule is one sentence rather than two special cases.
+- **Vertical position is not clamped.** A flipped card overlaps the stat tiles
+  beneath, and that is correct — it floats. Clamping it back would park it under
+  the pointer, hiding the square it describes.
+
+`TooltipPlacement.origin(cursor:tooltip:in:)` owns all of that and is pure and
+unit-tested, so the clamp and the flip are assertable rather than eyeballed —
+the same split `HeatmapLayout` and `HistoryReadout` already follow.
+
+### Rendering
+
+An `.overlay` on the graph's container, `.allowsHitTesting(false)` so it can
+never steal the hover that summons it. Two things it must not be:
+
+- **Not a popover.** A popover is its own window; it would take key status from
+  the panel and dismiss the very panel it floats over.
+- **Not drawn inside the `Canvas`.** `Canvas` clips to its bounds — that is what
+  clipped the highlight ring on every edge cell, and a card that flips below a
+  40pt heatmap is entirely outside those bounds.
+
+The card measures itself through a `PreferenceKey`, because placement needs its
+width before it can be clamped. Sizing it by hand would drift the first time a
+label ran from "Today" to "Wed, Jul 29".
+
+### Headless verification
+
+A render has no cursor, so `--hover-graph <n>` anchors the card to the hovered
+item's geometric centre. That is what makes the clamp checkable at all: index 0
+and the last column are exactly the cases a live pointer is least likely to
+land on and most likely to break.

@@ -1,5 +1,9 @@
 # History Hover Readout Implementation Plan
 
+> **Superseded.** The readout line under the graph described here was
+> replaced by a cursor-following tooltip card; see
+> `docs/superpowers/plans/2026-07-30-history-hover-tooltip.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Hovering a bar in the Week/Month chart or a square in the Year heatmap names that day and its count in a readout line under the graph, with the hovered mark highlighted.

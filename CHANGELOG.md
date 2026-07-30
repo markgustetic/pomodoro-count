@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The History graphs will tell you their numbers** — hover a bar in Week or
+  Month, or a square in the Year heatmap, and a small card at the pointer
+  names that day and its count. The other bars dim, or the square takes a
+  ring, so it's clear which day you're reading. The heatmap needed this most:
+  a day there is a four-point square whose only encoding was how dark it was.
+
 ### Changed
 
 - **The category list is now a priority ranking.** When a category meets its
