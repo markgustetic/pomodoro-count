@@ -132,6 +132,26 @@ Two rules the palette exists to enforce, both learned the hard way:
   `idleColor` for that reason, and a white label needs the gradient's *midpoint*
   to clear ~4.5:1 — the top stop is what fails first.
 
+## Signing
+
+`build-app.sh` is the only place that calls `codesign --sign`. It takes
+`CODESIGN_IDENTITY` (default `-`, ad-hoc); a real identity also gets
+`--options runtime --timestamp`, both of which notarization requires. The
+release workflow imports the certificate, reads the identity back out of the
+keychain, and hands it to the script — it does no signing of its own, and
+`--deep` appears only in `codesign --verify`, never in signing.
+
+The nested walk is an **explicit list** of Sparkle's four inner binaries, and a
+missing one fails the build. It replaced a `find -maxdepth 3` that never reached
+`Versions/*/XPCServices`, so both XPC services silently kept the ad-hoc signature
+Sparkle ships — invisible while everything was ad-hoc, fatal under a Developer
+ID. A Sparkle upgrade that moves them should break here, not at Apple.
+
+Sparkle accepts an update whose **EdDSA key** matches *or* whose **code signing
+identity** matches — one may change per release, never both. Changing both
+strands every existing install permanently. One-time Apple-side setup is in
+`packaging/signing/README.md`.
+
 ## Conventions
 
 - **Comments record WHY, and stay.** Decisions that look odd carry their

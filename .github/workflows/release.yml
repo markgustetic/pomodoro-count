@@ -45,55 +45,186 @@ jobs:
       - name: Run tests before releasing
         run: swift test
 
-      # SPARKLE_PUBLIC_KEY comes from a repository variable (it isn't secret).
-      # Without it the app builds with its updater disabled rather than shipping
-      # one that can't verify anything.
-      - name: Build the .app
-        run: ./build-app.sh
-
-      # Inert until a Developer ID is available. Add these repository secrets to
-      # turn it on, with no other change needed:
-      #   DEVELOPER_ID_P12         base64 of the exported .p12
-      #   DEVELOPER_ID_P12_PASSWORD
-      #   DEVELOPER_ID_IDENTITY    e.g. "Developer ID Application: Name (TEAMID)"
-      #   NOTARY_APPLE_ID, NOTARY_PASSWORD (app-specific), NOTARY_TEAM_ID
-      - name: Sign and notarize
+      - name: Import the signing certificate
+        id: signing
         if: env.HAS_SIGNING == 'true'
         env:
           P12: ${{ secrets.DEVELOPER_ID_P12 }}
           P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
-          IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
-          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
-          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
-          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
-          APP: build/Pomodoro Count.app
         run: |
           set -euo pipefail
           keychain="$RUNNER_TEMP/build.keychain"
           password="$(uuidgen)"
           security create-keychain -p "$password" "$keychain"
-          security set-keychain-settings -lut 900 "$keychain"
+          # The import now sits ahead of a full build-app.sh run rather than
+          # seconds before its one codesign call, so the timeout has to
+          # outlive the build, not just the import: 6 hours, not 15 minutes.
+          security set-keychain-settings -lut 21600 "$keychain"
           security unlock-keychain -p "$password" "$keychain"
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
 
           echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          # Must also fire on the failure path: a wrong P12_PASSWORD aborts
+          # set -e inside `security import` and would otherwise leave the
+          # decoded private key on disk for the rest of the job.
+          trap 'rm -f "$RUNNER_TEMP/cert.p12"' EXIT
           security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$P12_PASSWORD" \
             -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$password" "$keychain" >/dev/null
-          rm -f "$RUNNER_TEMP/cert.p12"
 
-          codesign --force --deep --options runtime --timestamp \
-            --sign "$IDENTITY" "$APP"
-          codesign --verify --strict --verbose=2 "$APP"
+          # Read the identity out of the keychain rather than carrying it as a
+          # secret. A stored string can disagree with the certificate, and what
+          # that produces is "no identity found" at codesign time. Asserting the
+          # prefix catches the certificate that is easy to export by mistake: an
+          # "Apple Development" cert signs fine and notarizes never.
+          found="$(security find-identity -v -p codesigning "$keychain" |
+                   sed -n 's/.*"\(.*\)".*/\1/p')"
+          identity="$(printf '%s\n' "$found" |
+                      grep '^Developer ID Application: ' | head -1 || true)"
+          if [ -z "$identity" ]; then
+            echo "The imported .p12 holds no 'Developer ID Application' certificate."
+            echo "It holds: ${found:-<nothing>}"
+            exit 1
+          fi
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+          echo "Signing as $identity"
 
+      # SPARKLE_PUBLIC_KEY comes from a repository variable (it isn't secret).
+      # Without it the app builds with its updater disabled rather than shipping
+      # one that can't verify anything.
+      #
+      # CODESIGN_IDENTITY is empty when signing is off, and build-app.sh reads
+      # that as ad-hoc — the same bundle every CI push already produces.
+      - name: Build the .app
+        env:
+          CODESIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: ./build-app.sh
+
+      # Runs before notarization, not after, so a missing Team ID fails in
+      # seconds instead of after a notarytool round trip: this is the check
+      # that would have caught the -maxdepth walk which skipped Sparkle's XPC
+      # services — they stayed ad-hoc, with no team at all, and notarization
+      # failed without naming them.
+      - name: Verify every nested binary carries the app's team
+        if: env.HAS_SIGNING == 'true'
+        env:
+          APP: build/Pomodoro Count.app
+        run: |
+          set -euo pipefail
+
+          # codesign prints the literal string "TeamIdentifier=not set" for an
+          # ad-hoc or unsigned bundle — it does not omit the line — so a plain
+          # `[ -n "$team" ]` test passes even when nothing is actually signed.
+          # A `case` is what actually rejects both the empty and "not set"
+          # readings.
+          #
+          # The `|| true` on each raw codesign capture keeps a failing
+          # codesign from killing the script via `set -e` right at the
+          # assignment, before the explicit checks below get a chance to
+          # report why — same reasoning as the spctl capture in the
+          # Gatekeeper step further down this file.
+          app_output="$(codesign -dvv "$APP" 2>&1 || true)"
+          team="$(printf '%s\n' "$app_output" | sed -n 's/^TeamIdentifier=//p')"
+          case "$team" in
+            ''|'not set')
+              echo "the app is not signed with a team identity"
+              exit 1
+              ;;
+          esac
+
+          # Notarization requires the hardened runtime on every executable,
+          # not just the outer app — a stale or ad-hoc nested binary would
+          # lack it exactly as it would lack the team, so check both here
+          # rather than finding out from notarytool. codesign reports it on
+          # the CodeDirectory line, e.g. "flags=0x10000(runtime)".
+          check_runtime() {
+            case "$2" in
+              *flags=*"(runtime)"*) ;;
+              *) echo "$1 does not have the hardened runtime enabled"; exit 1 ;;
+            esac
+          }
+          check_runtime "the app" "$app_output"
+
+          fw="$APP/Contents/Frameworks/Sparkle.framework"
+          ver="$(readlink "$fw/Versions/Current")"
+          for nested in XPCServices/Downloader.xpc XPCServices/Installer.xpc \
+                        Updater.app Autoupdate; do
+            nested_output="$(codesign -dvv "$fw/Versions/$ver/$nested" 2>&1 || true)"
+            got="$(printf '%s\n' "$nested_output" | sed -n 's/^TeamIdentifier=//p')"
+            # Fall back to "<unreadable>", not "not set" — that literal is
+            # itself a value codesign prints for an ad-hoc binary, so reusing
+            # it here would leave the message ambiguous about whether the
+            # binary was unsigned or simply couldn't be read.
+            [ "$got" = "$team" ] \
+              || { echo "$nested has TeamIdentifier '${got:-<unreadable>}', want '$team'"; exit 1; }
+            check_runtime "$nested" "$nested_output"
+          done
+          echo "Every nested binary carries team $team and the hardened runtime"
+
+      # Inert until a Developer ID exists. Add these repository secrets to turn
+      # it on — see packaging/signing/README.md:
+      #   DEVELOPER_ID_P12          base64 of the exported .p12
+      #   DEVELOPER_ID_P12_PASSWORD
+      #   NOTARY_KEY_ID, NOTARY_ISSUER_ID, NOTARY_KEY_P8
+      # That's all the pipeline needs — but not all the product needs: the
+      # release-notes footer below and the cask still tell downloaders the
+      # app is unsigned. See the Phase 2 list in packaging/signing/README.md
+      # ("## 4. Then") before calling this done.
+      - name: Notarize and staple
+        if: env.HAS_SIGNING == 'true'
+        env:
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          APP: build/Pomodoro Count.app
+        run: |
+          set -euo pipefail
+          keyfile="$RUNNER_TEMP/notary.p8"
+          printf '%s' "$NOTARY_KEY_P8" > "$keyfile"
+          trap 'rm -f "$keyfile"' EXIT
+          chmod 600 "$keyfile"
+
+          # An App Store Connect API key, not an Apple ID and app-specific
+          # password: the password is revoked whenever that account's password
+          # changes, which breaks releases months later for an unrelated reason.
           ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
           xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
-            --apple-id "$NOTARY_APPLE_ID" \
-            --password "$NOTARY_PASSWORD" \
-            --team-id "$NOTARY_TEAM_ID" \
+            --key "$keyfile" \
+            --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER_ID" \
             --wait
+          # Staples the ticket into the bundle so first launch needs no network.
           xcrun stapler staple "$APP"
+
+      - name: Verify Gatekeeper accepts it
+        if: env.HAS_SIGNING == 'true'
+        env:
+          APP: build/Pomodoro Count.app
+        run: |
+          set -euo pipefail
+          codesign --verify --strict --deep --verbose=2 "$APP"
+          xcrun stapler validate "$APP"
+
+          # The question a release actually has to answer: what does Gatekeeper
+          # do with this on a machine that has never seen it. spctl exits zero
+          # for other accept sources too — "the user already trusts it" — so the
+          # source is asserted, not just the exit code. This runs after stapling,
+          # so it resolves from the embedded ticket rather than the network.
+          #
+          # spctl exits 3 when it rejects the app, and under `set -euo
+          # pipefail` that would kill the step right at the assignment —
+          # before the case below ever runs, so the maintainer would see only
+          # "exit code 3" and never spctl's own reason. The `|| true` lets the
+          # diagnostic outlive a rejection so the case statement is what
+          # decides, and can say why.
+          assessment="$(spctl --assess --type execute --verbose=4 "$APP" 2>&1 || true)"
+          echo "$assessment"
+          case "$assessment" in
+            *"source=Notarized Developer ID"*) ;;
+            *) echo "Gatekeeper did not accept this as notarized"; exit 1 ;;
+          esac
+          echo "Signed, notarized, and stapled"
 
       - name: Package
         id: package
