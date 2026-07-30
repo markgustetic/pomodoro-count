@@ -38,8 +38,14 @@ struct ButtonTint {
     static let hotPink = ButtonTint(
         top: Color(hex: 0xFF4D8D), bottom: Color(hex: 0x9D2BD6), shadow: Color(hex: 0xFF2A6D))
 
+    // Deliberately deeper than the cyan it sits under. This is the *idle*
+    // button, and `idleColor` already paints the countdown a hand's width
+    // above it in near-neon 0x05D9E8 — matching that brightness put two light
+    // sources in one card and the Focus tab bloomed into a single blob. It was
+    // also unreadable: the old 0x5BEEFF top left the white label at ~1.3:1,
+    // where this gradient's midpoint gives ~4.9:1.
     static let electricCyan = ButtonTint(
-        top: Color(hex: 0x5BEEFF), bottom: Color(hex: 0x0A8FB8), shadow: Color(hex: 0x05D9E8))
+        top: Color(hex: 0x1FA9CC), bottom: Color(hex: 0x075E80), shadow: Color(hex: 0x0B87A8))
 
     static let violet = ButtonTint(
         top: Color(hex: 0xC77DFF), bottom: Color(hex: 0x6A1FB0), shadow: Color(hex: 0xB026FF))

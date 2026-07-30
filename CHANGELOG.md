@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   break at its configured length (the long one when you have earned it), the big
   button becomes "Start break", and the menu bar shows a cup beside your count.
   The stop button skips it, and skipping a long break keeps it owed.
+- **Synthwave's "Start focus" button is no longer blinding** — it shared its
+  near-white cyan with the countdown glowing right above it, which made the
+  Focus tab bloom into one bright blob and left the white label barely legible
+  against the button's own fill. The button now sits in a deeper cyan.
 
 ## [1.2.0] - 2026-07-29
 
