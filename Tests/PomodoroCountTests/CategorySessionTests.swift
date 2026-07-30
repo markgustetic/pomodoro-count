@@ -310,12 +310,17 @@ import Foundation
 
     /// A hand pick stamps today, or the next realign would read the target as
     /// yesterday's and wipe a pick made moments ago.
+    ///
+    /// Music rather than Work on purpose: Work is the top of the ranking, so a
+    /// missing stamp would send `restartFromTopOfRanking()` to the same place
+    /// the pick did and the assertion could not tell the two apart.
     @Test func aHandPickStampsToday() {
         let m = configured()
         m.settings.targetAimedOn = Date(timeIntervalSinceNow: -60 * 60 * 48)
-        m.pickTarget(.named("Work"))
+        m.pickTarget(.named("Music"))
+        #expect(Calendar.current.isDateInToday(m.settings.targetAimedOn ?? .distantPast))
         m.realignTarget()
-        #expect(m.sessionTarget == .named("Work"))
+        #expect(m.sessionTarget == .named("Music"))
     }
 
     /// A goal of 0 can never be met, so picking one never pins — and the advance
