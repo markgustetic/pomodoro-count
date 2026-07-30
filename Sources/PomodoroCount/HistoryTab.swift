@@ -13,6 +13,7 @@ struct HistoryTab: View {
     @State private var range: ChartRange =
         PreviewOverrides.historyRange.flatMap(ChartRange.init(rawValue:)) ?? .week
     @State private var grouping: Grouping = .day
+    @State private var hoveredIndex: Int?
 
     enum ChartRange: String, CaseIterable {
         case week = "Week", month = "Month", year = "Year"
@@ -36,6 +37,7 @@ struct HistoryTab: View {
         let stats = showsCategoryBreakdown ? [] : model.history(days: range.days)
         let categoryTotals = showsCategoryBreakdown ? model.categoryTotals(days: range.days) : []
         let isEmpty = showsCategoryBreakdown ? categoryTotals.isEmpty : stats.isEmpty
+        let series = model.dailySeries(days: range.days)
         PanelTabScroller {
             // 14 rather than the panel's usual 10: this tab is dense with
             // distinct sections — picker, chart, tiles, picker, list — and
@@ -49,10 +51,11 @@ struct HistoryTab: View {
             // A year of daily bars is texture pretending to be data; the
             // heatmap grid is the honest form at that scale.
             if range == .year {
-                HeatmapView(stats: model.dailySeries(days: range.days))
+                HeatmapView(stats: series)
             } else {
-                chart
+                chart(series)
             }
+            readout(series)
 
             HStack(spacing: 8) {
                 statTile("This week", model.weekCount)
@@ -100,6 +103,7 @@ struct HistoryTab: View {
                 }
             }
             }
+            .onChange(of: range) { hoveredIndex = nil }
         }
     }
 
@@ -123,17 +127,20 @@ struct HistoryTab: View {
         }
     }
 
-    @ViewBuilder private var chart: some View {
-        let series = model.dailySeries(days: range.days)
-        Chart(series) { day in
+    @ViewBuilder private func chart(_ series: [DayStat]) -> some View {
+        let hovered = effectiveHover
+        Chart(Array(series.enumerated()), id: \.element.id) { item in
             BarMark(
-                x: .value("Day", day.date, unit: .day),
-                y: .value("Pomodoros", day.count)
+                x: .value("Day", item.element.date, unit: .day),
+                y: .value("Pomodoros", item.element.count)
             )
             .cornerRadius(3)
             .foregroundStyle(LinearGradient(
                 colors: [palette.accent, palette.accent2],
                 startPoint: .top, endPoint: .bottom))
+            // Only the hovered bar stays lit, so the line underneath can't be
+            // read as describing some other day.
+            .opacity(hovered == nil || hovered == item.offset ? 1 : 0.45)
         }
         .chartYAxis {
             AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
@@ -156,6 +163,28 @@ struct HistoryTab: View {
                 }
             }
         }
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let point):
+                            // `plotFrame` is where the bars actually are: the
+                            // leading y-axis makes the plot narrower than the
+                            // view, and hand-computing that inset would drift
+                            // the moment an axis label got wider.
+                            guard let plot = proxy.plotFrame,
+                                  let date: Date = proxy.value(atX: point.x - geo[plot].origin.x)
+                            else { hoveredIndex = nil; return }
+                            hoveredIndex = HistoryReadout.index(for: date, in: series)
+                        case .ended:
+                            hoveredIndex = nil
+                        }
+                    }
+            }
+        }
         .frame(height: 108)
     }
 
@@ -176,6 +205,22 @@ struct HistoryTab: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue("\(value) \(value == 1 ? "pomodoro" : "pomodoros")")
+    }
+
+    /// The effective hover: a real pointer, or a preview's forced one.
+    private var effectiveHover: Int? { hoveredIndex ?? PreviewOverrides.hoveredGraphIndex }
+
+    private func readout(_ series: [DayStat]) -> some View {
+        Text(HistoryReadout.text(hoveredIndex: effectiveHover, series: series,
+                                 days: range.days, dayLabel: model.dayLabel))
+            .font(.caption)
+            .foregroundStyle(effectiveHover == nil ? palette.textDim : palette.text)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Height reserved in both states. PanelTabScroller sizes this tab
+            // to its content's ideal height, so a line that appeared only on
+            // hover would grow the panel out from under the pointer that
+            // summoned it.
+            .frame(height: 13)
     }
 }
 
