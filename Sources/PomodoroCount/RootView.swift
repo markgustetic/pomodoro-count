@@ -248,10 +248,12 @@ struct RootView: View {
                 .disabled(model.phase == .idle)
                 // Says what the label doesn't: the hint and the tooltip share
                 // this string, and repeating the label would double-speak.
-                .help("Abandons the session — nothing is logged")
+                // Phase-dependent since an armed break has a logged session
+                // behind it — see `AppModel.resetHelp`.
+                .help(model.resetHelp)
                 .accessibilityLabel("Stop and reset")
 
-                if model.phase != .breakTime {
+                if model.offersManualBreak {
                     Button { model.startBreak() } label: {
                         Image(systemName: "cup.and.saucer.fill")
                     }

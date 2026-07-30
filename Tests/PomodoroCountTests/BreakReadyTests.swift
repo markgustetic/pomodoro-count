@@ -198,4 +198,33 @@ import Foundation
         #expect(m.statusDescription.contains("Break ready"))
         #expect(m.statusDescription.contains("10 minutes"))
     }
+
+    // MARK: The button row
+
+    /// The cup stands down while a break is armed: the primary button already
+    /// offers exactly that, and two controls doing one job in one row is worse
+    /// than one. The three older phases keep the behaviour they had.
+    @Test func theCupButtonStandsDownWhileABreakIsArmed() {
+        let (m, _) = makeModel()
+        m.settings.autoStartBreak = false
+        #expect(m.offersManualBreak)          // idle — rest now, before starting
+        m.startWork()
+        #expect(m.offersManualBreak)          // mid-focus — cut it short and rest
+        m.forceCompleteForTesting()
+        #expect(!m.offersManualBreak)         // armed — the big button is the offer
+        m.toggle()
+        #expect(!m.offersManualBreak)         // already resting
+    }
+
+    /// "Abandons the session — nothing is logged" is false once a break is
+    /// armed. The session *was* logged; that is why there is a break to skip.
+    @Test func theStopButtonStopsPromisingNothingWasLogged() {
+        let (m, _) = makeModel()
+        m.settings.autoStartBreak = false
+        m.startWork()
+        #expect(m.resetHelp.contains("nothing is logged"))
+        m.forceCompleteForTesting()
+        #expect(m.resetHelp.contains("Skip the break"))
+        #expect(!m.resetHelp.contains("nothing is logged"))
+    }
 }

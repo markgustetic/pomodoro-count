@@ -144,6 +144,23 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Whether the panel offers the "rest now" cup button. Not while a break is
+    /// already armed — the primary button offers exactly that, and two controls
+    /// doing one job in one row is worse than one.
+    var offersManualBreak: Bool {
+        phase == .idle || phase == .work
+    }
+
+    /// The stop button's tooltip. It abandons an unfinished session in the
+    /// running phases, but an armed break has a session already logged behind
+    /// it, so "nothing is logged" would be a lie exactly where the user is most
+    /// likely to hesitate over the button.
+    var resetHelp: String {
+        phase == .breakReady
+            ? "Skip the break — the session is already logged"
+            : "Abandons the session — nothing is logged"
+    }
+
     /// The first instant of an N-day window ending today. Every "last N days"
     /// query — `history`, `dailySeries`, `categoryTotals` — measures its window
     /// from here, so the semantics (inclusive of today, calendar-day aligned)
