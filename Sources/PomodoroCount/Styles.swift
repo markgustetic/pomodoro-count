@@ -50,12 +50,12 @@ enum ControlState: Equatable {
 
 extension View {
     /// The app's one disabled treatment: fade the finished control — fill,
-    /// border, glyph and shadow together — by the palette's own factor.
+    /// border, glyph and shadow together — by the palette's own `DisabledLook`.
     /// Applied last in each style's chain so it dims the whole assembly rather
     /// than one layer of it, and shared so the three styles can't drift into
     /// three different ideas of what "off" looks like.
     func dimmed(_ state: ControlState, _ palette: Palette) -> some View {
-        opacity(state == .disabled ? palette.disabledOpacity : 1)
+        opacity(palette.disabled.opacity(in: state))
     }
 }
 

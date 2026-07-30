@@ -90,13 +90,19 @@ import AppKit
 
     // MARK: Themes
 
-    /// The disabled dim routes through the palette like every other colour
+    /// The disabled dim routes through the palette like every other look
     /// decision. Both themes have to dim far enough to read as dead at a
-    /// glance — the numbers themselves were picked against rendered previews.
+    /// glance — the numbers themselves were picked against rendered previews —
+    /// and no theme may dim a control that is merely pressed or hovered, which
+    /// would put two ideas of emphasis on the same button.
     @Test(arguments: ThemeChoice.allCases)
-    func everyPaletteDimsDisabledControls(choice: ThemeChoice) {
-        #expect(choice.palette.disabledOpacity > 0)
-        #expect(choice.palette.disabledOpacity <= 0.45)
+    func everyPaletteDimsDisabledControlsAndOnlyThose(choice: ThemeChoice) {
+        let disabled = choice.palette.disabled
+        #expect(disabled.opacity(in: .disabled) > 0)
+        #expect(disabled.opacity(in: .disabled) <= 0.45)
+        for live in [ControlState.pressed, .hovering, .resting] {
+            #expect(disabled.opacity(in: live) == 1)
+        }
     }
 
     @Test func classicIsPlainAndSynthwaveIsNeon() {

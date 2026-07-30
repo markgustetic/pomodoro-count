@@ -10,6 +10,34 @@ extension Color {
     }
 }
 
+// MARK: - Disabled controls
+
+/// What "switched off" looks like. A type of its own rather than a loose
+/// `Double` among the palette's colours: the amount is a per-theme decision
+/// like everything else in there, but it is not a colour, and a second
+/// disabled treatment — a desaturation, a flattened border — would otherwise
+/// arrive as another bare number wedged between two `Color`s.
+///
+/// Holding `opacity(in:)` here is the point of the struct. It keeps the last
+/// scrap of the decision out of the view layer, where it can be tested with
+/// the rest of `ControlState`'s precedence instead of being read off a render.
+struct DisabledLook {
+    /// How far the finished control fades — fill, border, glyph and shadow
+    /// together. Classic dims against the system's own greys; Synthwave's
+    /// glyphs are saturated neon on near-black and have to drop further before
+    /// they stop reading as live. Both numbers were picked against rendered
+    /// previews, not derived.
+    var dim: Double
+
+    /// The opacity a control draws at in `state` — full strength unless it is
+    /// off. Every live state is 1: pressing and hovering carry their own
+    /// treatments in the styles, and stacking a fade on top of those would
+    /// mean two ideas of emphasis fighting.
+    func opacity(in state: ControlState) -> Double {
+        state == .disabled ? dim : 1
+    }
+}
+
 // MARK: - Button tints
 
 /// A two-stop gradient + matching shadow color for a filled button.
@@ -77,12 +105,10 @@ struct Palette {
     var trackFill: Color
     var trackStroke: Color
     var hairline: Color
-    /// How far a disabled control fades — fill, border and glyph together (see
-    /// `ControlState`). A colour decision like any other, so it lives here and
-    /// not in the styles: Classic dims against the system's own greys, while
-    /// Synthwave's glyphs are saturated neon on near-black and need to drop
-    /// further before they stop reading as live.
-    var disabledOpacity: Double
+    /// How a control draws once `.disabled(…)` reaches it — see `DisabledLook`
+    /// and `ControlState`. Per-theme like the colours around it, which is why
+    /// it lives on the palette rather than in the styles.
+    var disabled: DisabledLook
 
     // Type
     var text: Color
@@ -113,7 +139,7 @@ struct Palette {
         trackFill: Color.primary.opacity(0.07),
         trackStroke: .clear,
         hairline: Color.primary.opacity(0.15),
-        disabledOpacity: 0.40,
+        disabled: DisabledLook(dim: 0.40),
         text: .primary,
         textDim: .secondary,
         accent: Color(red: 0.88, green: 0.22, blue: 0.19),
@@ -142,7 +168,7 @@ struct Palette {
         // Also the unfilled progress dot and the empty half of a progress bar,
         // so it has to stay visible against a card, not just against the panel.
         hairline: Color(hex: 0x8B68CC).opacity(0.55),
-        disabledOpacity: 0.32,
+        disabled: DisabledLook(dim: 0.32),
         text: Color(hex: 0xF3EAFF),
         // Purple-on-purple loses more legibility to the shared hue than the
         // luminance ratio suggests, so this sits brighter than a nominal
