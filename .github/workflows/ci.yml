@@ -50,7 +50,10 @@ jobs:
           test -x "$APP/Contents/MacOS/PomodoroCount"      || { echo "missing executable"; exit 1; }
           test -f "$APP/Contents/Resources/AppIcon.icns"   || { echo "missing icon"; exit 1; }
           plutil -lint "$APP/Contents/Info.plist"
-          codesign --verify --strict "$APP"
+          # --deep, because the interesting failures are all nested: an outer
+          # signature that seals a stale hash from the framework or one of
+          # Sparkle's four inner binaries is silent until something recurses.
+          codesign --verify --strict --deep "$APP"
 
           # The bundle must carry the version from VERSION, not a stale literal.
           want="$(tr -d '[:space:]' < VERSION)"
