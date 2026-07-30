@@ -169,10 +169,23 @@ which is right — there is nothing to pause.
 
 ### Extracted for test
 
-`StatusIcon.glyph(phase:running:) -> Glyph` (`.tomato`, `.cup`, `.pause`) is
-lifted out of `drawIcon`, which then switches on it to draw. The drawn image is
-not assertable, so the decision it encodes is tested instead — following the
-same shape as `Reorder.destination` and `HeatmapLayout.cells`.
+Three decisions move out of places that cannot be asserted, following the same
+shape as `Reorder.destination` and `HeatmapLayout.cells`:
+
+- `StatusIcon.glyph(phase:running:) -> Glyph` (`.tomato`, `.cup`, `.pause`),
+  lifted out of `drawIcon`, which then switches on it to draw. The drawn image
+  is not assertable; the decision behind it is.
+- `AppModel.offersManualBreak: Bool` and `AppModel.resetHelp: String` — the cup
+  button's visibility and the stop button's tooltip, which are otherwise buried
+  in view-body conditionals.
+- `AppModel.completionBody(count:breakArmed:)` — the banner's wording. `notify`
+  returns early unless the app is bundled, so nothing posts under test.
+
+`phaseSubtitle` and `primaryHelp` stay in `RootView` as `private` computed
+properties, where the existing per-phase strings already live. They are checked
+by eye in the preview render rather than by assertion; moving the whole family
+onto the model to test two new strings would be a larger change than this
+feature earns.
 
 ## Testing
 
@@ -196,8 +209,21 @@ New `Tests/PomodoroCountTests/BreakReadyTests.swift` (swift-testing):
 - `StatusIcon.glyph(phase: .breakReady, running: false) == .cup`, alongside the
   existing cases, so the pause-glyph trap stays closed.
 
-`primaryTitle` and `phaseSubtitle` assertions join the presentation tests that
-already cover the other phases.
+`primaryTitle` is asserted in the same suite. `PresentationTests`'
+`statusIconRendersForEveryPhase` gains `.breakReady` to its argument list, so
+every phase keeps proving it renders.
+
+## Verification
+
+The armed state is otherwise unreachable without sitting through a real focus
+session, so `--preview` gains `--armed-break`: it arms a break on the throwaway
+preview model before rasterising, alongside the existing `--hover` and
+`--theme` overrides. `just preview` then shows the state a reviewer needs to
+look at — the break colour, the badge, the subtitle, the button row with the cup
+gone.
+
+The armed record it logs shifts the preview's fallback-bucket count by one, in
+that mode only. The default `just preview` output is unchanged.
 
 ## Documentation
 
