@@ -92,18 +92,47 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad-hoc signature so macOS treats this as a stable, launchable app. Nested code
-# must be signed before the thing that contains it, innermost first — signing the
-# outer bundle first would seal a hash that the inner signatures then invalidate.
-echo "Signing…"
-find "$APP/Contents/Frameworks/Sparkle.framework" \
-    \( -name '*.xpc' -o -name '*.app' \) -maxdepth 3 -print0 2>/dev/null |
-    while IFS= read -r -d '' nested; do
-        codesign --force --sign - --timestamp=none "$nested" 2>/dev/null || true
-    done
-codesign --force --sign - "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate" 2>/dev/null || true
-codesign --force --sign - "$APP/Contents/Frameworks/Sparkle.framework" 2>/dev/null || true
-codesign --force --sign - "$APP"
+# Signing. CODESIGN_IDENTITY defaults to ad-hoc, which is enough for macOS to
+# treat this as a stable, launchable app on the machine that built it. A release
+# passes a real Developer ID; that path also needs the hardened runtime (the
+# notary service rejects submissions without it) and a secure timestamp (which
+# keeps the signature valid after the certificate expires).
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+if [ "$CODESIGN_IDENTITY" = "-" ]; then
+    echo "Signing (ad-hoc)…"
+    SIGN=(codesign --force --sign - --timestamp=none)
+else
+    echo "Signing as $CODESIGN_IDENTITY …"
+    SIGN=(codesign --force --sign "$CODESIGN_IDENTITY" --options runtime --timestamp)
+fi
+
+# Nested code must be signed before the thing that contains it, innermost first —
+# signing the outer bundle first would seal a hash the inner signatures then
+# invalidate.
+#
+# The list is explicit and a missing entry is fatal, because the failure it
+# replaces was silent: a `find -maxdepth 3` here never reached
+# Versions/*/XPCServices, so both XPC services kept the ad-hoc signature Sparkle
+# ships them with. Invisible while everything was ad-hoc, fatal under a Developer
+# ID. A Sparkle upgrade that moves these should break the build here, loudly,
+# rather than at Apple's notary service, obscurely.
+FW="$APP/Contents/Frameworks/Sparkle.framework"
+FW_VER="$(readlink "$FW/Versions/Current")"   # "B" today — read, not hardcoded
+for nested in \
+    "XPCServices/Downloader.xpc" \
+    "XPCServices/Installer.xpc" \
+    "Updater.app" \
+    "Autoupdate"
+do
+    target="$FW/Versions/$FW_VER/$nested"
+    [ -e "$target" ] || {
+        echo "Sparkle.framework has no $nested — did its layout change?" >&2
+        exit 1
+    }
+    "${SIGN[@]}" "$target"
+done
+"${SIGN[@]}" "$FW"
+"${SIGN[@]}" "$APP"
 
 echo "Done → $APP"
 echo "Run it with:  open \"$APP\""
