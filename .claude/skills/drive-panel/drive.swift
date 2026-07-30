@@ -408,16 +408,37 @@ case "counter":
 
     // The popover's count carries `progress.accessibilityValue` as its label,
     // so this reads the number the popover is actually promising, not pixels.
+    //
+    // Read out of AXValue, not AXDescription. A `Text`'s accessibility label
+    // lands in the AXValue of its AXStaticText element — an AXStaticText's
+    // "value" *is* its string — so the AXDescription this used to match on was
+    // always empty, and the readout printed '' at every step while looking like
+    // a missing label. That is the same wrong-attribute mistake that made the
+    // category rows look like they exposed no value at all; see SKILL.md.
+    func popoverText(_ el: AXUIElement) -> String {
+        let value = (attr(el, kAXValueAttribute) as? String) ?? ""
+        return value.isEmpty ? str(el, kAXDescriptionAttribute) : value
+    }
+
     func popoverCount() -> String {
         var texts: [AXUIElement] = []
         for root in roots() {
             findAll(root, into: &texts) { el in
                 str(el, kAXRoleAttribute) == kAXStaticTextRole as String
-                    && str(el, kAXDescriptionAttribute).contains("pomodoro")
+                    && popoverText(el).contains("pomodoro")
                     && frame(el).midX > panelMaxX   // inside the popover, not the panel
             }
         }
-        return texts.map { str($0, kAXDescriptionAttribute) }.joined(separator: " | ")
+        // `roots()` hands back the same window more than once — it collects
+        // AXWindows *and* AXMainWindow *and* AXFocusedWindow — so a single
+        // element is found once per root that reaches it. Without this the one
+        // count text reads out as "0 of 1 pomodoros | 0 of 1 pomodoros", which
+        // looks like a duplicated label in the popover rather than a duplicated
+        // walk. Deduped on element identity, not on the string, so two texts
+        // that genuinely agree would still both show.
+        var unique: [AXUIElement] = []
+        for t in texts where !unique.contains(where: { CFEqual($0, t) }) { unique.append(t) }
+        return unique.map(popoverText).joined(separator: " | ")
     }
 
     print("popover count readout: '\(popoverCount())'")
