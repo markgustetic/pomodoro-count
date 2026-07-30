@@ -309,7 +309,12 @@ extension AppModel {
         // `todayProgress` uses for `isSessionTarget` — a paused session's
         // target row isn't held still either, so the advance shouldn't be.
         guard !(phase == .work && isRunning) else { return }
-        guard let next = CategoryAdvance.next(after: sessionTarget, in: todayProgress)
+        // `pinned: false` is a stopgap: there is no pin concept yet on this
+        // branch (a later task adds `Settings.targetPinned`), so this call
+        // simply preserves the pre-ranking behaviour until that task rewires
+        // this function into `realignTarget()`.
+        guard let next = CategoryAdvance.next(after: sessionTarget, in: todayProgress,
+                                              pinned: false)
         else { return }
         sessionTarget = next
     }
