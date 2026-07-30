@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Focus tab bloom into one bright blob and left the white label barely legible
   against the button's own fill. The button now sits in a deeper cyan.
 
+### Fixed
+
+- Buttons that are switched off now look switched off. The stop button in the
+  Focus tab was drawn exactly like a live one while the timer sat idle, so it
+  invited a press that did nothing — most visibly now that it is the control you
+  toggle between idle and a waiting break.
+
 ## [1.2.0] - 2026-07-29
 
 ### Added
