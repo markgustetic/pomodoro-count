@@ -45,12 +45,7 @@ final class AppModel: ObservableObject {
             }
             return .named(name)
         }
-        set {
-            switch newValue {
-            case .named(let name): settings.sessionTargetName = name
-            case .fallback: settings.sessionTargetName = nil
-            }
-        }
+        set { settings.aim(at: newValue) }
     }
 
     /// What the panel's "towards …" control says a finished session will credit.
