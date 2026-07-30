@@ -83,19 +83,21 @@ import Foundation
         #expect(m.sessionTarget == .named("Work"))
     }
 
-    /// Nothing re-checks the target at Start, which is what lets a deliberate
-    /// re-pick of a finished category stick: the next session credits it. (It
-    /// advances again straight after, having met the goal a second time.)
-    @Test func aDeliberateRePickIsHonouredForTheNextSession() {
+    /// A re-pick used to buy exactly one pomodoro: the next record found the
+    /// target met all over again and moved it on. Now the pin holds, and Task 4
+    /// is what sets it — here it stands in for that, so this test stays about
+    /// the advance rather than about how the pin arrives.
+    @Test func aRePickedFinishedCategoryKeepsTheNextSession() {
         let m = configured()
-        m.sessionTarget = .named("Music")
-        m.logExternal(to: .named("Music"))       // Music met; target moved to Work
+        m.logExternal(to: .named("Music"))       // Music met
         m.sessionTarget = .named("Music")        // the user insists
+        m.settings.targetPinned = true
+        m.settings.targetAimedOn = Date()
         m.settings.workMinutes = 1
         m.startWork()
         m.forceCompleteForTesting()
         #expect(m.records.last?.category == "Music")
-        #expect(m.sessionTarget == .named("Work"))
+        #expect(m.sessionTarget == .named("Music"))
     }
 
     /// The day's whole plan is met, so there is nowhere to advance to and
@@ -161,6 +163,95 @@ import Foundation
         m.pause()
         m.logExternal(to: .named("Music"))
         #expect(m.sessionTarget == .named("Work"))
+    }
+
+    // MARK: realignTarget — the start-of-day reset and the met-goal advance
+
+    /// The ranking's payoff at model level: Music is met, Work is not, and Work
+    /// ranks above it. The old rotation would have looked *past* Work.
+    @Test func aMetGoalHandsOffUpTheRanking() {
+        let m = configured()
+        m.settings.categories.append(Category(name: "Admin", dailyGoal: 2))
+        m.sessionTarget = .named("Music")            // goal 1, ranks second
+        m.settings.targetAimedOn = Date()            // not a new day
+        m.logExternal(to: .named("Music"))           // meets Music
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
+    /// A stale stamp means the app has not aimed the target today: counts have
+    /// reset, so the plan restarts at the top and yesterday's pin is stale.
+    @Test func aNewDayRestartsAtTheTopOfTheRanking() {
+        let m = configured()
+        m.sessionTarget = .named("Music")
+        m.settings.targetPinned = true
+        m.settings.targetAimedOn = Date(timeIntervalSinceNow: -60 * 60 * 48)
+        m.realignTarget()
+        #expect(m.sessionTarget == .named("Work"))
+        #expect(!m.settings.targetPinned)
+        #expect(Calendar.current.isDateInToday(m.settings.targetAimedOn ?? .distantPast))
+    }
+
+    /// Same day, so the reset must not fire — it would wipe a pick the user
+    /// made half an hour ago.
+    @Test func aSameDayStampLeavesTheTargetAlone() {
+        let m = configured()
+        m.sessionTarget = .named("Music")
+        m.settings.targetPinned = true
+        m.settings.targetAimedOn = Date()
+        m.realignTarget()
+        #expect(m.sessionTarget == .named("Music"))
+        #expect(m.settings.targetPinned)
+    }
+
+    /// The reset is a start-of-day event, not a lazy one: it stamps even when
+    /// there is nothing to aim at, so adding a goal at noon does not make it
+    /// fire retroactively.
+    @Test func theDailyResetStampsEvenWithNothingToAimAt() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Work", dailyGoal: 0)]
+        m.settings.targetAimedOn = nil
+        m.realignTarget()
+        #expect(Calendar.current.isDateInToday(m.settings.targetAimedOn ?? .distantPast))
+    }
+
+    /// A pin suppresses the advance, so an overshoot lasts as long as the user
+    /// wants rather than exactly one pomodoro.
+    @Test func aPinnedTargetSurvivesRepeatedOvershoots() {
+        let m = configured()
+        m.sessionTarget = .named("Music")            // goal 1
+        m.settings.targetPinned = true
+        m.settings.targetAimedOn = Date()
+        for _ in 0..<3 { m.logExternal(to: .named("Music")) }
+        #expect(m.sessionTarget == .named("Music"))
+        #expect(m.todayCount(inCategory: "Music") == 3)
+    }
+
+    /// A session in flight is never re-aimed, the daily reset included: the
+    /// record that finishes it has to land where Start pointed.
+    @Test func aRunningSessionDefersTheDailyReset() {
+        let m = configured()
+        m.sessionTarget = .named("Music")
+        m.settings.targetAimedOn = Date(timeIntervalSinceNow: -60 * 60 * 48)
+        m.settings.workMinutes = 1
+        m.startWork()
+        m.realignTarget()
+        #expect(m.sessionTarget == .named("Music"))  // deferred, not lost
+        m.forceCompleteForTesting()
+        #expect(m.records.last?.category == "Music") // Start's promise kept
+        #expect(m.sessionTarget == .named("Work"))   // and only then, the reset
+    }
+
+    /// Turning the rule off freezes both automatic triggers. Someone who opted
+    /// out wants a target that never moves on its own, and an overnight re-aim
+    /// violates that exactly as much as a met-goal one does.
+    @Test func theOptOutFreezesTheDailyResetToo() {
+        let m = configured()
+        m.settings.autoAdvanceTarget = false
+        m.sessionTarget = .named("Music")
+        m.settings.targetAimedOn = Date(timeIntervalSinceNow: -60 * 60 * 48)
+        m.realignTarget()
+        #expect(m.sessionTarget == .named("Music"))
     }
 
     // MARK: Persistence

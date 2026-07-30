@@ -397,14 +397,14 @@ final class AppModel: ObservableObject {
 
         if finished == .work {
             focusSessionsThisCycle += 1
-            // The record and the target it may have just finished off are one
-            // change as far as the store is concerned, so they cost one write
-            // rather than two. The append comes first: this session credits the
-            // target it actually ran against, and only the next one moves.
+            // The record and the target it may have just moved are one change
+            // as far as the store is concerned, so they cost one write rather
+            // than two. The append comes first: this session credits the target
+            // it actually ran against, and only the next one moves.
             suspendSaves()
             records.append(Record(at: Date(), source: "timer",
                                   category: resolve(sessionTarget)))
-            advanceTargetIfMet()
+            realignTarget()
             resumeSaves()
             play(.sessionDone)
             notify("Pomodoro complete",
@@ -437,7 +437,7 @@ final class AppModel: ObservableObject {
         // timer will credit is finished.
         suspendSaves()
         records.append(Record(at: Date(), source: "manual", category: resolve(target)))
-        advanceTargetIfMet()
+        realignTarget()
         resumeSaves()
         play(.countUp)
         if announce {
