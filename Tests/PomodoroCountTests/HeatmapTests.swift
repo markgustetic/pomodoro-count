@@ -174,4 +174,31 @@ import CoreGraphics
         #expect(HeatmapLayout.hitTest(centre(column: 0, row: 5, columns: 1),
                                       cells: cells, columns: 1, size: canvas) == nil)
     }
+
+    /// `center` is `hitTest` run backwards, so the strongest check is that the
+    /// round trip closes: the point a cell reports must hit that same cell.
+    @Test func aCellsCentreHitsThatCell() {
+        let cells = HeatmapLayout.cells(for: week(startingMonday: 14), calendar: mondayFirst)
+        for index in [0, 7, 9, 13] {
+            let point = HeatmapLayout.center(of: index, cells: cells, columns: 2, size: canvas)
+            #expect(point != nil)
+            #expect(HeatmapLayout.hitTest(point!, cells: cells, columns: 2, size: canvas) == index)
+        }
+    }
+
+    /// It must agree with the test helper that derives centres independently,
+    /// or one of the two is lying about where the grid is.
+    @Test func aCellsCentreMatchesTheGridArithmetic() {
+        let cells = HeatmapLayout.cells(for: week(startingMonday: 14), calendar: mondayFirst)
+        let point = HeatmapLayout.center(of: 9, cells: cells, columns: 2, size: canvas)
+        let expected = centre(column: 1, row: 2, columns: 2)
+        #expect(abs(point!.x - expected.x) < 0.001)
+        #expect(abs(point!.y - expected.y) < 0.001)
+    }
+
+    @Test func anIndexOutsideTheCellsHasNoCentre() {
+        let cells = HeatmapLayout.cells(for: week(startingMonday: 3), calendar: mondayFirst)
+        #expect(HeatmapLayout.center(of: 9, cells: cells, columns: 1, size: canvas) == nil)
+        #expect(HeatmapLayout.center(of: -1, cells: cells, columns: 1, size: canvas) == nil)
+    }
 }

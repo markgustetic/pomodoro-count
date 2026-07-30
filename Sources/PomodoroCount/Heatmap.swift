@@ -90,6 +90,22 @@ enum HeatmapLayout {
               local.y - CGFloat(row) * step <= cell else { return nil }
         return cells.firstIndex { $0.column == column && $0.row == row }
     }
+
+    /// The centre of a cell, in canvas coordinates — `hitTest` run backwards.
+    ///
+    /// A headless render has no pointer, so this is where `--hover-graph` puts
+    /// the tooltip. Reads the same `metrics` as the draw loop and the hit
+    /// test, so all three agree about where a square is; a round-trip test
+    /// pins that.
+    static func center(of index: Int, cells: [HeatmapCell],
+                       columns: Int, size: CGSize) -> CGPoint? {
+        guard cells.indices.contains(index) else { return nil }
+        let (cell, gap, origin) = metrics(columns: columns, size: size)
+        guard cell > 0 else { return nil }
+        let step = cell + gap
+        return CGPoint(x: origin.x + CGFloat(cells[index].column) * step + cell / 2,
+                       y: origin.y + CGFloat(cells[index].row) * step + cell / 2)
+    }
 }
 
 /// A year of days as a GitHub-style grid: one cell per day, weekday rows,
