@@ -11,6 +11,10 @@ import ApplicationServices
 //   rows                 — print each category row's frame
 //   advance <row>        — read the session-target pill, click row <row> to meet
 //                          its goal, read the pill again, without reopening
+//   counter <row>        — open row <row>'s count popover and work its − and +
+//   counterkeys <row>    — same popover, short VoiceOver-and-Escape probe only
+//   countershot <row> <path> — open row <row>'s popover and screenshot it in place
+//   settingsshot <button> <path> — open Settings, click <button>, and screenshot
 
 let pid = pid_t(CommandLine.arguments[1])!
 let command = CommandLine.arguments[2]
@@ -313,6 +317,13 @@ case "counter":
     click(CGPoint(x: itemFrame.midX, y: itemFrame.midY))
     usleep(1_500_000)
 
+    // The panel's right edge, read now while it is still the only AX window —
+    // once the popover opens there are two, and nothing at that point says
+    // which is which. `popoverCount()` below uses this instead of a coordinate
+    // from one particular display, which only ever worked on the display it
+    // was measured against and returned silently empty everywhere else.
+    let panelMaxX = (attr(app, kAXWindowsAttribute) as? [AXUIElement])?.first.map { frame($0).maxX } ?? 0
+
     // A category's name also labels its Settings text field. `advance` picks the
     // Focus row by requiring a progress string in the value; that is deliberately
     // NOT the rule here, because whether the row still exposes a value is one of
@@ -347,8 +358,11 @@ case "counter":
         var els: [AXUIElement] = []
         for root in roots() {
             findAll(root, into: &els) { el in
+                // `hasPrefix`, not `==`: the accessibility labels now carry the
+                // category name too ("Remove one pomodoro from Alpha"), and this
+                // helper is called with just the fixed lead-in.
                 str(el, kAXRoleAttribute) == kAXButtonRole as String
-                    && (str(el, kAXTitleAttribute) == label || str(el, kAXDescriptionAttribute) == label)
+                    && (str(el, kAXTitleAttribute).hasPrefix(label) || str(el, kAXDescriptionAttribute).hasPrefix(label))
             }
         }
         guard let el = els.first else { return nil }
@@ -400,7 +414,7 @@ case "counter":
             findAll(root, into: &texts) { el in
                 str(el, kAXRoleAttribute) == kAXStaticTextRole as String
                     && str(el, kAXDescriptionAttribute).contains("pomodoro")
-                    && frame(el).midX > 3180   // inside the popover, not the panel
+                    && frame(el).midX > panelMaxX   // inside the popover, not the panel
             }
         }
         return texts.map { str($0, kAXDescriptionAttribute) }.joined(separator: " | ")
@@ -515,9 +529,11 @@ case "countershot":
     var stepEls: [AXUIElement] = []
     for root in roots() {
         findAll(root, into: &stepEls) { el in
-            str(el, kAXRoleAttribute) == kAXButtonRole as String
-                && ["Remove one pomodoro", "Add one pomodoro"]
-                    .contains(str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute))
+            // `hasPrefix`, not exact match — see the same note in `stepper` in
+            // the `counter` case: the label now carries the category name too.
+            let combined = str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute)
+            return str(el, kAXRoleAttribute) == kAXButtonRole as String
+                && ["Remove one pomodoro", "Add one pomodoro"].contains { combined.hasPrefix($0) }
         }
     }
     guard !stepEls.isEmpty else { print("popover never opened — nothing to shoot"); exit(1) }
@@ -558,9 +574,11 @@ case "counterkeys":
         var els: [AXUIElement] = []
         for root in roots() {
             findAll(root, into: &els) { el in
-                str(el, kAXRoleAttribute) == kAXButtonRole as String
-                    && ["Remove one pomodoro", "Add one pomodoro"]
-                        .contains(str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute))
+                // `hasPrefix`, not exact match — see the same note in `stepper`
+                // in the `counter` case: the label now carries the category name.
+                let combined = str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute)
+                return str(el, kAXRoleAttribute) == kAXButtonRole as String
+                    && ["Remove one pomodoro", "Add one pomodoro"].contains { combined.hasPrefix($0) }
             }
         }
         return els.isEmpty ? "ABSENT" : "PRESENT (\(els.count))"

@@ -169,8 +169,9 @@ strands every existing install permanently. One-time Apple-side setup is in
   commented decision without new evidence; don't strip the comments.
 - **Tested logic is extracted from SwiftUI.** `Reorder.destination`,
   `HeatmapLayout.cells`, `PanelMetrics.tabHeightCap(visibleHeight:)`,
-  `CategoryAdvance.next(after:in:pinned:)` and `StatusIcon.glyph(phase:running:)` are
-  pure and unit-tested; views are thin over them. Follow that shape: new
+  `CategoryAdvance.next(after:in:pinned:)`, `CountAdjust.newestTodayIndex` and
+  `StatusIcon.glyph(phase:running:)` are pure and unit-tested; views are thin
+  over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`
   (swift-testing, not XCTest). The glyph is the clearest case for why: it was
   lifted out of the drawing routine so that a phase arriving without its own
