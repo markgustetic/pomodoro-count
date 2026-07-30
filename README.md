@@ -99,9 +99,16 @@ menu bar is crowded, turn off **Show count in menu bar** and it shrinks to just
 the icon while idle, still showing the timer during a session.
 
 **Run a timer** if you want one. 50 / 10 minutes by default, configurable, with
-optional auto-start break, a completion sound, and a notification. Every 4th
-completed session earns a longer break (15 minutes, adjustable). Locking the
-screen pauses a running session — time away never counts as focus.
+a completion sound and a notification. Every 4th completed session earns a
+longer break (15 minutes, adjustable). Locking the screen pauses a running
+session — time away never counts as focus.
+
+**The break waits for you.** When a focus session ends, the Focus tab holds the
+break ready rather than dropping back to idle: the big button becomes **Start
+break**, the panel says how long it will be, and the menu bar shows a cup beside
+your count until you take it. The stop button skips it — and a skipped long
+break stays owed, so you still get it after the next session. Prefer not to be
+asked, turn on **Auto-start break after focus** in Settings and it just begins.
 
 **History** gives you a Week / Month chart, a Year heatmap, a per-day list, and
 this-week and all-time totals. Today's count resets at midnight; past days stay

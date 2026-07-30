@@ -77,7 +77,7 @@ struct Palette {
     var trackFill: Color
     var trackStroke: Color
     var hairline: Color
-    /// How far a disabled control fades — well, border and glyph together (see
+    /// How far a disabled control fades — fill, border and glyph together (see
     /// `ControlState`). A colour decision like any other, so it lives here and
     /// not in the styles: Classic dims against the system's own greys, while
     /// Synthwave's glyphs are saturated neon on near-black and need to drop

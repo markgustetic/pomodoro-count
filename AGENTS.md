@@ -12,9 +12,17 @@ just build       # release .app into ./build (build-app.sh: compile, bundle, ico
 just install     # build, replace /Applications copy, relaunch
 just dev         # run from source, no bundle
 just preview     # render the whole panel (all three tabs) to a PNG, headless
-just uitest      # XCUITest against the real menu bar item (needs xcodegen + full Xcode)
+just uitest      # both UI bundles: reorder dynamics, then XCUITest against the real menu bar item
+just uitest-dynamics  # only the harness-driven reorder tests — unattended, no Automation Mode prompt
 just release     # tag VERSION and push the tag; CI publishes
 ```
+
+`just uitest` needs xcodegen and a full Xcode, and its XCUITest half asks a
+person at the keyboard to grant Automation Mode. The `DynamicsTests` bundle is
+split out precisely so it doesn't: it drives `--reorder-window` with posted
+CGEvents and the Accessibility API, which is not XCUITest, so it runs
+unattended — but it does move the real pointer, so leave the machine alone
+while it runs.
 
 Single suite: `swift test --filter ReorderTests` (prefix `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` if the active toolchain is the Command Line Tools — `just test` does this dance for you).
 
@@ -84,6 +92,13 @@ that one fact:
   first, so the record credits the target it ran against, then advance. The
   advance is suppressed while a focus session is actually running, so an
   external log can't re-aim a session Start already pointed elsewhere.
+- `Phase` has **four** cases, and `.breakReady` is a state of its own, not a
+  flavour of idle: a finished session's break is armed at its configured length
+  waiting to be started or skipped. Anything that switches on phase must handle
+  it — the compiler catches the `switch`es, not the `if phase == .idle` checks.
+  Its length reads `nextBreakIsLong` (nothing has started, so that is the only
+  truthful source); once the break is *running*, `currentBreakIsLong` is, because
+  `startBreak()` has already zeroed `focusSessionsThisCycle`.
 - `suspendSaves()` has three call sites (a drag reorder, and the two
   record-append-plus-advance pairs above) and **counts depth**, because the
   hotkey and the URL scheme fire the latter two mid-drag; only the outermost
@@ -100,6 +115,20 @@ only told which appearance to draw via the palette's `chrome`; that's why
 Synthwave forces `.dark`. Raw `Color.red`/`.primary`/borderless button styles
 have each burned this codebase before; the WHY comments at the call sites say
 how.
+
+Two rules the palette exists to enforce, both learned the hard way:
+
+- **A button style must branch on `ControlState`, not on pressed/hovering.**
+  The three styles each read `@Environment(\.isEnabled)` and finish with
+  `.dimmed(state, palette)`, so `.disabled(…)` is visible; before that, a dead
+  button looked live and swallowed the press. Disabled outranks hover — a
+  disabled control must not brighten under the pointer, and must stay dark under
+  `PreviewOverrides.forceHover`.
+- **Don't put two neon light sources in one card.** Synthwave's tints are
+  bright enough that a filled button matching the text above it makes the pair
+  bloom into one shape. `ButtonTint.electricCyan` sits deliberately deeper than
+  `idleColor` for that reason, and a white label needs the gradient's *midpoint*
+  to clear ~4.5:1 — the top stop is what fails first.
 
 ## Conventions
 
