@@ -237,30 +237,45 @@ struct RootView: View {
                     // to", which is why those read as two different promises
                     // rather than as an icon the control would refuse to draw.
                     HStack(spacing: 4) {
+                        // KNOWN BUG, measured: a long category name overflows
+                        // this pill, and nothing here can stop it. There used to
+                        // be a `.frame(maxWidth: 180)` on this Text justified as
+                        // the cap that made long names truncate. It never did
+                        // anything. `.menuStyle(.borderlessButton)` draws the
+                        // label through NSPopUpButton, which ignores SwiftUI
+                        // frames on its content the same way it drops Shapes and
+                        // overrides foregroundStyle (see the note above) — so
+                        // `.lineLimit`/`.truncationMode` below never get a width
+                        // to truncate against either.
+                        //
+                        // Pixel-measured off `--preview --store` (which now
+                        // renders a pinned target; the flag used to ignore
+                        // `--store`, which is why the old note here recorded
+                        // this as unverifiable). Rendered pill widths, one
+                        // category pinned:
+                        //
+                        //     "pinned to Bravo"                          85.5pt
+                        //     "pinned to Machine learning coursework"   199.5pt
+                        //     …+ " and thesis revision block"           310.5pt
+                        //
+                        // No truncation at any length, and a hard
+                        // `.frame(width: 180)` measures 310.5pt too. Past ~300pt
+                        // the timer card is drawn wider than the panel's fixed
+                        // 300pt and the card and Start button clip at both edges.
+                        //
+                        // The earlier Accessibility-API check that read this as
+                        // "the cap is holding" was measuring the wrong thing: the
+                        // panel window is hard-framed to 300pt below, so its
+                        // width cannot report content overflowing it.
+                        //
+                        // A fix has to shorten the string before it reaches the
+                        // label — a pure, tested truncation on
+                        // `sessionTargetDescription` — since no modifier applied
+                        // inside this label survives NSPopUpButton.
                         Text(model.sessionTargetDescription)
                             .font(.caption)
                             .lineLimit(1)
                             .truncationMode(.tail)
-                            // The Menu below is `.fixedSize()`, so without a cap
-                            // here a long category name would push the pill past
-                            // the panel's edge instead of truncating. "pinned
-                            // to " is a few points wider than "towards ", so the
-                            // cap grew to match — checked against the real
-                            // panel, since `--preview` can't render this state
-                            // (`PreviewRenderer` hardcodes its own demo
-                            // categories and ignores `--store` entirely).
-                            // Driven through the Accessibility API with a
-                            // genuinely long pinned label, the panel opened at
-                            // the same 300pt width as the default "towards …"
-                            // pill — the cap is holding, not pushing the panel
-                            // wider. The pill's own rendered width inside that
-                            // cap is still arithmetic, not a pixel count: this
-                            // non-activating panel hands `kAXWindowsAttribute`
-                            // back a self-referencing `AXApplication` instead of
-                            // its real window, and a screenshot of just that
-                            // window needs Screen Recording permission this
-                            // environment doesn't have.
-                            .frame(maxWidth: 180, alignment: .leading)
                     }
                 }
                 .menuStyle(.borderlessButton)

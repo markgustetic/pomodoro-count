@@ -72,12 +72,17 @@ test:
     fi
     swift test
 
-# Render the popover UI to a PNG and open it (headless preview, no menu bar needed)
-preview:
+# Render the popover UI to a PNG and open it (headless preview, no menu bar needed).
+# Pass a store to render that state instead of the demo one: just preview my/data.json
+preview store="":
     #!/usr/bin/env bash
     set -euo pipefail
     out="$(mktemp -d)/pomodoro-panel.png"
-    swift run {{exe}} --preview "$out"
+    if [ -n "{{store}}" ]; then
+        swift run {{exe}} --preview "$out" --store "{{store}}"
+    else
+        swift run {{exe}} --preview "$out"
+    fi
     open "$out"
 
 # Regenerate the app icon (Resources/AppIcon.icns) from Tools/make-icon.swift

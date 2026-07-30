@@ -28,12 +28,34 @@ there with an empty AX tree. Those four are a local gate, not a CI one.
 
 Single suite: `swift test --filter ReorderTests` (prefix `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` if the active toolchain is the Command Line Tools — `just test` does this dance for you).
 
-Debug flags on the binary: `--store <path>` (redirect persistence — always use a
-scratch store for experiments), `--seed-store <path>` (write a known-categories
-store and exit), `--preview <png> [--hover] [--armed-break] [--theme Synthwave]
-[--history-range Week|Month|Year] [--hover-graph <index>]`, and
-`--reorder-window` (hosts the panel UI in a plain window — see the harness rule
-below).
+Debug flags on the binary. They do **not** all compose, so the list is by flag
+rather than by bullet:
+
+- `--store <path>` — redirect persistence. Always use a scratch store for
+  experiments. Composes with a normal run and with `--preview`; `--seed-store`
+  and `--reorder-window` ignore it.
+- `--seed-store <path>` — write a store with known categories and exit. Writes
+  to its own argument, not to `--store`.
+- `--preview <png> [--hover] [--armed-break] [--theme Synthwave]
+  [--history-range Week|Month|Year] [--hover-graph <index>] [--store <path>]`
+  — render the whole panel headlessly and exit. The overrides are applied
+  *after* the model is built, so each composes with `--store` as well as with
+  the built-in demo state.
+- `--reorder-window` — hosts the panel UI in a plain window (see the harness
+  rule below).
+
+**To preview a specific app state,** seed a store, hand-edit the JSON, and
+render it: `--seed-store s.json`, edit, then `--preview out.png --store s.json`.
+Without `--store` the render shows hardcoded demo categories, and several states
+are unreachable that way — a pinned session target, an archived category, a
+category list long enough to exercise `PanelTabScroller`'s height cap. A
+`--store` path that does not exist is an error, never a silent fallback to the
+demo data: `--preview` ignoring `--store` outright is a bug this project has
+already had once, and it cost more than a crash would have, because three
+renders against three different stores came back byte-identical and looked like
+an answer. The store is read through a copy, so a render never writes back to
+the file it was pointed at — which matters because `--armed-break` completes a
+whole focus session and `AppModel` persists on `didSet`.
 
 The maintainer's workflow: commit and push each finished step, then
 `just install` so the running app matches the commit.

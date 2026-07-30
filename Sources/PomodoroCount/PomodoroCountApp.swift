@@ -48,6 +48,12 @@ enum Entry {
         // to render the Focus tab with a completed session's break waiting,
         // --history-range to pick which History graph shows, or --hover-graph
         // to hover a day on it.
+        //
+        // --store composes with it, and reaches this path by hand rather than
+        // through the `AppModel.overrideStoreURL` line below, which the render's
+        // own exit means we never get to. Without it the renderer draws its demo
+        // categories, so a state only a real store can express — a pinned
+        // target, an archived category — has to be seeded and passed in.
         if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {
             PreviewOverrides.isRendering = true
             PreviewOverrides.forceHover = args.contains("--hover")
@@ -61,7 +67,13 @@ enum Entry {
             if let r = args.firstIndex(of: "--history-range"), r + 1 < args.count {
                 PreviewOverrides.historyRange = args[r + 1].capitalized
             }
-            MainActor.assumeIsolated { PreviewRenderer.render(to: args[i + 1]) }
+            var storePath: String?
+            if let s = args.firstIndex(of: "--store"), s + 1 < args.count {
+                storePath = args[s + 1]
+            }
+            MainActor.assumeIsolated {
+                PreviewRenderer.render(to: args[i + 1], storePath: storePath)
+            }
         }
         // --store <path> points the app at an alternate data file (for testing
         // against a throwaway file instead of the real Application Support one).
