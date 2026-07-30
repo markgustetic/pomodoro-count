@@ -10,6 +10,11 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-30-history-hover-readout-design.md` — read the **Amendment** section at the end; the body describes the readout line this plan removes.
 
+> **Note on the widths quoted below.** The card was later measured off a real
+> render: 84pt for `Sun, Jul 26 · 2` (30% of the plot) against 142pt with the
+> noun (51%). The figures in this plan's snippets were corrected to match; the
+> spec's Amendment carries the measurement and how it was taken.
+
 ## Global Constraints
 
 - macOS 14+ (`Package.swift` declares `.macOS(.v14)`).
@@ -58,7 +63,7 @@ import Foundation
 
 /// Where the hover card lands. The numbers below are the real ones: a ~276pt
 /// graph inside a 300pt panel, a 108pt chart and a 40pt heatmap, and a card
-/// about 62x18 carrying "Jul 28 · 4".
+/// about 84x18 carrying "Sun, Jul 26 · 2".
 @Suite struct TooltipPlacementTests {
 
     private let card = CGSize(width: 62, height: 18)
@@ -354,8 +359,8 @@ In `Sources/PomodoroCount/HistoryReadout.swift`, add below `text(...)` — leavi
     /// The tooltip's line, or nil when nothing is hovered.
     ///
     /// No noun. The card floats over a graph of pomodoros in an app about
-    /// pomodoros, and at 300pt of panel "Jul 28 · 4 pomodoros" is twice the
-    /// width of "Jul 28 · 4" — 40% of the plot against 22% of it. That is the
+    /// pomodoros, and at 300pt of panel "Sun, Jul 26 · 2 pomodoros" is nearly
+    /// twice the width of "Sun, Jul 26 · 2" — 51% of the plot against 30%. That is the
     /// difference between a card that obscures the comparison it explains and
     /// one that doesn't, which is why the noun is gone and should stay gone.
     ///
@@ -386,10 +391,10 @@ Message:
 ```
 Drop the noun from the hover text
 
-"Jul 28 · 4 pomodoros" was written for a line with a whole row to
+"Sun, Jul 26 · 2 pomodoros" was written for a line with a whole row to
 itself. A card at the cursor is priced differently: the noun is half the
-width, and half the width is the difference between covering 40% of the
-plot and 22%. The window total goes too — it only existed to give a
+width, and that is the difference between covering 51% of the
+plot and 30%. The window total goes too — it only existed to give a
 reserved line something to say at rest.
 ```
 
@@ -439,7 +444,7 @@ struct HoverTooltip: View {
 
 /// Reports the card's measured size back up so `TooltipPlacement` can clamp it.
 /// Measured rather than hand-set because the label runs from "Today" to
-/// "Wednesday" and a fixed width would clamp the wrong edge for one of them.
+/// "Wed, Jul 29" and a fixed width would clamp the wrong edge for one of them.
 struct TooltipSizeKey: PreferenceKey {
     static let defaultValue = CGSize.zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }

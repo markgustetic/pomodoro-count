@@ -266,7 +266,7 @@ never steal the hover that summons it. Two things it must not be:
 
 The card measures itself through a `PreferenceKey`, because placement needs its
 width before it can be clamped. Sizing it by hand would drift the first time a
-label ran from "Today" to "Wednesday".
+label ran from "Today" to "Wed, Jul 29".
 
 ### Headless verification
 
