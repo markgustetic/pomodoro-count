@@ -76,8 +76,9 @@ jobs:
     # Named for what it proves TODAY: the drag cases in the target skip
     # themselves (synthetic drags cannot drive the panel's gesture), so a
     # green run demonstrates reachability — status item → panel → Settings →
-    # seeded rows — and nothing about dragging. Rename this back to "UI
-    # tests" when harness-driven drag cases land and actually execute here.
+    # seeded rows — and nothing about dragging. The harness-driven drag cases
+    # now exist (`DynamicsTests`), but they cannot execute on this runner; see
+    # the test step below. Rename this back to "UI tests" if they ever do.
     name: UI reachability
     runs-on: macos-latest
     steps:
@@ -101,8 +102,17 @@ jobs:
       - name: Generate the UI test project
         run: xcodegen generate
 
+      # `-only-testing:UITests`, not the whole scheme: the scheme also carries
+      # the `DynamicsTests` bundle, which drives the `--reorder-window` harness
+      # by posting CGEvents and reading AX frames back. That needs the
+      # Accessibility permission a desktop session grants and this runner does
+      # not — every case failed here with the harness window's own diagnostic,
+      # "rows never became readable", while the same four pass locally under
+      # `just uitest-dynamics`. Skipping them on a permission check would hide
+      # a real empty-window regression behind the same green tick, so they stay
+      # out of CI explicitly instead.
       - name: Drive the real app through its menu bar item
-        run: xcodebuild -project PomodoroCountUITests.xcodeproj -scheme UITests -destination 'platform=macOS' test
+        run: xcodebuild -project PomodoroCountUITests.xcodeproj -scheme UITests -destination 'platform=macOS' test -only-testing:UITests
 
   consistency:
     name: Version and changelog

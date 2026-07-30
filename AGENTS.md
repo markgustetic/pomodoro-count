@@ -22,7 +22,9 @@ person at the keyboard to grant Automation Mode. The `DynamicsTests` bundle is
 split out precisely so it doesn't: it drives `--reorder-window` with posted
 CGEvents and the Accessibility API, which is not XCUITest, so it runs
 unattended — but it does move the real pointer, so leave the machine alone
-while it runs.
+while it runs. **CI runs only the XCUITest half** (`-only-testing:UITests`):
+GitHub's runner has no Accessibility permission, so the dynamics cases all fail
+there with an empty AX tree. Those four are a local gate, not a CI one.
 
 Single suite: `swift test --filter ReorderTests` (prefix `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` if the active toolchain is the Command Line Tools — `just test` does this dance for you).
 
