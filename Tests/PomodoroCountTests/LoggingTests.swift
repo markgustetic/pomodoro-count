@@ -150,21 +150,32 @@ import Foundation
     /// purpose: re-aiming because a count dropped would move the target out
     /// from under a Start the user has already pressed.
     ///
-    /// Non-vacuous by construction: after the removal Writing is both unmet and
-    /// top-ranked, so a `realignTarget()` here *would* pull the target off
-    /// Admin. The assertion fails if anyone adds one for symmetry.
+    /// Non-vacuous by construction, and the construction is fiddly, so it is
+    /// worth saying why: `CategoryAdvance.next` returns nil unless the *current*
+    /// target is met, so Admin has to be met for a mistaken `realignTarget()` to
+    /// reach the ranking at all. Writing dropping to 1/2 then makes it the top
+    /// unmet row, so that mistaken call would move the target Admin → Writing
+    /// and this assertion would fail. An earlier version of this test left Admin
+    /// unmet, and passed either way.
     @Test func unlogTodayLeavesTheSessionTargetAlone() {
         let (m, _) = makeModel()
         m.settings.categoriesEnabled = true
         m.settings.autoAdvanceTarget = true
-        m.settings.categories = [Category(name: "Writing", dailyGoal: 1),
-                                 Category(name: "Admin", dailyGoal: 3)]
-        m.records = [Record(at: .todayAt(hour: 9), source: "manual", category: "Writing")]
+        m.settings.categories = [Category(name: "Writing", dailyGoal: 2),
+                                 Category(name: "Admin", dailyGoal: 1)]
+        m.records = [
+            Record(at: .todayAt(hour: 9), source: "manual", category: "Writing"),
+            Record(at: .todayAt(hour: 10), source: "manual", category: "Writing"),
+            Record(at: .todayAt(hour: 11), source: "manual", category: "Admin"),
+        ]
         m.settings.targetAimedOn = Date()
         m.sessionTarget = .named("Admin")
 
         m.unlogToday(from: .named("Writing"))
 
+        // Guards the guard: if the removal silently did nothing, the target
+        // would be unchanged for the wrong reason.
+        #expect(m.todayCount(inCategory: "Writing") == 1)
         #expect(m.sessionTarget == .named("Admin"))
     }
 }
