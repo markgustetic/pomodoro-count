@@ -12,6 +12,12 @@ import Foundation
             Category(name: "Work", dailyGoal: 4),
             Category(name: "Music", dailyGoal: 1),
         ]
+        // Stamped "aimed today": an unstamped fixture reads as a new day, which
+        // would silently reroute every advance test that uses this helper into
+        // the start-of-day reset branch instead of the met-goal advance it means
+        // to exercise. Tests that want the reset branch set their own stamp
+        // afterward, overriding this one.
+        m.settings.targetAimedOn = Date()
         return m
     }
 
@@ -266,6 +272,11 @@ import Foundation
         m.settings.categoriesEnabled = true
         m.settings.categories = [Category(name: "Work", dailyGoal: 4),
                                  Category(name: "Music", dailyGoal: 1)]
+        // Built from makeModel() rather than configured(), so it needs its own
+        // stamp for the same reason configured() carries one: unstamped reads
+        // as a new day and this test means to exercise the advance, not the
+        // start-of-day reset.
+        m.settings.targetAimedOn = Date()
         m.sessionTarget = .named("Music")
         m.logExternal(to: .named("Music"))
         #expect(AppModel(storeURL: url).settings.sessionTargetName == "Work")
