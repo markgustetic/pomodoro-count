@@ -115,6 +115,7 @@ enum HeatmapLayout {
 struct HeatmapView: View {
     let stats: [DayStat]
     @Binding var hovered: Int?
+    @Binding var hoverPoint: CGPoint?
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -156,8 +157,19 @@ struct HeatmapView: View {
                 case .active(let point):
                     hovered = HeatmapLayout.hitTest(point, cells: cells,
                                                     columns: columns, size: geo.size)
+                    hoverPoint = point
                 case .ended:
                     hovered = nil
+                    hoverPoint = nil
+                }
+            }
+            // A render has no pointer, so a forced hover gets the cell's own
+            // centre. `onAppear` rather than a computed value: writing state
+            // during layout is how SwiftUI gets an update loop.
+            .onAppear {
+                if let forced = PreviewOverrides.hoveredGraphIndex {
+                    hoverPoint = HeatmapLayout.center(of: forced, cells: cells,
+                                                      columns: columns, size: geo.size)
                 }
             }
         }

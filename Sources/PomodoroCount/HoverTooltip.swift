@@ -30,3 +30,36 @@ enum TooltipPlacement {
         return CGPoint(x: x, y: above >= 0 ? above : cursor.y + offset)
     }
 }
+
+/// The hover card: one line, sized by its content.
+///
+/// Backed by `bgBottom` *under* `cardFill` so it is opaque whatever alpha the
+/// theme gives the fill — a card you can read the graph through defeats the
+/// point of putting it in front of the graph.
+struct HoverTooltip: View {
+    let text: String
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Text(text)
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(palette.text)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(palette.bgBottom)
+                    .overlay { RoundedRectangle(cornerRadius: 6).fill(palette.cardFill) }
+                    .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(palette.cardStroke) }
+            }
+            .fixedSize()
+    }
+}
+
+/// Reports the card's measured size back up so `TooltipPlacement` can clamp it.
+/// Measured rather than hand-set because the label runs from "Today" to
+/// "Wednesday" and a fixed width would clamp the wrong edge for one of them.
+struct TooltipSizeKey: PreferenceKey {
+    static let defaultValue = CGSize.zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
+}
