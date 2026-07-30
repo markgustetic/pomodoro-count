@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   control back to the ranking.
 - The Settings toggle "Move on when a goal is met" is now "Follow the category
   order". Your existing setting is kept.
+- **Tapping a category now opens a counter instead of logging straight away.**
+  The row opens a small `−`/count/`+` strip, so a count can come down as well as
+  up — correcting a mis-tap on one category no longer means reaching for "Undo
+  last" and hoping nothing has landed on another category since. VoiceOver keeps
+  its one-swipe adjustment on the row itself.
 
 ## [1.3.0] - 2026-07-30
 
