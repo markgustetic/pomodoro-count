@@ -296,6 +296,214 @@ case "advance":
     print("pill after:  \(pillValue())")
     print("row after:   '\((attr(row, kAXValueAttribute) as? String) ?? "")'")
 
+case "counter":
+    // Open the panel, tap a category row to raise its count popover, then work
+    // the popover's − and + in the same process.
+    //
+    // The claim under test is the one neither the unit suite nor `--preview`
+    // can reach: that a popover presents *at all* from inside the
+    // non-activating NSPanel — the panel dismisses when it loses key status,
+    // which is what rules alerts out — and that its buttons commit while it
+    // stays up. Re-queried before every click, because each tap rebuilds the
+    // popover's content and stales the previous element reference.
+    let rowName = CommandLine.arguments[3]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    let itemFrame = frame(item)
+    click(CGPoint(x: itemFrame.midX, y: itemFrame.midY))
+    usleep(1_500_000)
+
+    // A category's name also labels its Settings text field. `advance` picks the
+    // Focus row by requiring a progress string in the value; that is deliberately
+    // NOT the rule here, because whether the row still exposes a value is one of
+    // the things under test. Fall back to the widest match inside a scroll area.
+    func focusRow() -> AXUIElement? {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                str(el, kAXTitleAttribute) == rowName || str(el, kAXDescriptionAttribute) == rowName
+            }
+        }
+        return els.first { ((attr($0, kAXValueAttribute) as? String) ?? "").contains("pomodoro") }
+            ?? els.max { frame($0).width < frame($1).width }
+    }
+
+    func rowValue() -> String {
+        guard let row = focusRow() else { return "<row gone>" }
+        let role = str(row, kAXRoleAttribute)
+        let value = (attr(row, kAXValueAttribute) as? String) ?? ""
+        // The action names are the only honest test of an
+        // `accessibilityAdjustableAction`: it is meant to give VoiceOver a
+        // swipe-up/down on the row, which shows up here as AXIncrement and
+        // AXDecrement. Reading only role and value would let a silently
+        // unreachable action pass as working.
+        var names: CFArray?
+        AXUIElementCopyActionNames(row, &names)
+        let actions = (names as? [String]) ?? []
+        return "role=\(role) value='\(value)' actions=\(actions)"
+    }
+
+    func stepper(_ label: String) -> (enabled: Bool, frame: CGRect)? {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                str(el, kAXRoleAttribute) == kAXButtonRole as String
+                    && (str(el, kAXTitleAttribute) == label || str(el, kAXDescriptionAttribute) == label)
+            }
+        }
+        guard let el = els.first else { return nil }
+        return ((attr(el, kAXEnabledAttribute) as? NSNumber)?.boolValue ?? true, frame(el))
+    }
+
+    func describe(_ s: (enabled: Bool, frame: CGRect)?) -> String {
+        guard let s else { return "ABSENT" }
+        return "enabled=\(s.enabled) at (\(Int(s.frame.midX)),\(Int(s.frame.midY)))"
+    }
+
+    func report(_ stage: String) {
+        print("[\(stage)]")
+        print("    row:   \(rowValue())")
+        print("    minus: \(describe(stepper("Remove one pomodoro")))")
+        print("    plus:  \(describe(stepper("Add one pomodoro")))")
+    }
+
+    func tap(_ label: String, _ stage: String) {
+        guard let s = stepper(label), s.enabled else {
+            print("[\(stage)] SKIPPED — '\(label)' \(stepper(label) == nil ? "absent" : "disabled")")
+            return
+        }
+        click(CGPoint(x: s.frame.midX, y: s.frame.midY))
+        usleep(900_000)
+        report(stage)
+    }
+
+    report("panel open, before row tap")
+    guard let row = focusRow() else { print("no row '\(rowName)'"); exit(1) }
+    let rf = frame(row)
+    print("row frame: (\(Int(rf.origin.x)),\(Int(rf.origin.y))) \(Int(rf.width))x\(Int(rf.height))")
+    click(CGPoint(x: rf.midX, y: rf.midY))
+    usleep(1_400_000)
+    report("after row tap")
+
+    // A popover is its own window, so it should appear here as a second entry.
+    let wins = (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+    print("AX windows now: \(wins.count)")
+    for w in wins {
+        print("    role=\(str(w, kAXRoleAttribute)) subrole=\(str(w, kAXSubroleAttribute)) frame=\(frame(w))")
+    }
+
+    // The popover's count carries `progress.accessibilityValue` as its label,
+    // so this reads the number the popover is actually promising, not pixels.
+    func popoverCount() -> String {
+        var texts: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &texts) { el in
+                str(el, kAXRoleAttribute) == kAXStaticTextRole as String
+                    && str(el, kAXDescriptionAttribute).contains("pomodoro")
+                    && frame(el).midX > 3180   // inside the popover, not the panel
+            }
+        }
+        return texts.map { str($0, kAXDescriptionAttribute) }.joined(separator: " | ")
+    }
+
+    print("popover count readout: '\(popoverCount())'")
+
+    tap("Add one pomodoro", "after + (1st)")
+    print("    count readout: '\(popoverCount())'")
+    tap("Add one pomodoro", "after + (2nd)")
+    print("    count readout: '\(popoverCount())'")
+    tap("Remove one pomodoro", "after - (1st)")
+    print("    count readout: '\(popoverCount())'")
+    tap("Remove one pomodoro", "after - (2nd)")
+    print("    count readout: '\(popoverCount())'")
+    tap("Remove one pomodoro", "after - (3rd, expect count 0)")
+    report("after three - taps — minus should be disabled at zero")
+
+    // The VoiceOver path, exercised as VoiceOver would: perform the AX actions
+    // rather than clicking. Proves the adjustable action is wired to something,
+    // not merely advertised.
+    if let row = focusRow() {
+        AXUIElementPerformAction(row, "AXIncrement" as CFString)
+        usleep(900_000)
+        print("[after AXIncrement] count readout: '\(popoverCount())' \(rowValue())")
+        AXUIElementPerformAction(row, "AXDecrement" as CFString)
+        usleep(900_000)
+        print("[after AXDecrement] count readout: '\(popoverCount())' \(rowValue())")
+    }
+
+    // Escape must close the popover and leave the panel standing.
+    if let esc = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true) {
+        esc.post(tap: .cghidEventTap)
+    }
+    if let escUp = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: false) {
+        escUp.post(tap: .cghidEventTap)
+    }
+    usleep(1_000_000)
+    report("after Escape — steppers should be ABSENT, row still present")
+
+case "counterkeys":
+    // The VoiceOver path and Escape dismissal, in a DELIBERATELY SHORT sequence.
+    // `counter`'s full click run takes ~12s of posted events, and the panel has
+    // been observed dismissing on its own before the end of it — long sequences
+    // cannot distinguish "Escape closed the popover" from "the panel had already
+    // gone". So this does the minimum: open, tap the row, and probe.
+    let rowName = CommandLine.arguments[3]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    click(CGPoint(x: frame(item).midX, y: frame(item).midY))
+    usleep(1_500_000)
+
+    func row2() -> AXUIElement? {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                str(el, kAXTitleAttribute) == rowName || str(el, kAXDescriptionAttribute) == rowName
+            }
+        }
+        return els.max { frame($0).width < frame($1).width }
+    }
+
+    func steppersPresent() -> String {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                str(el, kAXRoleAttribute) == kAXButtonRole as String
+                    && ["Remove one pomodoro", "Add one pomodoro"]
+                        .contains(str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute))
+            }
+        }
+        return els.isEmpty ? "ABSENT" : "PRESENT (\(els.count))"
+    }
+
+    guard let r = row2() else { print("no row '\(rowName)'"); exit(1) }
+    print("steppers before row tap: \(steppersPresent())")
+
+    // AXIncrement with the popover still CLOSED — the adjustable action is on
+    // the row itself, and the point of it is that VoiceOver never needs the
+    // popover at all.
+    AXUIElementPerformAction(r, "AXIncrement" as CFString)
+    usleep(1_000_000)
+    print("after AXIncrement (popover never opened): steppers \(steppersPresent())")
+    AXUIElementPerformAction(r, "AXIncrement" as CFString)
+    usleep(1_000_000)
+    AXUIElementPerformAction(r, "AXDecrement" as CFString)
+    usleep(1_000_000)
+    print("performed +2 then -1 via AX actions; check the store for a net +1")
+
+    click(CGPoint(x: frame(r).midX, y: frame(r).midY))
+    usleep(1_400_000)
+    print("steppers after row tap: \(steppersPresent())")
+
+    if let esc = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true) {
+        esc.post(tap: .cghidEventTap)
+    }
+    if let escUp = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: false) {
+        escUp.post(tap: .cghidEventTap)
+    }
+    usleep(1_200_000)
+    print("steppers after Escape: \(steppersPresent())")
+    print("panel still up? row \(row2() == nil ? "GONE — panel dismissed too" : "still present")")
+
 case "window":
     // The app's window frames, from AX and from the window server. Compare
     // them: AX-reported ELEMENT frames can lie outside the actual window
