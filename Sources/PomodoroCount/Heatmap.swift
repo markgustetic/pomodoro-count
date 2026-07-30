@@ -37,6 +37,31 @@ enum HeatmapLayout {
                        (size.height - gap * 6) / 7)
         return (max(0, cell), gap)
     }
+
+    /// The index of the cell under `point`, or nil for a point in the gap
+    /// between squares, outside the grid, or on a grid slot no day occupies.
+    ///
+    /// Reads its geometry from `metrics`, so it can only ever name the square
+    /// the draw loop actually drew. The returned index addresses `cells` —
+    /// which `cells(for:)` builds 1:1 and in order from its `[DayStat]` — so
+    /// it is equally an index into that series.
+    ///
+    /// The linear search is 365 comparisons on a pointer move, which is
+    /// nothing next to the redraw it triggers; a lookup table would be a
+    /// second copy of the layout to keep in sync.
+    static func hitTest(_ point: CGPoint, cells: [HeatmapCell],
+                        columns: Int, size: CGSize) -> Int? {
+        let (cell, gap) = metrics(columns: columns, size: size)
+        guard cell > 0, point.x >= 0, point.y >= 0 else { return nil }
+        let step = cell + gap
+        let column = Int(point.x / step)
+        let row = Int(point.y / step)
+        guard column < columns, row < 7 else { return nil }
+        // Past the square is the gap, and the gap is nobody's day.
+        guard point.x - CGFloat(column) * step <= cell,
+              point.y - CGFloat(row) * step <= cell else { return nil }
+        return cells.firstIndex { $0.column == column && $0.row == row }
+    }
 }
 
 /// A year of days as a GitHub-style grid: one cell per day, weekday rows,

@@ -85,4 +85,64 @@ import CoreGraphics
     @Test func anEmptyGridHasNoCell() {
         #expect(HeatmapLayout.metrics(columns: 0, size: canvas).cell == 0)
     }
+
+    /// The centre of the square at (column, row), in canvas coordinates.
+    private func centre(column: Int, row: Int, columns: Int) -> CGPoint {
+        let (cell, gap) = HeatmapLayout.metrics(columns: columns, size: canvas)
+        let step = cell + gap
+        return CGPoint(x: CGFloat(column) * step + cell / 2,
+                       y: CGFloat(row) * step + cell / 2)
+    }
+
+    @Test func hitTestFindsTheFirstCell() {
+        let cells = HeatmapLayout.cells(for: week(startingMonday: 14), calendar: mondayFirst)
+        #expect(HeatmapLayout.hitTest(centre(column: 0, row: 0, columns: 2),
+                                      cells: cells, columns: 2, size: canvas) == 0)
+    }
+
+    @Test func hitTestFindsTheLastCell() {
+        let cells = HeatmapLayout.cells(for: week(startingMonday: 14), calendar: mondayFirst)
+        #expect(HeatmapLayout.hitTest(centre(column: 1, row: 6, columns: 2),
+                                      cells: cells, columns: 2, size: canvas) == 13)
+    }
+
+    /// The index a hit test returns addresses the same day in the series the
+    /// cells were built from. The readout formats from that series, so if this
+    /// slips it names one day while ringing another.
+    @Test func aHitIndexAddressesTheSameDayInTheSeries() {
+        let stats = week(startingMonday: 14)
+        let cells = HeatmapLayout.cells(for: stats, calendar: mondayFirst)
+        let hit = HeatmapLayout.hitTest(centre(column: 1, row: 2, columns: 2),
+                                        cells: cells, columns: 2, size: canvas)
+        #expect(hit == 9)
+        #expect(cells[9].count == stats[9].count)
+        #expect(cells[9].column == 1)
+        #expect(cells[9].row == 2)
+    }
+
+    /// The 1pt gap between squares belongs to no day.
+    @Test func aPointInTheGapHitsNothing() {
+        let cells = HeatmapLayout.cells(for: week(startingMonday: 14), calendar: mondayFirst)
+        let (cell, _) = HeatmapLayout.metrics(columns: 2, size: canvas)
+        let inTheGap = CGPoint(x: cell + 0.5, y: cell / 2)
+        #expect(HeatmapLayout.hitTest(inTheGap, cells: cells, columns: 2, size: canvas) == nil)
+    }
+
+    @Test func aPointOutsideTheGridHitsNothing() {
+        let cells = HeatmapLayout.cells(for: week(startingMonday: 14), calendar: mondayFirst)
+        #expect(HeatmapLayout.hitTest(CGPoint(x: 275, y: 5),
+                                      cells: cells, columns: 2, size: canvas) == nil)
+        #expect(HeatmapLayout.hitTest(CGPoint(x: -1, y: 5),
+                                      cells: cells, columns: 2, size: canvas) == nil)
+        #expect(HeatmapLayout.hitTest(CGPoint(x: 2, y: 41),
+                                      cells: cells, columns: 2, size: canvas) == nil)
+    }
+
+    /// A short series leaves the tail of its last column empty. Those slots are
+    /// grid positions with no day behind them.
+    @Test func anEmptySlotInTheGridHitsNothing() {
+        let cells = HeatmapLayout.cells(for: week(startingMonday: 3), calendar: mondayFirst)
+        #expect(HeatmapLayout.hitTest(centre(column: 0, row: 5, columns: 1),
+                                      cells: cells, columns: 1, size: canvas) == nil)
+    }
 }
