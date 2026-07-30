@@ -52,7 +52,8 @@ Delete the `.p12` and `.p8` from disk afterwards.
 See the Phase 2 section of
 `docs/superpowers/specs/2026-07-30-developer-id-signing-design.md`: make signing
 mandatory for tag builds, and remove the "unsigned" workaround text from the
-README, the cask caveats and the release notes.
+README, the cask caveats, the release notes, and `packaging/homebrew/README.md`
+(its "Checking the cask by hand" section still teaches `--no-quarantine`).
 
 ## Signing locally
 

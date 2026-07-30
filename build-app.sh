@@ -117,7 +117,13 @@ fi
 # ID. A Sparkle upgrade that moves these should break the build here, loudly,
 # rather than at Apple's notary service, obscurely.
 FW="$APP/Contents/Frameworks/Sparkle.framework"
-FW_VER="$(readlink "$FW/Versions/Current")"   # "B" today — read, not hardcoded
+# "B" today — read, not hardcoded. Named diagnostic to match the four checks
+# below: readlink fails silently (no message, just a nonzero exit), and under
+# `set -e` a bare assignment here would kill the script with no clue why.
+FW_VER="$(readlink "$FW/Versions/Current")" || {
+    echo "Sparkle.framework has no Versions/Current symlink — did its layout change?" >&2
+    exit 1
+}
 for nested in \
     "XPCServices/Downloader.xpc" \
     "XPCServices/Installer.xpc" \

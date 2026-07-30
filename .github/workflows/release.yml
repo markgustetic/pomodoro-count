@@ -112,24 +112,65 @@ jobs:
           APP: build/Pomodoro Count.app
         run: |
           set -euo pipefail
-          team="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
-          [ -n "$team" ] || { echo "the app has no TeamIdentifier"; exit 1; }
+
+          # codesign prints the literal string "TeamIdentifier=not set" for an
+          # ad-hoc or unsigned bundle — it does not omit the line — so a plain
+          # `[ -n "$team" ]` test passes even when nothing is actually signed.
+          # A `case` is what actually rejects both the empty and "not set"
+          # readings.
+          #
+          # The `|| true` on each raw codesign capture keeps a failing
+          # codesign from killing the script via `set -e` right at the
+          # assignment, before the explicit checks below get a chance to
+          # report why — same reasoning as the spctl capture in the
+          # Gatekeeper step further down this file.
+          app_output="$(codesign -dvv "$APP" 2>&1 || true)"
+          team="$(printf '%s\n' "$app_output" | sed -n 's/^TeamIdentifier=//p')"
+          case "$team" in
+            ''|'not set')
+              echo "the app is not signed with a team identity"
+              exit 1
+              ;;
+          esac
+
+          # Notarization requires the hardened runtime on every executable,
+          # not just the outer app — a stale or ad-hoc nested binary would
+          # lack it exactly as it would lack the team, so check both here
+          # rather than finding out from notarytool. codesign reports it on
+          # the CodeDirectory line, e.g. "flags=0x10000(runtime)".
+          check_runtime() {
+            case "$2" in
+              *flags=*"(runtime)"*) ;;
+              *) echo "$1 does not have the hardened runtime enabled"; exit 1 ;;
+            esac
+          }
+          check_runtime "the app" "$app_output"
+
           fw="$APP/Contents/Frameworks/Sparkle.framework"
           ver="$(readlink "$fw/Versions/Current")"
           for nested in XPCServices/Downloader.xpc XPCServices/Installer.xpc \
                         Updater.app Autoupdate; do
-            got="$(codesign -dvv "$fw/Versions/$ver/$nested" 2>&1 |
-                   sed -n 's/^TeamIdentifier=//p')"
+            nested_output="$(codesign -dvv "$fw/Versions/$ver/$nested" 2>&1 || true)"
+            got="$(printf '%s\n' "$nested_output" | sed -n 's/^TeamIdentifier=//p')"
+            # Fall back to "<unreadable>", not "not set" — that literal is
+            # itself a value codesign prints for an ad-hoc binary, so reusing
+            # it here would leave the message ambiguous about whether the
+            # binary was unsigned or simply couldn't be read.
             [ "$got" = "$team" ] \
-              || { echo "$nested has TeamIdentifier '${got:-not set}', want '$team'"; exit 1; }
+              || { echo "$nested has TeamIdentifier '${got:-<unreadable>}', want '$team'"; exit 1; }
+            check_runtime "$nested" "$nested_output"
           done
-          echo "Every nested binary carries team $team"
+          echo "Every nested binary carries team $team and the hardened runtime"
 
       # Inert until a Developer ID exists. Add these repository secrets to turn
-      # it on, with no other change needed — see packaging/signing/README.md:
+      # it on — see packaging/signing/README.md:
       #   DEVELOPER_ID_P12          base64 of the exported .p12
       #   DEVELOPER_ID_P12_PASSWORD
       #   NOTARY_KEY_ID, NOTARY_ISSUER_ID, NOTARY_KEY_P8
+      # That's all the pipeline needs — but not all the product needs: the
+      # release-notes footer below and the cask still tell downloaders the
+      # app is unsigned. See the Phase 2 list in packaging/signing/README.md
+      # ("## 4. Then") before calling this done.
       - name: Notarize and staple
         if: env.HAS_SIGNING == 'true'
         env:
