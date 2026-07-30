@@ -67,19 +67,19 @@ import CoreGraphics
 
     /// A year is ~53 week-columns, and at that count the width is what binds:
     /// 53 squares plus 52 gaps have to fit across the canvas, inside the
-    /// 0.5pt-per-side margin reserved for the hover ring.
+    /// 1.0pt-per-side margin reserved for the hover ring.
     @Test func metricsFitAYearAcrossTheCanvas() {
         let (cell, gap, _) = HeatmapLayout.metrics(columns: 53, size: canvas)
         #expect(gap == 1)
-        #expect(abs(cell - (276 - 1 - 52) / 53) < 0.001)
-        #expect(53 * cell + 52 * gap <= 275.001)
+        #expect(abs(cell - (276 - 2 - 52) / 53) < 0.001)
+        #expect(53 * cell + 52 * gap <= 274.001)
     }
 
     /// With few columns there is width to spare, so the seven weekday rows are
     /// what binds instead.
     @Test func aShortSeriesIsBoundByHeight() {
         let (cell, _, _) = HeatmapLayout.metrics(columns: 1, size: canvas)
-        #expect(abs(cell - (40 - 1 - 6) / 7) < 0.001)
+        #expect(abs(cell - (40 - 2 - 6) / 7) < 0.001)
     }
 
     /// No days, no grid — and no division by zero.
@@ -95,15 +95,16 @@ import CoreGraphics
         #expect(HeatmapLayout.metrics(columns: 53, size: CGSize(width: 10, height: 40)).cell == 0)
     }
 
-    /// The grid sits inside the canvas with a 0.5pt margin on every side, so
-    /// the hover ring — expanded 0.5pt past its square — has room to close
-    /// without `Canvas` clipping it.
+    /// The grid sits inside the canvas with a 1.0pt margin on every side —
+    /// the ring's 0.5pt path expansion plus the 0.5pt outward half of its
+    /// centred 1pt stroke — so the hover ring has room to close on every
+    /// edge without `Canvas` clipping it.
     @Test func theGridLeavesMarginForTheRingOnAllSides() {
         let columns = 53
         let m = HeatmapLayout.metrics(columns: columns, size: canvas)
-        #expect(m.origin.x >= 0.5 && m.origin.y >= 0.5)
-        #expect(m.origin.x + CGFloat(columns) * m.cell + CGFloat(columns - 1) * m.gap + 0.5 <= canvas.width)
-        #expect(m.origin.y + 7 * m.cell + 6 * m.gap + 0.5 <= canvas.height)
+        #expect(m.origin.x >= 1.0 && m.origin.y >= 1.0)
+        #expect(m.origin.x + CGFloat(columns) * m.cell + CGFloat(columns - 1) * m.gap + 1.0 <= canvas.width)
+        #expect(m.origin.y + 7 * m.cell + 6 * m.gap + 1.0 <= canvas.height)
     }
 
     /// The centre of the square at (column, row), in canvas coordinates.

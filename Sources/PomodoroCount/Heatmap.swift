@@ -31,19 +31,26 @@ enum HeatmapLayout {
     /// of a point and name a different day than the one it highlights — which
     /// is exactly the failure a hover readout would make invisible.
     ///
-    /// `size` is inset by 0.5pt on every side before the grid is laid out;
+    /// `size` is inset by 1.0pt on every side before the grid is laid out;
     /// `origin` is that inset rectangle's top-left corner. The margin exists
-    /// for the hover ring: it's drawn expanded by 0.5pt around its square, and
-    /// without this reservation `columns*cell + (columns-1)*gap ==
-    /// size.width` by construction — the outermost squares touch the canvas
-    /// edge exactly, `Canvas` clips to its bounds, and the ring's outward
-    /// half vanishes on row 0, column 0, and the last column. Both axes get
-    /// the margin, even though the 40pt-tall frame only needs it on rare
-    /// short series, so the ring closes on row 0 too and this stays one rule
-    /// instead of two.
+    /// for the hover ring, and its value is derived from the ring's own
+    /// geometry, not chosen: the ring path is the square expanded by 0.5pt
+    /// (`insetBy(dx: -0.5, dy: -0.5)`), then stroked with `lineWidth: 1`
+    /// *centred* on that path, so another 0.5pt extends outward beyond it —
+    /// 1.0pt of total protrusion past the square's tight edge. Reserving only
+    /// the 0.5pt path expansion and forgetting the stroke's outward half
+    /// leaves `Canvas` clipping the outer shoulder of the ring on row 0,
+    /// column 0, and the last column: the stroke reads as thinner there than
+    /// on its inward-facing edges, which is easy to miss at a glance since
+    /// the ring still looks closed. Without any reservation,
+    /// `columns*cell + (columns-1)*gap == size.width` by construction — the
+    /// outermost squares would touch the canvas edge exactly, and the whole
+    /// ring would clip on those edges. Both axes get the margin, even though
+    /// the 40pt-tall frame only needs it on rare short series, so the ring
+    /// closes on row 0 too and this stays one rule instead of two.
     static func metrics(columns: Int, size: CGSize) -> (cell: CGFloat, gap: CGFloat, origin: CGPoint) {
         let gap: CGFloat = 1
-        let margin: CGFloat = 0.5
+        let margin: CGFloat = 1.0
         let origin = CGPoint(x: margin, y: margin)
         guard columns > 0 else { return (0, gap, origin) }
         let insetSize = CGSize(width: size.width - margin * 2, height: size.height - margin * 2)
