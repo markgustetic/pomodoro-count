@@ -93,6 +93,14 @@ extension AppModel {
     /// the caller here resumes both when the drag ends and when it is cancelled,
     /// because a suspend that never resumed would silently stop persisting
     /// everything.
+    ///
+    /// There are now three call sites — the drag reorder above, and
+    /// `complete()`/`logExternal()` bracketing a record append with the target
+    /// advance it may trigger — and `savesSuspended` is a `Bool`, not a depth
+    /// counter, so nesting isn't tracked. A resume from an inner burst (an
+    /// external log arriving mid-drag) ends an outer one early. The cost is
+    /// redundant synchronous writes for the rest of that gesture, never lost
+    /// data, so this is left as-is; a depth counter is deliberately separate work.
     func suspendSaves() {
         savesSuspended = true
     }

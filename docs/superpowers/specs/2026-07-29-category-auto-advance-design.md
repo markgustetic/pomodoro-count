@@ -41,11 +41,17 @@ feature, and the reason the trigger is "the moment the goal is met" rather than
 
 - Meet Work's goal of 4 and the pill reads `towards Music` immediately, before
   you go anywhere near the Start button. What it says is what the next session
-  will credit — the pill can never name a finished category while Start would
-  file somewhere else.
+  will credit — on any logging path, the pill can never name a finished
+  category while Start would file somewhere else. (Lowering a category's daily
+  goal in Settings can still leave the pill naming a category that is already
+  met, since that changes nothing about the records; the next log corrects it.)
 - Nothing re-checks at Start, so picking Work again by hand **sticks**. A
   deliberate overshoot works, which matches the row's own tooltip: "goal met —
   one more still counts".
+- A focus session that is actually running is never re-aimed. A log that
+  backfills the running target's own goal mid-session moves nothing until that
+  session completes — Start already chose the destination, and only the next
+  session sees the target move.
 
 The trigger fires from every path that appends a record — `complete()` for the
 built-in timer, and `logExternal()` for the log button, the global hotkey and

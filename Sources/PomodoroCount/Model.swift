@@ -327,8 +327,15 @@ final class AppModel: ObservableObject {
 
         if finished == .work {
             focusSessionsThisCycle += 1
+            // The record and the target it may have just finished off are one
+            // change as far as the store is concerned, so they cost one write
+            // rather than two. The append comes first: this session credits the
+            // target it actually ran against, and only the next one moves.
+            suspendSaves()
             records.append(Record(at: Date(), source: "timer",
                                   category: resolve(sessionTarget)))
+            advanceTargetIfMet()
+            resumeSaves()
             play(.sessionDone)
             notify("Pomodoro complete", "Nice — that's \(todayCount) today.")
             if settings.autoStartBreak {
@@ -349,7 +356,15 @@ final class AppModel: ObservableObject {
     /// `announce` (used by the global hotkey) also posts a confirmation banner,
     /// since the panel may not be open to show the count change.
     func logExternal(to target: CategoryTarget = .fallback, announce: Bool = false) {
+        // One write for the pair, as in `complete()`. `target` is usually not the
+        // session target — the log button and the hotkey both pass `.fallback`,
+        // a category row passes its own name — but the advance asks about the
+        // session target either way: what matters is whether the category the
+        // timer will credit is finished.
+        suspendSaves()
         records.append(Record(at: Date(), source: "manual", category: resolve(target)))
+        advanceTargetIfMet()
+        resumeSaves()
         play(.countUp)
         if announce {
             notify("Pomodoro logged", "That's \(todayCount) today.")

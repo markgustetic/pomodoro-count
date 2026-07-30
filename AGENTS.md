@@ -80,6 +80,14 @@ that one fact:
   `settings.categories`.
 - `pomodorocount://log[?category=Name]` logs externally; a URL may not invent
   categories — unknown names land in the bucket.
+- Every record-appending path also calls `advanceTargetIfMet()` — append
+  first, so the record credits the target it ran against, then advance. The
+  advance is suppressed while a focus session is actually running, so an
+  external log can't re-aim a session Start already pointed elsewhere.
+- `suspendSaves()` now has three call sites (a drag reorder, and the two
+  record-append-plus-advance pairs above) and no nesting depth — a resume
+  from an inner burst ends an outer one early. Costs redundant writes, never
+  data.
 
 ## Theming
 

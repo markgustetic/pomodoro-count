@@ -279,3 +279,38 @@ extension AppModel {
         return totals
     }
 }
+
+// MARK: - Following the day's plan
+
+@MainActor
+extension AppModel {
+
+    /// Moves the session target on when it has met its goal, so the next
+    /// pomodoro lands on something unfinished.
+    ///
+    /// Called after every record is appended — a completed session and every
+    /// external log — because a goal is met by whichever of those happens to
+    /// fill the last slot, and external hardware is this app's headline source.
+    ///
+    /// Nothing re-checks this when a session starts, and that is deliberate: it
+    /// is what lets a deliberate re-pick of a finished category stick, so
+    /// overshooting a goal on purpose still works.
+    func advanceTargetIfMet() {
+        guard settings.categoriesEnabled, settings.autoAdvanceTarget else { return }
+        // Don't re-aim a session that is actually in flight: an external log
+        // that backfills the running target's last slot must not hand the
+        // credit to wherever the target moves next — the record that finishes
+        // this session still has to land on what Start was pressed against.
+        // This does *not* block the advance at completion: `complete()` sets
+        // `isRunning = false` before it appends the record and calls here, so
+        // a session that meets its own goal still credits the right category
+        // and only then hands the target on. `phase == .work && isRunning` is
+        // deliberately the same "actually running, not idle or paused" test
+        // `todayProgress` uses for `isSessionTarget` — a paused session's
+        // target row isn't held still either, so the advance shouldn't be.
+        guard !(phase == .work && isRunning) else { return }
+        guard let next = CategoryAdvance.next(after: sessionTarget, in: todayProgress)
+        else { return }
+        sessionTarget = next
+    }
+}
