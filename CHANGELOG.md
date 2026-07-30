@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Settings toggle "Move on when a goal is met" is now "Follow the category
   order". Your existing setting is kept.
 
+### Fixed
+
+- **A long category name no longer pushes the Focus tab off the panel.** The
+  session-target pill now shortens the name to fit — "pinned to Machine learning
+  coursework and…" — instead of drawing itself, the timer card and the Start
+  focus button past both edges of the panel. Screen readers still hear the whole
+  name.
+
 ## [1.3.0] - 2026-07-30
 
 ### Changed
