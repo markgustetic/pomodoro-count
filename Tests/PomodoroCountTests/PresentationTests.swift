@@ -32,7 +32,7 @@ import AppKit
         #expect(image.size.height > 0)
     }
 
-    @Test(arguments: [Phase.idle, .work, .breakTime])
+    @Test(arguments: [Phase.idle, .work, .breakTime, .breakReady])
     func statusIconRendersForEveryPhase(phase: Phase) {
         for running in [true, false] {
             let image = StatusIcon.render(phase: phase, running: running, text: "12")
@@ -46,6 +46,21 @@ import AppKit
         let narrow = StatusIcon.render(phase: .idle, running: false, text: "1")
         let wide = StatusIcon.render(phase: .idle, running: false, text: "888")
         #expect(wide.size.width > narrow.size.width)
+    }
+
+    /// The glyph decision, lifted out of the drawing code so it can be
+    /// asserted — an `NSImage` of a tomato and an `NSImage` of a cup are
+    /// equally "a non-empty template image". Pinned for all six existing
+    /// combinations so a later phase cannot quietly change one.
+    @Test func theMenuBarGlyphFollowsThePhase() {
+        #expect(StatusIcon.glyph(phase: .idle, running: true) == .tomato)
+        #expect(StatusIcon.glyph(phase: .idle, running: false) == .tomato)
+        #expect(StatusIcon.glyph(phase: .work, running: true) == .tomato)
+        #expect(StatusIcon.glyph(phase: .work, running: false) == .pause)
+        #expect(StatusIcon.glyph(phase: .breakTime, running: true) == .cup)
+        #expect(StatusIcon.glyph(phase: .breakTime, running: false) == .pause)
+        #expect(StatusIcon.glyph(phase: .breakReady, running: false) == .cup)
+        #expect(StatusIcon.glyph(phase: .breakReady, running: true) == .cup)
     }
 
     // MARK: Themes

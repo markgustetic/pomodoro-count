@@ -62,8 +62,9 @@ final class AppModel: ObservableObject {
         resolve(sessionTarget) ?? settings.fallbackName
     }
 
-    /// Drives the timer to completion immediately. Tests only — a real session
-    /// takes 50 minutes.
+    /// Drives the timer to completion immediately. Used by tests, and by
+    /// `PreviewRenderer` under `--preview --armed-break` — both need a
+    /// finished session without sitting out the real 50 minutes.
     func forceCompleteForTesting() {
         clock.remaining = 0
         complete()
@@ -123,17 +124,51 @@ final class AppModel: ObservableObject {
 
     var totalCount: Int { records.count }
 
-    /// Time shown on the big timer. When idle, previews the configured focus length.
+    /// Time shown on the big timer. Neither stopped phase has a countdown, so
+    /// each previews the length of whatever its primary button will start —
+    /// computed from settings rather than stored, so editing a length in
+    /// Settings moves the readout while it is on screen.
     var displayRemaining: TimeInterval {
-        phase == .idle ? TimeInterval(settings.workMinutes * 60) : remaining
+        switch phase {
+        case .idle:             return TimeInterval(settings.workMinutes * 60)
+        case .breakReady:       return TimeInterval(armedBreakMinutes * 60)
+        case .work, .breakTime: return remaining
+        }
     }
 
     var primaryTitle: String {
         if isRunning { return "Pause" }
         switch phase {
-        case .idle: return "Start focus"
+        case .idle:             return "Start focus"
+        case .breakReady:       return "Start break"
         case .work, .breakTime: return "Resume"
         }
+    }
+
+    /// Whether the panel offers the "rest now" cup button. Not while a break is
+    /// already armed — the primary button offers exactly that, and two controls
+    /// doing one job in one row is worse than one.
+    var offersManualBreak: Bool {
+        phase == .idle || phase == .work
+    }
+
+    /// The stop button's tooltip. It abandons an unfinished session in the
+    /// running phases, but an armed break has a session already logged behind
+    /// it, so "nothing is logged" would be a lie exactly where the user is most
+    /// likely to hesitate over the button.
+    var resetHelp: String {
+        phase == .breakReady
+            ? "Skip the break — the session is already logged"
+            : "Abandons the session — nothing is logged"
+    }
+
+    /// Whether the stop button does anything. True whenever there is a session
+    /// or an armed break to walk away from. `.breakReady` counts: it has no
+    /// countdown running, but the session behind it is already logged, and the
+    /// button is how you skip the break instead of taking it — disabling it
+    /// there would leave that armed break with no way to decline.
+    var offersReset: Bool {
+        phase != .idle
     }
 
     /// The first instant of an N-day window ending today. Every "last N days"
@@ -185,13 +220,16 @@ final class AppModel: ObservableObject {
         return count
     }
 
-    /// Text shown next to the icon in the menu bar (count when idle, else clock).
-    /// Empty means icon-only — see `Settings.showsCountInMenuBar`. The count is
-    /// still announced to VoiceOver either way; this hides it visually only.
+    /// Text shown next to the icon in the menu bar (count when idle or armed,
+    /// else clock). Empty means icon-only — see `Settings.showsCountInMenuBar`.
+    /// That hides the count visually only: `statusDescription` still speaks it
+    /// to VoiceOver in every phase, drawn or not.
     var statusText: String {
         switch phase {
-        case .idle:             return settings.showsCountInMenuBar ? "\(todayCount)" : ""
-        case .work, .breakTime: return Self.mmss(remaining)
+        // An armed break has no countdown, so the item keeps showing the count
+        // and the cup glyph carries the news that a break is waiting.
+        case .idle, .breakReady: return settings.showsCountInMenuBar ? "\(todayCount)" : ""
+        case .work, .breakTime:  return Self.mmss(remaining)
         }
     }
 
@@ -206,6 +244,9 @@ final class AppModel: ObservableObject {
         switch phase {
         case .idle:
             return "Pomodoro Count: \(todayCount) \(todayCount == 1 ? "pomodoro" : "pomodoros") today"
+        case .breakReady:
+            return "Break ready: \(Self.spokenDuration(TimeInterval(armedBreakMinutes * 60))); "
+                 + "\(todayCount) \(todayCount == 1 ? "pomodoro" : "pomodoros") today"
         case .work:
             return "Focus\(isRunning ? "" : ", paused"): \(Self.spokenDuration(remaining)) remaining"
         case .breakTime:
@@ -241,6 +282,12 @@ final class AppModel: ObservableObject {
             pause()
         } else if phase == .idle {
             startWork()
+        } else if phase == .breakReady {
+            // Not `resume()`. There is no countdown behind an armed break, and
+            // `resume()`'s guard only excludes `.idle` — it would happily start
+            // ticking from a stale `remaining`, which is zero straight after
+            // the focus session that armed this.
+            startBreak()
         } else {
             resume()
         }
@@ -267,12 +314,23 @@ final class AppModel: ObservableObject {
     /// rather than skipping it.
     var nextBreakIsLong: Bool { focusSessionsThisCycle >= 4 }
 
+    /// How long the break offered right now will run for. One source of truth:
+    /// the armed state previews this number and `startBreak()` counts down from
+    /// it, so what the panel promises and what runs cannot diverge.
+    var armedBreakMinutes: Int {
+        nextBreakIsLong ? settings.longBreakMinutes : settings.breakMinutes
+    }
+
     func startBreak() {
         let long = nextBreakIsLong
+        // Read before the cycle resets: `armedBreakMinutes` is derived from
+        // `focusSessionsThisCycle`, so asking after the reset below would
+        // always answer "short".
+        let minutes = armedBreakMinutes
         if long { focusSessionsThisCycle = 0 }   // taking it restarts the cycle
         currentBreakIsLong = long
         phase = .breakTime
-        clock.remaining = TimeInterval((long ? settings.longBreakMinutes : settings.breakMinutes) * 60)
+        clock.remaining = TimeInterval(minutes * 60)
         beginCountdown()
     }
 
@@ -285,7 +343,11 @@ final class AppModel: ObservableObject {
     }
 
     func resume() {
-        guard !isRunning, phase != .idle else { return }
+        // `.breakReady` is stopped but has no countdown behind it — resuming
+        // would tick from a stale `remaining` of zero and "complete" a break
+        // that never ran. `toggle()` routes that phase to `startBreak()`; this
+        // guard makes that the only way in.
+        guard !isRunning, phase == .work || phase == .breakTime else { return }
         beginCountdown()
     }
 
@@ -322,6 +384,16 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The body of the banner a finished focus session posts. Extracted and
+    /// pure because `notify` returns early unless the app is bundled, so this
+    /// wording posts nothing under test — and with auto-start off it is the
+    /// only news a user with the panel closed gets.
+    static func completionBody(count: Int, breakArmed: Bool) -> String {
+        breakArmed
+            ? "That's \(count) today — break's ready when you are."
+            : "Nice — that's \(count) today."
+    }
+
     private func complete() {
         stopTimer()
         isRunning = false
@@ -340,11 +412,15 @@ final class AppModel: ObservableObject {
             advanceTargetIfMet()
             resumeSaves()
             play(.sessionDone)
-            notify("Pomodoro complete", "Nice — that's \(todayCount) today.")
+            notify("Pomodoro complete",
+                   Self.completionBody(count: todayCount,
+                                       breakArmed: !settings.autoStartBreak))
             if settings.autoStartBreak {
                 startBreak()
             } else {
-                phase = .idle
+                // Not `.idle`: the break is owed, so offer it at the length it
+                // will run for instead of dropping back to previewing focus.
+                phase = .breakReady
             }
         } else {
             play(.breakOver)

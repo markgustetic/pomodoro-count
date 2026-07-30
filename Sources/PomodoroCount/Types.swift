@@ -122,7 +122,13 @@ struct Settings: Codable {
 }
 
 enum Phase: Equatable {
-    case idle, work, breakTime
+    /// `.breakReady` is a fourth state, not a flavour of idle: a focus session
+    /// has finished and its break is armed at the configured length, waiting to
+    /// be started or skipped. Reusing `.idle` would have left the panel
+    /// previewing the *focus* length with no sign a break was owed; reusing a
+    /// paused `.breakTime` would have let `startBreak()` spend the earned long
+    /// break at arm time, so skipping it would silently cancel it.
+    case idle, work, breakTime, breakReady
 }
 
 /// One day's tally, used by the history view.

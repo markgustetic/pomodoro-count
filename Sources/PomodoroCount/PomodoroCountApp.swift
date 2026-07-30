@@ -41,10 +41,12 @@ enum Entry {
     static func main() {
         let args = CommandLine.arguments
         // --preview <path> renders the popover UI to a PNG and exits (no window).
-        // Add --hover to render buttons in their hover state.
+        // Add --hover to render buttons in their hover state, or --armed-break
+        // to render the Focus tab with a completed session's break waiting.
         if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {
             PreviewOverrides.isRendering = true
             PreviewOverrides.forceHover = args.contains("--hover")
+            PreviewOverrides.armedBreak = args.contains("--armed-break")
             if let t = args.firstIndex(of: "--theme"), t + 1 < args.count {
                 PreviewOverrides.theme = ThemeChoice(rawValue: args[t + 1].capitalized)
             }

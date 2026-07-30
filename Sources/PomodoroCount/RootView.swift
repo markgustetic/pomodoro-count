@@ -106,6 +106,8 @@ struct RootView: View {
         switch model.phase {
         case .idle:
             EmptyView()
+        case .breakReady:
+            badge("Break ready", palette.breakColor)
         case .work:
             badge(model.isRunning ? "Focus" : "Paused", palette.focusColor)
         case .breakTime:
@@ -155,7 +157,7 @@ struct RootView: View {
         switch model.phase {
         case .idle: return palette.idleColor
         case .work: return palette.focusColor
-        case .breakTime: return palette.breakColor
+        case .breakTime, .breakReady: return palette.breakColor
         }
     }
 
@@ -163,7 +165,7 @@ struct RootView: View {
         switch model.phase {
         case .idle: return palette.idleButton
         case .work: return palette.focusButton
-        case .breakTime: return palette.breakButton
+        case .breakTime, .breakReady: return palette.breakButton
         }
     }
 
@@ -173,6 +175,7 @@ struct RootView: View {
         if model.isRunning { return "Pause the timer" }
         switch model.phase {
         case .idle: return "Start a \(model.settings.workMinutes)-minute focus session"
+        case .breakReady: return "Start your \(model.armedBreakMinutes)-minute break"
         case .work, .breakTime: return "Resume where you left off"
         }
     }
@@ -181,9 +184,21 @@ struct RootView: View {
         let target = model.settings.categoriesEnabled ? " · \(model.sessionTargetLabel)" : ""
         switch model.phase {
         case .idle: return "Focus session · \(model.settings.workMinutes) min"
+        case .breakReady:
+            // `nextBreakIsLong`, not `currentBreakIsLong`: nothing has started
+            // running yet, so the only truthful source is the one that reads
+            // `focusSessionsThisCycle` live.
+            return model.nextBreakIsLong
+                ? "Long break — earned · \(model.armedBreakMinutes) min"
+                : "Break · \(model.armedBreakMinutes) min"
         case .work: return model.isRunning ? "Focus in progress\(target)" : "Paused"
         case .breakTime:
             guard model.isRunning else { return "Paused" }
+            // `currentBreakIsLong`, not `nextBreakIsLong`: `startBreak()` zeroes
+            // `focusSessionsThisCycle` the moment a long break starts, so by the
+            // time this case runs `nextBreakIsLong` has already gone false —
+            // reading it here would silently drop "Long break — earned" the
+            // instant the break it describes actually begins.
             return model.currentBreakIsLong ? "Long break — earned" : "Break time"
         }
     }
@@ -238,13 +253,15 @@ struct RootView: View {
                     Image(systemName: "stop.fill")
                 }
                 .buttonStyle(SoftIconButtonStyle())
-                .disabled(model.phase == .idle)
+                .disabled(!model.offersReset)
                 // Says what the label doesn't: the hint and the tooltip share
                 // this string, and repeating the label would double-speak.
-                .help("Abandons the session — nothing is logged")
+                // Phase-dependent since an armed break has a logged session
+                // behind it — see `AppModel.resetHelp`.
+                .help(model.resetHelp)
                 .accessibilityLabel("Stop and reset")
 
-                if model.phase != .breakTime {
+                if model.offersManualBreak {
                     Button { model.startBreak() } label: {
                         Image(systemName: "cup.and.saucer.fill")
                     }

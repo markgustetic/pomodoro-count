@@ -1,8 +1,9 @@
 import SwiftUI
 import AppKit
 
-/// Lets `--preview --hover` render buttons in their hover state (ImageRenderer
-/// has no real cursor). No effect in the running app.
+/// Flags set from the command line to shape what `--preview` renders — hover
+/// state, theme, whether rendering is even happening, whether a break is
+/// armed — none of which have any effect in the running app.
 enum PreviewOverrides {
     nonisolated(unsafe) static var forceHover = false
     /// Overrides the persisted theme when rendering a preview.
@@ -10,6 +11,10 @@ enum PreviewOverrides {
     /// True while `--preview` is rendering. A screenshot run must not start the
     /// updater or reach the network.
     nonisolated(unsafe) static var isRendering = false
+    /// Arms a break on the preview's throwaway model before rasterising, so the
+    /// `.breakReady` panel can be looked at without sitting out a real focus
+    /// session.
+    nonisolated(unsafe) static var armedBreak = false
 }
 
 private func applyCursor(_ inside: Bool) {
