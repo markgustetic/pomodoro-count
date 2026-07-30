@@ -62,16 +62,28 @@ enum StatusIcon {
     }
 
     private static func drawIcon(phase: Phase, running: Bool, in rect: NSRect) {
-        // Paused: show a pause glyph regardless of phase.
-        if !running && phase != .idle {
-            symbol("pause.fill")?.draw(in: rect)
-            return
+        switch glyph(phase: phase, running: running) {
+        case .tomato: drawTomato(in: rect)
+        case .cup:    symbol("cup.and.saucer.fill")?.draw(in: rect)
+        case .pause:  symbol("pause.fill")?.draw(in: rect)
         }
+    }
+
+    enum Glyph: Equatable { case tomato, cup, pause }
+
+    /// Which glyph the menu bar item draws. Extracted from `drawIcon` because
+    /// the drawn image is not assertable — one non-empty template image looks
+    /// like any other — while the decision behind it is.
+    ///
+    /// Switched per phase rather than guarded on "stopped and not idle", which
+    /// is what this used to be. That guard read as though it were about
+    /// pausing, so any new stopped phase would have inherited a pause glyph
+    /// without anyone choosing it.
+    static func glyph(phase: Phase, running: Bool) -> Glyph {
         switch phase {
-        case .breakTime:
-            symbol("cup.and.saucer.fill")?.draw(in: rect)
-        case .idle, .work:
-            drawTomato(in: rect)
+        case .idle:      return .tomato
+        case .work:      return running ? .tomato : .pause
+        case .breakTime: return running ? .cup : .pause
         }
     }
 

@@ -48,6 +48,19 @@ import AppKit
         #expect(wide.size.width > narrow.size.width)
     }
 
+    /// The glyph decision, lifted out of the drawing code so it can be
+    /// asserted — an `NSImage` of a tomato and an `NSImage` of a cup are
+    /// equally "a non-empty template image". Pinned for all six existing
+    /// combinations so a later phase cannot quietly change one.
+    @Test func theMenuBarGlyphFollowsThePhase() {
+        #expect(StatusIcon.glyph(phase: .idle, running: true) == .tomato)
+        #expect(StatusIcon.glyph(phase: .idle, running: false) == .tomato)
+        #expect(StatusIcon.glyph(phase: .work, running: true) == .tomato)
+        #expect(StatusIcon.glyph(phase: .work, running: false) == .pause)
+        #expect(StatusIcon.glyph(phase: .breakTime, running: true) == .cup)
+        #expect(StatusIcon.glyph(phase: .breakTime, running: false) == .pause)
+    }
+
     // MARK: Themes
 
     @Test func classicIsPlainAndSynthwaveIsNeon() {
