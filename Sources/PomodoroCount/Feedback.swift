@@ -21,7 +21,11 @@ extension AppModel {
     }
 
     func notify(_ title: String, _ body: String) {
-        guard isBundled else { return }   // UNUserNotificationCenter needs a real bundle
+        // `isBundled`: UNUserNotificationCenter needs a real bundle.
+        // `isRendering`: a `--preview` run drives a real session to completion,
+        // and taking a screenshot must not post a banner or raise the
+        // authorization prompt. `Updater` guards its network call the same way.
+        guard isBundled, !PreviewOverrides.isRendering else { return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             guard granted else { return }
             let content = UNMutableNotificationContent()

@@ -1,8 +1,9 @@
 import SwiftUI
 import AppKit
 
-/// Lets `--preview --hover` render buttons in their hover state (ImageRenderer
-/// has no real cursor). No effect in the running app.
+/// Flags set from the command line to shape what `--preview` renders — hover
+/// state, theme, whether rendering is even happening, whether a break is
+/// armed — none of which have any effect in the running app.
 enum PreviewOverrides {
     nonisolated(unsafe) static var forceHover = false
     /// Overrides the persisted theme when rendering a preview.

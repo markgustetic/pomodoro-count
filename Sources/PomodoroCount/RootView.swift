@@ -185,12 +185,20 @@ struct RootView: View {
         switch model.phase {
         case .idle: return "Focus session · \(model.settings.workMinutes) min"
         case .breakReady:
+            // `nextBreakIsLong`, not `currentBreakIsLong`: nothing has started
+            // running yet, so the only truthful source is the one that reads
+            // `focusSessionsThisCycle` live.
             return model.nextBreakIsLong
                 ? "Long break — earned · \(model.armedBreakMinutes) min"
                 : "Break · \(model.armedBreakMinutes) min"
         case .work: return model.isRunning ? "Focus in progress\(target)" : "Paused"
         case .breakTime:
             guard model.isRunning else { return "Paused" }
+            // `currentBreakIsLong`, not `nextBreakIsLong`: `startBreak()` zeroes
+            // `focusSessionsThisCycle` the moment a long break starts, so by the
+            // time this case runs `nextBreakIsLong` has already gone false —
+            // reading it here would silently drop "Long break — earned" the
+            // instant the break it describes actually begins.
             return model.currentBreakIsLong ? "Long break — earned" : "Break time"
         }
     }
@@ -245,7 +253,7 @@ struct RootView: View {
                     Image(systemName: "stop.fill")
                 }
                 .buttonStyle(SoftIconButtonStyle())
-                .disabled(model.phase == .idle)
+                .disabled(!model.offersReset)
                 // Says what the label doesn't: the hint and the tooltip share
                 // this string, and repeating the label would double-speak.
                 // Phase-dependent since an armed break has a logged session

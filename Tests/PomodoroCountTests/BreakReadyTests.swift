@@ -112,6 +112,21 @@ import Foundation
         #expect(abs(m.remaining - 9 * 60) <= 1)
     }
 
+    /// There is no countdown behind an armed break, so `resume()` must stay
+    /// inert there — `toggle()` is the only sanctioned way out, via
+    /// `startBreak()`. Getting this wrong ticks down from a stale `remaining`
+    /// of zero and "completes" a break that never ran.
+    @Test func resumeIsInertWhileABreakIsArmed() {
+        let (m, _) = makeModel()
+        m.settings.autoStartBreak = false
+        m.startWork()
+        m.forceCompleteForTesting()
+
+        m.resume()
+        #expect(m.phase == .breakReady)
+        #expect(!m.isRunning)
+    }
+
     @Test func theArmedLongBreakStartsLong() {
         let (m, _) = makeModel()
         m.settings.autoStartBreak = false
@@ -189,7 +204,11 @@ import Foundation
         #expect(m.statusText == "")
     }
 
-    @Test func theArmedBreakIsAnnouncedWithItsLength() {
+    /// `statusText` draws the count in this phase (see the menu-bar test
+    /// above), and every other phase's `statusDescription` speaks a superset
+    /// of what it draws — so a VoiceOver user with auto-start off must still
+    /// hear the count here, not just the break's length.
+    @Test func theArmedBreakIsAnnouncedWithItsLengthAndTheCount() {
         let (m, _) = makeModel()
         m.settings.autoStartBreak = false
         m.settings.breakMinutes = 10
@@ -197,6 +216,7 @@ import Foundation
         m.forceCompleteForTesting()
         #expect(m.statusDescription.contains("Break ready"))
         #expect(m.statusDescription.contains("10 minutes"))
+        #expect(m.statusDescription.contains("1 pomodoro today"))
     }
 
     // MARK: The button row
@@ -228,6 +248,22 @@ import Foundation
         #expect(!m.resetHelp.contains("nothing is logged"))
     }
 
+    /// The stop button is disabled only in `.idle`. `.breakReady` is the phase
+    /// most worth pinning: it has no countdown running, so it would be easy to
+    /// mistake for another "nothing to stop" state and disable the only
+    /// control that skips an armed break.
+    @Test func theStopButtonIsEnabledInEveryPhaseButIdle() {
+        let (m, _) = makeModel()
+        m.settings.autoStartBreak = false
+        #expect(!m.offersReset)                // idle
+        m.startWork()
+        #expect(m.offersReset)                 // work
+        m.forceCompleteForTesting()
+        #expect(m.offersReset)                 // breakReady
+        m.toggle()
+        #expect(m.offersReset)                 // breakTime
+    }
+
     // MARK: The banner
 
     /// With auto-start off and the panel closed, this banner is the only thing
@@ -241,5 +277,22 @@ import Foundation
     @Test func theBannerIsUnchangedWhenTheBreakStartsItself() {
         #expect(AppModel.completionBody(count: 4, breakArmed: false)
                 == "Nice — that's 4 today.")
+    }
+
+    // MARK: Persistence
+
+    /// Nothing persists the phase — an architectural guarantee, not an
+    /// accident: an armed break restored hours (or days) later would count a
+    /// rest the user may never have taken. A fresh model reading the same
+    /// store must come up idle no matter what phase the last one was in.
+    @Test func anArmedBreakDoesNotSurviveRelaunch() {
+        let (m, url) = makeModel()
+        m.settings.autoStartBreak = false
+        m.startWork()
+        m.forceCompleteForTesting()
+        #expect(m.phase == .breakReady)
+
+        let reloaded = AppModel(storeURL: url)
+        #expect(reloaded.phase == .idle)
     }
 }

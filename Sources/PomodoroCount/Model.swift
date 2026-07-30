@@ -62,8 +62,9 @@ final class AppModel: ObservableObject {
         resolve(sessionTarget) ?? settings.fallbackName
     }
 
-    /// Drives the timer to completion immediately. Tests only — a real session
-    /// takes 50 minutes.
+    /// Drives the timer to completion immediately. Used by tests, and by
+    /// `PreviewRenderer` under `--preview --armed-break` — both need a
+    /// finished session without sitting out the real 50 minutes.
     func forceCompleteForTesting() {
         clock.remaining = 0
         complete()
@@ -161,6 +162,15 @@ final class AppModel: ObservableObject {
             : "Abandons the session — nothing is logged"
     }
 
+    /// Whether the stop button does anything. True whenever there is a session
+    /// or an armed break to walk away from. `.breakReady` counts: it has no
+    /// countdown running, but the session behind it is already logged, and the
+    /// button is how you skip the break instead of taking it — disabling it
+    /// there would leave that armed break with no way to decline.
+    var offersReset: Bool {
+        phase != .idle
+    }
+
     /// The first instant of an N-day window ending today. Every "last N days"
     /// query — `history`, `dailySeries`, `categoryTotals` — measures its window
     /// from here, so the semantics (inclusive of today, calendar-day aligned)
@@ -210,9 +220,10 @@ final class AppModel: ObservableObject {
         return count
     }
 
-    /// Text shown next to the icon in the menu bar (count when idle, else clock).
-    /// Empty means icon-only — see `Settings.showsCountInMenuBar`. The count is
-    /// still announced to VoiceOver either way; this hides it visually only.
+    /// Text shown next to the icon in the menu bar (count when idle or armed,
+    /// else clock). Empty means icon-only — see `Settings.showsCountInMenuBar`.
+    /// That hides the count visually only: `statusDescription` still speaks it
+    /// to VoiceOver in every phase, drawn or not.
     var statusText: String {
         switch phase {
         // An armed break has no countdown, so the item keeps showing the count
@@ -234,7 +245,8 @@ final class AppModel: ObservableObject {
         case .idle:
             return "Pomodoro Count: \(todayCount) \(todayCount == 1 ? "pomodoro" : "pomodoros") today"
         case .breakReady:
-            return "Break ready: \(Self.spokenDuration(TimeInterval(armedBreakMinutes * 60)))"
+            return "Break ready: \(Self.spokenDuration(TimeInterval(armedBreakMinutes * 60))); "
+                 + "\(todayCount) \(todayCount == 1 ? "pomodoro" : "pomodoros") today"
         case .work:
             return "Focus\(isRunning ? "" : ", paused"): \(Self.spokenDuration(remaining)) remaining"
         case .breakTime:
@@ -331,7 +343,11 @@ final class AppModel: ObservableObject {
     }
 
     func resume() {
-        guard !isRunning, phase != .idle else { return }
+        // `.breakReady` is stopped but has no countdown behind it — resuming
+        // would tick from a stale `remaining` of zero and "complete" a break
+        // that never ran. `toggle()` routes that phase to `startBreak()`; this
+        // guard makes that the only way in.
+        guard !isRunning, phase == .work || phase == .breakTime else { return }
         beginCountdown()
     }
 
