@@ -10,6 +10,10 @@ enum PreviewOverrides {
     /// True while `--preview` is rendering. A screenshot run must not start the
     /// updater or reach the network.
     nonisolated(unsafe) static var isRendering = false
+    /// Arms a break on the preview's throwaway model before rasterising, so the
+    /// `.breakReady` panel can be looked at without sitting out a real focus
+    /// session.
+    nonisolated(unsafe) static var armedBreak = false
 }
 
 private func applyCursor(_ inside: Bool) {

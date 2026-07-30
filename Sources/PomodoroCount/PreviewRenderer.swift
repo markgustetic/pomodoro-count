@@ -44,6 +44,16 @@ enum PreviewRenderer {
             Category(name: "AI study", dailyGoal: 1),
             Category(name: "Music", dailyGoal: 1),
         ]
+        if PreviewOverrides.armedBreak {
+            // The only route into `.breakReady` is a completed focus session,
+            // so drive one. That logs a pomodoro, which nudges the fallback
+            // bucket's count past what the seeding comment above describes —
+            // true of this mode only, and the whole point of it.
+            model.settings.soundEnabled = false
+            model.settings.autoStartBreak = false
+            model.startWork()
+            model.forceCompleteForTesting()
+        }
         if let theme = PreviewOverrides.theme { model.settings.theme = theme }
         let bg: Color = model.settings.theme == .synthwave
             ? Color(hex: 0x0B0616)
