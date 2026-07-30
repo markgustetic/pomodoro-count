@@ -2,8 +2,8 @@
 
 The order of the categories is the order you work through them. The session
 target falls to the highest-ranked category that still has a goal left, restarts
-at the top each day, and stays wherever you put it by hand until you say
-otherwise.
+at the top each day, and holds still when you deliberately point it at a
+category you have already finished.
 
 ## Why
 
@@ -31,8 +31,8 @@ re-check.
 
 ## Scope
 
-In: the successor rule, a start-of-day reset, and a pin that keeps a hand-picked
-target where you put it — including past its own goal.
+In: the successor rule, a start-of-day reset, and a pin that lets a deliberate
+overshoot run for as long as the user wants.
 
 Out:
 
@@ -64,13 +64,40 @@ Three triggers move the target, and nothing else:
 |---|---|
 | A record lands and the current target is now met | Re-aim at the highest-ranked available row |
 | The app notices the calendar day turned over | Clear the pin, re-aim at the highest-ranked available row, stamp today |
-| The user picks from the pill menu | Aim there and **pin** |
+| The user picks from the pill menu | Aim there, and **pin only if that category is already met** |
 
-A **pin** suppresses the met-goal trigger entirely. That is what makes a
-deliberate overshoot work for as long as you want it to, rather than for exactly
+### The pin, and why picking reads two ways
+
+A **pin** suppresses the met-goal trigger entirely, which is what lets a
+deliberate overshoot run for as long as the user wants rather than for exactly
 one pomodoro. It is released by the day turning over, by *Follow the order*, and
-by archiving the pinned category; picking a different category moves it rather
-than releasing it.
+by archiving the pinned category; picking a different category re-evaluates it
+rather than carrying it over.
+
+Whether a hand pick pins depends on the state of what was picked, because the
+two cases are genuinely different intents:
+
+- **Picking a category with a goal left** means "work here next". It does not
+  pin. The target holds while the category is unfinished — the met-goal trigger
+  only fires on a met target — and the ranking resumes on its own once the goal
+  is reached. Nothing to switch back on, because nothing was switched off.
+- **Picking a category that is already met** can only mean "let me overshoot
+  here". It pins, and holds through as many pomodoros as follow.
+
+The alternative — pinning on every hand pick — was rejected. It gives the same
+overshoot, but one pick at 11am then leaves the ranking switched off for the rest
+of the day, and only the user can switch it back on. That is the papercut the
+2026-07-29 design was written to remove, reintroduced behind a single click. The
+cost of this rule instead is that two picks which look identical behave
+differently; the pill's two labels are what make the difference visible.
+
+A **goal-0 category needs no special case**. `isMet` is false for it forever, so
+picking one never pins — and the met-goal trigger can never fire on it either,
+so it holds anyway. The same is true of the bucket while `fallbackGoal == 0`.
+
+Raising a pinned category's goal after the fact leaves it pinned but unmet. The
+pin stands: it was set deliberately, and the trigger it suppresses would not fire
+on an unmet target regardless.
 
 The **daily snap** stamps the day even when there is nothing to aim at (no
 category carries a goal). It is a start-of-day event, not a lazy one: adding a
@@ -98,13 +125,16 @@ The `towards …` pill is the whole visible surface.
 - Meet Music's goal and the pill reads `towards Work` immediately — up the
   ranking, not down. What it says is what the next session credits, on every
   logging path.
-- Pick a category by hand and the pill reads `pinned to Music`. It stays there
-  through as many pomodoros as you log, goal or no goal.
+- Pick an unfinished category by hand and the pill still reads `towards Admin`,
+  which is the truth: the rule is driving and will move on when Admin is done.
+- Pick a category that is already met and it reads `pinned to Admin`. The two
+  labels are the whole visible difference between the two kinds of pick, which
+  is why they are worded as different promises rather than as a decoration.
 - The menu gains a first entry, **Follow the order**, above a divider. It clears
   the pin and aims at `topUnmet` straight away, so the pinned state always has a
   visible way out. Note that it does *not* go through the met-goal trigger,
   whose guard requires the current target to be met — handing control back has
-  to work from an unfinished category too.
+  to work from an unfinished target too.
 - Text-only, both states. `RootView` documents that `.menuStyle(.borderlessButton)`
   draws the label through `NSPopUpButton`, which drops arbitrary `Shape` content
   and paints an `Image` in the control's own colour ignoring `foregroundStyle` —
@@ -169,15 +199,30 @@ These use the local-copy pattern the rename path already uses rather than adding
 the existing three by name and explains why each needs its own resume, and that
 comment should stay true.
 
-**View changes are thin.** The pill menu routes its category buttons through a
-new `AppModel.pinTarget(_:)` instead of assigning `sessionTarget`, so the
-automatic rule and a hand pick are distinguishable at the point of intent, and
-reads its label from a new `sessionTargetDescription`. The Settings toggle keeps
-its binding and gets new copy:
+**`AppModel.pickTarget(_:)`** is the hand-pick path, and the one place the
+"which kind of pick was that" question is answered:
+
+```swift
+/// Aims the target where the user asked. Pins only when that category is
+/// already met — the one reading of such a pick is "let me overshoot here",
+/// where picking an unfinished category just says "work here next" and should
+/// hand back to the ranking once it is finished.
+func pickTarget(_ target: CategoryTarget)
+```
+
+Assigning `sessionTarget` directly stays unpinned, which keeps "the rule put it
+here" as the default and means the existing tests that assign it need no
+rewriting to keep meaning what they meant.
+
+**View changes are thin.** The pill menu routes its category buttons through
+`pickTarget(_:)` instead of assigning `sessionTarget`, and reads its label from a
+new `sessionTargetDescription`. The Settings toggle keeps its binding and gets
+new copy:
 
 > **Follow the category order**
-> The top category with a goal left is the target. Each new day starts at the
-> top again; picking one by hand holds it until you unpin or the day turns over.
+> The top category with a goal left is the target, and each new day starts at
+> the top again. Pick one by hand to work there next; pick a finished one to
+> keep going past its goal.
 
 **Archiving the pinned category clears the pin.** The `sessionTarget` getter
 resolves an archived name to `.fallback`, so a surviving pin would silently pin
@@ -186,11 +231,15 @@ the bucket.
 ## What changes for someone already using this
 
 1. Meeting a goal re-aims at the top unfinished category, not the next one down.
-2. A hand-picked category holds all day, past its goal. Today it yields one
-   overshoot and then moves on.
+2. Re-picking a finished category holds there for as many pomodoros as follow.
+   Today it yields exactly one overshoot and then moves on.
 3. A new day re-aims at the top.
-4. The pill reads `pinned to X` when hand-picked, and its menu has a new first
+4. The pill reads `pinned to X` while overshooting, and its menu has a new first
    entry.
+
+Picking an *unfinished* category behaves exactly as it does today — it holds
+until the goal is met, then hands back — so the only hand pick whose behaviour
+changes is the one aimed at a category that is already done.
 
 The first launch after this ships re-aims once: existing stores carry no
 `targetAimedOn`, so the first evaluation reads as "the day turned over". That is
@@ -211,10 +260,16 @@ Pure, on `CategoryAdvance`:
 
 Model-level, in `Tests/PomodoroCountTests` with swift-testing:
 
-- A pinned target survives repeated overshoot logs. This rewrites
-  `aDeliberateRePickIsHonouredForTheNextSession`, which asserts today's
-  one-pomodoro limit — rewritten rather than deleted, since it is the record of
-  a behaviour being changed on purpose.
+- `pickTarget` on a **met** category pins; on an **unfinished** one it does not.
+  This pair is the rule, so it is the pair to write first.
+- A pinned target survives **repeated** overshoot logs — not just one. This
+  rewrites `aDeliberateRePickIsHonouredForTheNextSession`, which asserts today's
+  one-pomodoro limit; rewritten rather than deleted, since it is the record of a
+  behaviour being changed on purpose.
+- An unfinished hand pick still hands back to the ranking once its own goal is
+  met, and hands back to the **top**, not to the row below it.
+- `pickTarget` on a goal-0 category does not pin and is never advanced away
+  from — the two halves of "no special case needed".
 - A stale `targetAimedOn` clears the pin and re-aims; a same-day stamp does
   neither.
 - Both triggers defer while a focus session runs, and the deferred snap lands
@@ -232,8 +287,8 @@ worth an eye, but nothing here needs the `--reorder-window` harness.
 
 ## Docs
 
-- `CHANGELOG.md` under Changed: the three behaviour changes and the new menu
-  entry.
+- `CHANGELOG.md` under Changed: the four items in "What changes for someone
+  already using this".
 - `AGENTS.md`: the model section names `advanceTargetIfMet()`, and the
   conventions section lists `CategoryAdvance.next(after:in:)` among the pure
   extracted functions. Both signatures change.
