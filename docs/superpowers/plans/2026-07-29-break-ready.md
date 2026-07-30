@@ -358,14 +358,13 @@ import Foundation
         #expect(m.statusDescription.contains("Break ready"))
         #expect(m.statusDescription.contains("10 minutes"))
     }
-
-    /// An armed break has no countdown behind it, so it is not paused — and
-    /// must not draw the pause glyph the other stopped phases do.
-    @Test func theArmedBreakDrawsTheCupNotAPause() {
-        #expect(StatusIcon.glyph(phase: .breakReady, running: false) == .cup)
-    }
 }
 ```
+
+The glyph assertion for `.breakReady` deliberately does **not** live here. It
+belongs to the glyph table in `PresentationTests` (Step 8), so the whole
+phase/running decision reads as one thing in one place rather than being
+asserted twice.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
