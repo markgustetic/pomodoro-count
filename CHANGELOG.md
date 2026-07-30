@@ -7,13 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-29
+
 ### Added
 
 - **The target follows the day's plan** — when a category meets its daily goal,
   the session target moves on by itself to the next category with a goal left,
   and the Focus tab's "towards …" pill says so straight away. Picking a finished
-  category by hand still sticks, so overshooting one on purpose works. Switch it
-  off with "Move on when a goal is met" in Settings.
+  category by hand still sticks, so overshooting one on purpose works, and a
+  session already under way keeps the target it started against — logging a
+  pomodoro from your hardware partway through can't re-aim it. Switch the whole
+  thing off with "Move on when a goal is met" in Settings.
 
 ## [1.1.0] - 2026-07-29
 
@@ -100,6 +104,7 @@ First public release.
 - Releases are unsigned. macOS Gatekeeper asks for a one-time confirmation on
   first launch — see [Installing](README.md#install) for the two-second step.
 
-[Unreleased]: https://github.com/markgustetic/pomodoro-count/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/markgustetic/pomodoro-count/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/markgustetic/pomodoro-count/releases/tag/v1.0.0
