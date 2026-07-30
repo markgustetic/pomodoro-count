@@ -46,6 +46,12 @@ enum Entry {
         // --preview <path> renders the popover UI to a PNG and exits (no window).
         // Add --hover to render buttons in their hover state, or --armed-break
         // to render the Focus tab with a completed session's break waiting.
+        //
+        // --store composes with it, and reaches this path by hand rather than
+        // through the `AppModel.overrideStoreURL` line below, which the render's
+        // own exit means we never get to. Without it the renderer draws its demo
+        // categories, so a state only a real store can express — a pinned
+        // target, an archived category — has to be seeded and passed in.
         if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {
             PreviewOverrides.isRendering = true
             PreviewOverrides.forceHover = args.contains("--hover")
@@ -53,7 +59,13 @@ enum Entry {
             if let t = args.firstIndex(of: "--theme"), t + 1 < args.count {
                 PreviewOverrides.theme = ThemeChoice(rawValue: args[t + 1].capitalized)
             }
-            MainActor.assumeIsolated { PreviewRenderer.render(to: args[i + 1]) }
+            var storePath: String?
+            if let s = args.firstIndex(of: "--store"), s + 1 < args.count {
+                storePath = args[s + 1]
+            }
+            MainActor.assumeIsolated {
+                PreviewRenderer.render(to: args[i + 1], storePath: storePath)
+            }
         }
         // --store <path> points the app at an alternate data file (for testing
         // against a throwaway file instead of the real Application Support one).

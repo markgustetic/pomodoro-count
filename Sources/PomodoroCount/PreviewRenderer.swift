@@ -4,8 +4,65 @@ import AppKit
 /// Renders the popover UI to a PNG without showing any window, so the layout
 /// can be reviewed headlessly. Run with `swift run PomodoroCount --preview <path>`.
 enum PreviewRenderer {
+
+    /// Why a `--preview` run could not build the model it was asked to draw.
+    ///
+    /// Both cases stop the render. The alternative — quietly drawing the demo
+    /// model instead — is the exact failure this path was built to end: a
+    /// render that looks like an answer to a question it never read.
+    enum StoreError: Error, CustomStringConvertible {
+        case notFound(String)
+        case unreadable(String, any Error)
+
+        var description: String {
+            switch self {
+            case .notFound(let path):
+                return "--preview --store: no store at \(path)"
+            case .unreadable(let path, let error):
+                return "--preview --store: could not read \(path) — \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// The model the preview draws.
+    ///
+    /// With no `--store`, the hand-seeded demo state below. With one, that
+    /// store's own state — which is the only way to preview a panel the demo
+    /// model cannot express: a pinned session target, a category name long
+    /// enough to overflow the target pill, an archived category, a category
+    /// list long enough to exercise `PanelTabScroller`'s height cap. The recipe
+    /// is `--seed-store` → hand-edit the JSON → `--preview --store`.
+    /// It found the pill overflow documented in `RootView` on its first use.
+    ///
+    /// The store is read through a **copy**, which is load-bearing rather than
+    /// tidy: the render mutates the model it draws — `--armed-break` completes
+    /// an entire focus session, `--theme` writes a setting — and `AppModel`
+    /// persists on `didSet`. Aimed at the file itself, `--preview` would edit
+    /// the state it was asked to show, and aimed at the real store it would log
+    /// a pomodoro into the user's own history.
     @MainActor
-    static func render(to path: String) {
+    static func model(storePath: String?) throws -> AppModel {
+        guard let storePath else { return demoModel() }
+        guard FileManager.default.fileExists(atPath: storePath) else {
+            throw StoreError.notFound(storePath)
+        }
+        let copy = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pomo-preview-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("data.json")
+        do {
+            try FileManager.default.createDirectory(
+                at: copy.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: URL(fileURLWithPath: storePath), to: copy)
+        } catch {
+            throw StoreError.unreadable(storePath, error)
+        }
+        return AppModel(storeURL: copy)
+    }
+
+    /// The stand-in state `--preview` renders when it is given no store, chosen
+    /// so every row state in the panel is represented at once.
+    @MainActor
+    private static func demoModel() -> AppModel {
         let model = AppModel(storeURL: URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("pomo-preview-\(UUID().uuidString).json"))
 
@@ -44,6 +101,24 @@ enum PreviewRenderer {
             Category(name: "AI study", dailyGoal: 1),
             Category(name: "Music", dailyGoal: 1),
         ]
+        return model
+    }
+
+    /// Draws the panel and exits.
+    ///
+    /// `--armed-break` and `--theme` are applied *after* the model is resolved,
+    /// so both compose with either source of state — the demo model and a
+    /// `--store` one alike.
+    @MainActor
+    static func render(to path: String, storePath: String? = nil) {
+        let model: AppModel
+        do {
+            model = try Self.model(storePath: storePath)
+        } catch {
+            print("\(error)")
+            exit(1)
+        }
+
         if PreviewOverrides.armedBreak {
             // The only route into `.breakReady` is a completed focus session,
             // so drive one. That logs a pomodoro, which nudges the fallback
@@ -53,7 +128,10 @@ enum PreviewRenderer {
             // `.breakReady` instead of `.breakTime`; `soundEnabled` off keeps
             // the screenshot silent. Both are settings on this shared preview
             // model, so the Settings tab rendered alongside Focus and History
-            // in the same composite shows them off here, unlike the default render.
+            // in the same composite shows them off here, unlike the default
+            // render — and, under `--store`, regardless of what that store says
+            // about them. The pomodoro and the settings land on the store's
+            // throwaway copy, never on the file named by `--store`.
             model.settings.soundEnabled = false
             model.settings.autoStartBreak = false
             model.startWork()
