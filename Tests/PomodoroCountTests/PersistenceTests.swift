@@ -76,6 +76,61 @@ import Foundation
         #expect(AppModel(storeURL: url).settings.workMinutes == 45)
     }
 
+    /// The drag's cancellation path can resume with no burst in flight at all,
+    /// so the depth must not go below zero. A negative depth would leave the
+    /// next `suspendSaves()` back at zero, suspending nothing — the harm lands
+    /// on the *following* drag, which is why resuming twice looks harmless on
+    /// its own and this case has to be checked separately.
+    @Test func anExtraResumeDoesNotBreakTheNextSuspension() {
+        let (m, url) = makeModel()
+        m.resumeSaves()                                               // a cancellation, nothing in flight
+
+        m.suspendSaves()                                              // the next drag
+        m.settings.workMinutes = 45
+        #expect(AppModel(storeURL: url).settings.workMinutes == 50,
+                "the next suspension held nothing")
+
+        m.resumeSaves()
+        #expect(AppModel(storeURL: url).settings.workMinutes == 45)
+    }
+
+    /// Bursts nest for real: the global hotkey and the `pomodorocount://log` URL
+    /// both land a record — bracketed by their own suspend/resume — while a
+    /// reorder drag is holding one open. The inner resume belongs to the log,
+    /// not to the drag, so it must not perform the drag's held write.
+    @Test func anInnerResumeDoesNotPerformTheOuterHeldWrite() {
+        let (m, url) = makeModel()
+        m.suspendSaves()                                              // the drag
+        m.settings.workMinutes = 45
+
+        m.suspendSaves()                                              // an external log arrives
+        m.resumeSaves()
+
+        #expect(AppModel(storeURL: url).settings.workMinutes == 50,
+                "the drag's write reached disk on the log's resume")
+
+        m.resumeSaves()                                               // the drag ends
+        #expect(AppModel(storeURL: url).settings.workMinutes == 45)
+    }
+
+    /// The stutter this mechanism exists to prevent: once an inner burst has
+    /// resumed, the outer one is still in flight, and every later change it
+    /// makes — a row crossing, in the drag's case — must stay held rather than
+    /// encoding the whole store to disk synchronously on the main actor.
+    @Test func changesAfterAnInnerResumeAreStillHeld() {
+        let (m, url) = makeModel()
+        m.suspendSaves()                                              // the drag
+        m.suspendSaves()                                              // an external log arrives
+        m.resumeSaves()
+
+        m.settings.workMinutes = 45                                   // a later row crossing
+        #expect(AppModel(storeURL: url).settings.workMinutes == 50,
+                "a change mid-drag wrote straight to disk")
+
+        m.resumeSaves()                                               // the drag ends
+        #expect(AppModel(storeURL: url).settings.workMinutes == 45)
+    }
+
     @Test func missingFileStartsEmptyRatherThanFailing() {
         let model = AppModel(storeURL: temporaryStoreURL())
         #expect(model.totalCount == 0)

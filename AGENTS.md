@@ -84,10 +84,13 @@ that one fact:
   first, so the record credits the target it ran against, then advance. The
   advance is suppressed while a focus session is actually running, so an
   external log can't re-aim a session Start already pointed elsewhere.
-- `suspendSaves()` now has three call sites (a drag reorder, and the two
-  record-append-plus-advance pairs above) and no nesting depth — a resume
-  from an inner burst ends an outer one early. Costs redundant writes, never
-  data.
+- `suspendSaves()` has three call sites (a drag reorder, and the two
+  record-append-plus-advance pairs above) and **counts depth**, because the
+  hotkey and the URL scheme fire the latter two mid-drag; only the outermost
+  resume writes. So each suspend needs its own resume. A spare resume is fine
+  (the count clamps at zero), a missing one is not — and unlike the old `Bool`
+  a count can't heal itself, which is why the drag resumes on view teardown as
+  well as on end and cancel.
 
 ## Theming
 

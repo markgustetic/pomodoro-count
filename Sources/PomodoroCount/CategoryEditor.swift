@@ -320,6 +320,18 @@ struct CategoryList: View {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { drag = nil }
             }
         }
+        // And once more for the path neither of the other two catches: this view
+        // being torn out of the hierarchy while a drag is live, which is routine
+        // here because the panel dismisses whenever it loses key status. Both
+        // resumes above hang off state this view owns, so they go with it.
+        // Since `suspendSaves()` became a depth count, a leak like that no
+        // longer heals on the next drag the way the old flag's did — it would
+        // stop the app persisting anything for the rest of the run. Guarded on a
+        // live drag, and harmless if one of the others got there first:
+        // `resumeSaves()` clamps at zero.
+        .onDisappear {
+            if drag != nil { model.resumeSaves() }
+        }
     }
 
     private func row(_ category: Category, at index: Int) -> some View {

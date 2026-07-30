@@ -79,9 +79,12 @@ final class AppModel: ObservableObject {
     let customStoreURL: URL?
     var isLoading = false
 
-    /// Set while a burst of related changes is in flight, so they cost one
-    /// store write between them instead of one each. See `suspendSaves()`.
-    var savesSuspended = false
+    /// How many bursts of related changes are in flight, so they cost one store
+    /// write between them instead of one each. Bursts nest, so this counts
+    /// rather than flags — see `suspendSaves()`.
+    var suspendDepth = 0
+    /// Suspended while any burst is still in flight.
+    var savesSuspended: Bool { suspendDepth > 0 }
     /// A save asked for while suspended, to be honoured on resume.
     var savePending = false
 

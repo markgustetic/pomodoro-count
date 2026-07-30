@@ -89,25 +89,36 @@ extension AppModel {
     /// store and write it to disk synchronously, on the main actor, in the
     /// middle of a gesture — which the user could see.
     ///
-    /// Idempotent, and safe to leave balanced by more than one `resumeSaves()`:
-    /// the caller here resumes both when the drag ends and when it is cancelled,
-    /// because a suspend that never resumed would silently stop persisting
-    /// everything.
+    /// Bursts nest, so this counts depth rather than setting a flag, and only
+    /// the outermost `resumeSaves()` writes. The three call sites are the drag
+    /// reorder above and `complete()`/`logExternal()`, which bracket a record
+    /// append with the target advance it may trigger — and the app's headline
+    /// input paths (the global hotkey, the `pomodorocount://log` URL scheme)
+    /// fire either of those two in the middle of a drag. A flag let that inner
+    /// resume end the drag's suspension early, leaving every row crossing after
+    /// it to encode the whole store and write it synchronously again.
     ///
-    /// There are now three call sites — the drag reorder above, and
-    /// `complete()`/`logExternal()` bracketing a record append with the target
-    /// advance it may trigger — and `savesSuspended` is a `Bool`, not a depth
-    /// counter, so nesting isn't tracked. A resume from an inner burst (an
-    /// external log arriving mid-drag) ends an outer one early. The cost is
-    /// redundant synchronous writes for the rest of that gesture, never lost
-    /// data, so this is left as-is; a depth counter is deliberately separate work.
+    /// Not idempotent any more, then: each `suspendSaves()` needs its own
+    /// `resumeSaves()`. A spare resume is still harmless — the drag resumes both
+    /// when it ends and when it is cancelled, and `resumeSaves()` clamps at zero
+    /// so the extra one does nothing. The opposite direction is the dangerous
+    /// one: a suspend that never resumes silently stops the app persisting
+    /// anything, and unlike the flag a count cannot heal itself (one resume used
+    /// to clear a leak of any size). Only the drag can leak — the other two
+    /// bracket straight-line synchronous code — so it resumes on its view going
+    /// away mid-gesture as well.
     func suspendSaves() {
-        savesSuspended = true
+        suspendDepth += 1
     }
 
-    /// Resumes writing, and performs the write that was held off, if any.
+    /// Resumes writing, and performs the write that was held off, if any — once
+    /// the outermost burst has ended.
     func resumeSaves() {
-        savesSuspended = false
+        // Clamped, so an extra resume stays harmless (see `suspendSaves()`): if
+        // this went negative, the next `suspendSaves()` would only bring it back
+        // to zero and quietly suspend nothing at all.
+        suspendDepth = max(0, suspendDepth - 1)
+        guard !savesSuspended else { return }
         guard savePending else { return }
         savePending = false
         save()
