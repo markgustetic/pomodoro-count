@@ -70,6 +70,7 @@ enum HeatmapLayout {
 /// legible for exactly that reason.
 struct HeatmapView: View {
     let stats: [DayStat]
+    @Binding var hovered: Int?
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -77,21 +78,42 @@ struct HeatmapView: View {
         let columns = (cells.map(\.column).max() ?? 0) + 1
         let maxCount = max(1, cells.map(\.count).max() ?? 1)
         let total = stats.reduce(0) { $0 + $1.count }
+        let highlight = hovered ?? PreviewOverrides.hoveredGraphIndex
 
-        Canvas { context, size in
-            let (cell, gap) = HeatmapLayout.metrics(columns: columns, size: size)
-            for c in cells {
-                let rect = CGRect(x: CGFloat(c.column) * (cell + gap),
-                                  y: CGFloat(c.row) * (cell + gap),
-                                  width: cell, height: cell)
-                let path = Path(roundedRect: rect, cornerRadius: cell * 0.2)
-                if c.count == 0 {
-                    // Present but empty — an absent cell would read as a hole
-                    // in the calendar rather than a day off.
-                    context.fill(path, with: .color(palette.hairline.opacity(0.35)))
-                } else {
-                    let fraction = Double(c.count) / Double(maxCount)
-                    context.fill(path, with: .color(palette.accent.opacity(0.25 + 0.75 * fraction)))
+        GeometryReader { geo in
+            Canvas { context, size in
+                let (cell, gap) = HeatmapLayout.metrics(columns: columns, size: size)
+                for (index, c) in cells.enumerated() {
+                    let rect = CGRect(x: CGFloat(c.column) * (cell + gap),
+                                      y: CGFloat(c.row) * (cell + gap),
+                                      width: cell, height: cell)
+                    let path = Path(roundedRect: rect, cornerRadius: cell * 0.2)
+                    if c.count == 0 {
+                        // Present but empty — an absent cell would read as a hole
+                        // in the calendar rather than a day off.
+                        context.fill(path, with: .color(palette.hairline.opacity(0.35)))
+                    } else {
+                        let fraction = Double(c.count) / Double(maxCount)
+                        context.fill(path, with: .color(palette.accent.opacity(0.25 + 0.75 * fraction)))
+                    }
+                    if index == highlight {
+                        // Drawn expanded, so the 1pt stroke lands in the 1pt
+                        // gap rather than eating into the ~4pt square it
+                        // marks. An inset ring at this size leaves nothing to
+                        // see — measured, not assumed.
+                        let ring = Path(roundedRect: rect.insetBy(dx: -0.5, dy: -0.5),
+                                        cornerRadius: cell * 0.2 + 0.5)
+                        context.stroke(ring, with: .color(palette.text), lineWidth: 1)
+                    }
+                }
+            }
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let point):
+                    hovered = HeatmapLayout.hitTest(point, cells: cells,
+                                                    columns: columns, size: geo.size)
+                case .ended:
+                    hovered = nil
                 }
             }
         }

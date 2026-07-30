@@ -51,7 +51,7 @@ struct HistoryTab: View {
             // A year of daily bars is texture pretending to be data; the
             // heatmap grid is the honest form at that scale.
             if range == .year {
-                HeatmapView(stats: series)
+                HeatmapView(stats: series, hovered: $hoveredIndex)
             } else {
                 chart(series)
             }
