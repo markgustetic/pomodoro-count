@@ -138,10 +138,14 @@ Two rules the palette exists to enforce, both learned the hard way:
   reasoning in place (often "measured, not assumed"). Don't re-litigate a
   commented decision without new evidence; don't strip the comments.
 - **Tested logic is extracted from SwiftUI.** `Reorder.destination`,
-  `HeatmapLayout.cells`, `PanelMetrics.tabHeightCap(visibleHeight:)` are pure
-  and unit-tested; views are thin over them. Follow that shape: new behavior
-  gets a failing test first, in `Tests/PomodoroCountTests` (swift-testing, not
-  XCTest).
+  `HeatmapLayout.cells`, `PanelMetrics.tabHeightCap(visibleHeight:)`,
+  `CategoryAdvance.next(after:in:)` and `StatusIcon.glyph(phase:running:)` are
+  pure and unit-tested; views are thin over them. Follow that shape: new
+  behavior gets a failing test first, in `Tests/PomodoroCountTests`
+  (swift-testing, not XCTest). The glyph is the clearest case for why: it was
+  lifted out of the drawing routine so that a phase arriving without its own
+  glyph rule fails a test, instead of waiting for someone to notice the wrong
+  icon in the menu bar.
 - Commit subjects are short imperative sentences that tell the story
   ("Measure the drag in the list's own coordinate space"), bodies explain the
   why; CHANGELOG.md (Keep a Changelog) gets an entry for user-visible changes,

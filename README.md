@@ -46,7 +46,7 @@ Each release ships a `.sha256` file. Since the app isn't signed, checking it is
 the way to confirm your download is intact:
 
 ```bash
-shasum -a 256 -c PomodoroCount-1.0.0.zip.sha256
+shasum -a 256 -c PomodoroCount-*.zip.sha256
 ```
 
 ### From source
