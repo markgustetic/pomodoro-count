@@ -31,6 +31,23 @@ enum HistoryReadout {
         return "\(pomodoros(total)) in the last \(days == 365 ? "year" : "\(days) days")"
     }
 
+    /// The tooltip's line, or nil when nothing is hovered.
+    ///
+    /// No noun. The card floats over a graph of pomodoros in an app about
+    /// pomodoros, and at 300pt of panel "Jul 28 · 4 pomodoros" is twice the
+    /// width of "Jul 28 · 4" — 40% of the plot against 22% of it. That is the
+    /// difference between a card that obscures the comparison it explains and
+    /// one that doesn't, which is why the noun is gone and should stay gone.
+    ///
+    /// An out-of-range index reads as no hover rather than trapping — the
+    /// range picker swaps the series under a live pointer, and a stale index
+    /// must not take the panel down with it.
+    static func tooltip(hoveredIndex: Int?, series: [DayStat],
+                        dayLabel: (Date) -> String) -> String? {
+        guard let i = hoveredIndex, series.indices.contains(i) else { return nil }
+        return "\(dayLabel(series[i].date)) · \(series[i].count)"
+    }
+
     /// Matches the pluralisation the tab's accessibility values already use, so
     /// a day off reads "0 pomodoros" rather than inventing a word for zero.
     private static func pomodoros(_ count: Int) -> String {

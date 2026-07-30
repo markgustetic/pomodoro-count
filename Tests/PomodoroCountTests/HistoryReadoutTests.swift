@@ -84,4 +84,31 @@ import Foundation
     @Test func indexOfAnEmptySeriesIsNil() {
         #expect(HistoryReadout.index(for: Date(), in: [], calendar: cal) == nil)
     }
+
+    /// No noun: at 300pt "Jun 2 · 5 pomodoros" is twice the width of
+    /// "Jun 2 · 5", and that difference is what makes a floating card viable
+    /// here instead of a line with a whole row to itself.
+    @Test func theTooltipNamesTheDayAndItsCount() {
+        #expect(HistoryReadout.tooltip(hoveredIndex: 1, series: series([3, 5, 2]),
+                                       dayLabel: stub) == "Jun 2 · 5")
+    }
+
+    /// A day off is a real answer — the heatmap draws those cells, so hovering
+    /// one has to say something.
+    @Test func theTooltipStillReadsOnADayOff() {
+        #expect(HistoryReadout.tooltip(hoveredIndex: 0, series: series([0]),
+                                       dayLabel: stub) == "Jun 1 · 0")
+    }
+
+    @Test func nothingHoveredIsNoTooltip() {
+        #expect(HistoryReadout.tooltip(hoveredIndex: nil, series: series([3, 5]),
+                                       dayLabel: stub) == nil)
+    }
+
+    /// The range picker swaps the series out from under a live pointer. A
+    /// stale index has to read as no hover, not trap.
+    @Test func anOutOfRangeIndexIsNoTooltip() {
+        #expect(HistoryReadout.tooltip(hoveredIndex: 9, series: series([3, 5]),
+                                       dayLabel: stub) == nil)
+    }
 }
