@@ -57,6 +57,14 @@ status item title) plus posted CGEvents for input. The bundled
    screen or to the unit suite. `CategoryRow` carries the fix and the full
    reasoning; `CategoryRowAccessibilityUITests` is the regression gate, and
    XCUITest is the only suite here that can see any of it.
+9. **Give a freshly launched app ~8 seconds before driving it**, and read
+   "no *X* button" as a timing report first. Clicking the status item too soon
+   opens nothing, and the lookup that follows fails as *"no Settings button"* —
+   which reads like the button is missing rather than like the panel is not up
+   yet, and sends you looking in the wrong place. `settingsshot` and
+   `countershot` poll for 3s and say which it was; every other command still
+   looks exactly once, so sleep after launching. Same for a click that lands
+   outside the panel: it dismisses, and whatever the next step reads is empty.
 
 ## Recipe
 
@@ -89,3 +97,4 @@ stderr give the event stream; remove them before committing.
 | Driving the installed app's real store | Scratch store, or undo what you logged. |
 | Harness drag works → "panel drag works" | Harness success proves nothing. |
 | Reading the panel between two driver calls | It dismissed. Compound command. |
+| "no Settings button" → hunting for the button | The panel isn't up. ~8s warm-up after launch. |
