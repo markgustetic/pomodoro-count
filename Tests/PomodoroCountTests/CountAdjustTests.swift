@@ -25,6 +25,21 @@ import Foundation
         #expect(CountAdjust.newestTodayIndex(in: records, category: "Writing") == 0)
     }
 
+    /// Neither first in the array nor last appended: hour 12 sits in the
+    /// middle. `findsTheNewestNotTheLastAppended` above uses a reverse-sorted
+    /// fixture, where "newest" and "first index" happen to coincide — so it
+    /// cannot tell `.max` apart from a `.first` that got lucky. This fixture
+    /// can: `.first` would answer 0, `.last` would answer 2, and only the
+    /// actual newest-by-timestamp record is at index 1.
+    @Test func findsTheNewestWhenItIsNeitherFirstNorLast() {
+        let records = [
+            Record(at: .todayAt(hour: 9), source: "manual", category: "Writing"),
+            Record(at: .todayAt(hour: 12), source: "manual", category: "Writing"),
+            Record(at: .todayAt(hour: 10), source: "manual", category: "Writing"),
+        ]
+        #expect(CountAdjust.newestTodayIndex(in: records, category: "Writing") == 1)
+    }
+
     @Test func normalizesTheNameItLooksFor() {
         let records = [Record(at: .todayAt(hour: 12), source: "manual", category: "Writing")]
         #expect(CountAdjust.newestTodayIndex(in: records, category: "  writing ") == 0)
