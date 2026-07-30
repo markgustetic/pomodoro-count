@@ -66,19 +66,20 @@ import CoreGraphics
     private var canvas: CGSize { CGSize(width: 276, height: 40) }
 
     /// A year is ~53 week-columns, and at that count the width is what binds:
-    /// 53 squares plus 52 gaps have to fit across the canvas.
+    /// 53 squares plus 52 gaps have to fit across the canvas, inside the
+    /// 0.5pt-per-side margin reserved for the hover ring.
     @Test func metricsFitAYearAcrossTheCanvas() {
-        let (cell, gap) = HeatmapLayout.metrics(columns: 53, size: canvas)
+        let (cell, gap, _) = HeatmapLayout.metrics(columns: 53, size: canvas)
         #expect(gap == 1)
-        #expect(abs(cell - (276 - 52) / 53) < 0.001)
-        #expect(53 * cell + 52 * gap <= 276.001)
+        #expect(abs(cell - (276 - 1 - 52) / 53) < 0.001)
+        #expect(53 * cell + 52 * gap <= 275.001)
     }
 
     /// With few columns there is width to spare, so the seven weekday rows are
     /// what binds instead.
     @Test func aShortSeriesIsBoundByHeight() {
-        let (cell, _) = HeatmapLayout.metrics(columns: 1, size: canvas)
-        #expect(abs(cell - (40 - 6) / 7) < 0.001)
+        let (cell, _, _) = HeatmapLayout.metrics(columns: 1, size: canvas)
+        #expect(abs(cell - (40 - 1 - 6) / 7) < 0.001)
     }
 
     /// No days, no grid — and no division by zero.
@@ -86,12 +87,31 @@ import CoreGraphics
         #expect(HeatmapLayout.metrics(columns: 0, size: canvas).cell == 0)
     }
 
+    /// A width proposal too narrow for even one column (a nil-width
+    /// GeometryReader reports 10pt) drives the raw cell size negative before
+    /// the clamp — this is live defensive code, not dead code, and
+    /// `hitTest`'s `cell > 0` guard depends on it landing at zero.
+    @Test func aNarrowProposalClampsToZeroInsteadOfGoingNegative() {
+        #expect(HeatmapLayout.metrics(columns: 53, size: CGSize(width: 10, height: 40)).cell == 0)
+    }
+
+    /// The grid sits inside the canvas with a 0.5pt margin on every side, so
+    /// the hover ring — expanded 0.5pt past its square — has room to close
+    /// without `Canvas` clipping it.
+    @Test func theGridLeavesMarginForTheRingOnAllSides() {
+        let columns = 53
+        let m = HeatmapLayout.metrics(columns: columns, size: canvas)
+        #expect(m.origin.x >= 0.5 && m.origin.y >= 0.5)
+        #expect(m.origin.x + CGFloat(columns) * m.cell + CGFloat(columns - 1) * m.gap + 0.5 <= canvas.width)
+        #expect(m.origin.y + 7 * m.cell + 6 * m.gap + 0.5 <= canvas.height)
+    }
+
     /// The centre of the square at (column, row), in canvas coordinates.
     private func centre(column: Int, row: Int, columns: Int) -> CGPoint {
-        let (cell, gap) = HeatmapLayout.metrics(columns: columns, size: canvas)
+        let (cell, gap, origin) = HeatmapLayout.metrics(columns: columns, size: canvas)
         let step = cell + gap
-        return CGPoint(x: CGFloat(column) * step + cell / 2,
-                       y: CGFloat(row) * step + cell / 2)
+        return CGPoint(x: origin.x + CGFloat(column) * step + cell / 2,
+                       y: origin.y + CGFloat(row) * step + cell / 2)
     }
 
     @Test func hitTestFindsTheFirstCell() {
@@ -123,8 +143,8 @@ import CoreGraphics
     /// The 1pt gap between squares belongs to no day.
     @Test func aPointInTheGapHitsNothing() {
         let cells = HeatmapLayout.cells(for: week(startingMonday: 14), calendar: mondayFirst)
-        let (cell, _) = HeatmapLayout.metrics(columns: 2, size: canvas)
-        let inTheGap = CGPoint(x: cell + 0.5, y: cell / 2)
+        let (cell, _, origin) = HeatmapLayout.metrics(columns: 2, size: canvas)
+        let inTheGap = CGPoint(x: origin.x + cell + 0.5, y: origin.y + cell / 2)
         #expect(HeatmapLayout.hitTest(inTheGap, cells: cells, columns: 2, size: canvas) == nil)
     }
 
@@ -134,8 +154,16 @@ import CoreGraphics
                                       cells: cells, columns: 2, size: canvas) == nil)
         #expect(HeatmapLayout.hitTest(CGPoint(x: -1, y: 5),
                                       cells: cells, columns: 2, size: canvas) == nil)
+        #expect(HeatmapLayout.hitTest(CGPoint(x: 2, y: -1),
+                                      cells: cells, columns: 2, size: canvas) == nil)
         #expect(HeatmapLayout.hitTest(CGPoint(x: 2, y: 41),
                                       cells: cells, columns: 2, size: canvas) == nil)
+    }
+
+    /// `columns: 0` drives `metrics` to `cell == 0`, the other branch of
+    /// `hitTest`'s `cell > 0` guard from the narrow-width case above.
+    @Test func aZeroColumnGridHitsNothing() {
+        #expect(HeatmapLayout.hitTest(.zero, cells: [], columns: 0, size: canvas) == nil)
     }
 
     /// A short series leaves the tail of its last column empty. Those slots are

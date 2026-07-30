@@ -23,19 +23,37 @@ enum HeatmapLayout {
         return out
     }
 
-    /// The pixel geometry of the grid: the square each day gets, and the gap
-    /// between squares.
+    /// The pixel geometry of the grid: the square each day gets, the gap
+    /// between squares, and the origin the grid starts drawing at.
     ///
     /// Extracted from the draw loop so the hit test can read the same numbers.
     /// A hit test that recomputed this independently could drift by a fraction
     /// of a point and name a different day than the one it highlights — which
     /// is exactly the failure a hover readout would make invisible.
-    static func metrics(columns: Int, size: CGSize) -> (cell: CGFloat, gap: CGFloat) {
+    ///
+    /// `size` is inset by 0.5pt on every side before the grid is laid out;
+    /// `origin` is that inset rectangle's top-left corner. The margin exists
+    /// for the hover ring: it's drawn expanded by 0.5pt around its square, and
+    /// without this reservation `columns*cell + (columns-1)*gap ==
+    /// size.width` by construction — the outermost squares touch the canvas
+    /// edge exactly, `Canvas` clips to its bounds, and the ring's outward
+    /// half vanishes on row 0, column 0, and the last column. Both axes get
+    /// the margin, even though the 40pt-tall frame only needs it on rare
+    /// short series, so the ring closes on row 0 too and this stays one rule
+    /// instead of two.
+    static func metrics(columns: Int, size: CGSize) -> (cell: CGFloat, gap: CGFloat, origin: CGPoint) {
         let gap: CGFloat = 1
-        guard columns > 0 else { return (0, gap) }
-        let cell = min((size.width - gap * CGFloat(columns - 1)) / CGFloat(columns),
-                       (size.height - gap * 6) / 7)
-        return (max(0, cell), gap)
+        let margin: CGFloat = 0.5
+        let origin = CGPoint(x: margin, y: margin)
+        guard columns > 0 else { return (0, gap, origin) }
+        let insetSize = CGSize(width: size.width - margin * 2, height: size.height - margin * 2)
+        let cell = min((insetSize.width - gap * CGFloat(columns - 1)) / CGFloat(columns),
+                       (insetSize.height - gap * 6) / 7)
+        // A narrow width proposal (a nil-width GeometryReader reports 10pt)
+        // pushes this negative before there's a single column's worth of
+        // room; hitTest's `cell > 0` guard depends on this clamp landing on
+        // zero rather than a negative cell size, not on the case being rare.
+        return (max(0, cell), gap, origin)
     }
 
     /// The index of the cell under `point`, or nil for a point in the gap
@@ -51,15 +69,18 @@ enum HeatmapLayout {
     /// second copy of the layout to keep in sync.
     static func hitTest(_ point: CGPoint, cells: [HeatmapCell],
                         columns: Int, size: CGSize) -> Int? {
-        let (cell, gap) = metrics(columns: columns, size: size)
-        guard cell > 0, point.x >= 0, point.y >= 0 else { return nil }
+        let (cell, gap, origin) = metrics(columns: columns, size: size)
+        // The grid starts at origin, not (0, 0) — the margin `metrics`
+        // reserves for the ring is nobody's day either.
+        let local = CGPoint(x: point.x - origin.x, y: point.y - origin.y)
+        guard cell > 0, local.x >= 0, local.y >= 0 else { return nil }
         let step = cell + gap
-        let column = Int(point.x / step)
-        let row = Int(point.y / step)
+        let column = Int(local.x / step)
+        let row = Int(local.y / step)
         guard column < columns, row < 7 else { return nil }
         // Past the square is the gap, and the gap is nobody's day.
-        guard point.x - CGFloat(column) * step <= cell,
-              point.y - CGFloat(row) * step <= cell else { return nil }
+        guard local.x - CGFloat(column) * step <= cell,
+              local.y - CGFloat(row) * step <= cell else { return nil }
         return cells.firstIndex { $0.column == column && $0.row == row }
     }
 }
@@ -82,10 +103,10 @@ struct HeatmapView: View {
 
         GeometryReader { geo in
             Canvas { context, size in
-                let (cell, gap) = HeatmapLayout.metrics(columns: columns, size: size)
+                let (cell, gap, origin) = HeatmapLayout.metrics(columns: columns, size: size)
                 for (index, c) in cells.enumerated() {
-                    let rect = CGRect(x: CGFloat(c.column) * (cell + gap),
-                                      y: CGFloat(c.row) * (cell + gap),
+                    let rect = CGRect(x: origin.x + CGFloat(c.column) * (cell + gap),
+                                      y: origin.y + CGFloat(c.row) * (cell + gap),
                                       width: cell, height: cell)
                     let path = Path(roundedRect: rect, cornerRadius: cell * 0.2)
                     if c.count == 0 {
