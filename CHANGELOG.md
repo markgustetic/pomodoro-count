@@ -16,8 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Re-picking a finished category now holds there.** Pointing the target at a
   category you have already completed keeps it there for as many pomodoros as
   follow, instead of moving on after one — the pill reads `pinned to …` while it
-  does. Picking a category that still has a goal left is unchanged: it holds
-  until you finish it, then rejoins the ranking.
+  does. Picking a category that still has a goal left holds the same way it
+  always did, and when you finish it, it now hands to the top of the list.
 - **The target menu has a new first entry, "Follow the order",** which hands
   control back to the ranking.
 - The Settings toggle "Move on when a goal is met" is now "Follow the category

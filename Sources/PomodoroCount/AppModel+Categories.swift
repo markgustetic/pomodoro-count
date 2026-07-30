@@ -407,7 +407,11 @@ extension AppModel {
     /// Deliberately not routed through `realignTarget()`, whose advance guards
     /// on the *current* target being met: handing control back has to work from
     /// an unfinished target too, and from a pinned one, which is precisely the
-    /// case that guard would refuse.
+    /// case that guard would refuse. It also skips `realignTarget()`'s other
+    /// guards — `categoriesEnabled`, `autoAdvanceTarget`, and `phase == .work &&
+    /// isRunning` — and that is just as deliberate: this is a hand action, the
+    /// same as the pill's category buttons, which have always been free to
+    /// re-aim a session already in flight.
     func followTheOrder() {
         restartFromTopOfRanking()
     }

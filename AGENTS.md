@@ -109,7 +109,7 @@ that one fact:
   truthful source); once the break is *running*, `currentBreakIsLong` is, because
   `startBreak()` has already zeroed `focusSessionsThisCycle`.
 - `suspendSaves()` has three call sites (a drag reorder, and the two
-  record-append-plus-advance pairs above) and **counts depth**, because the
+  record-append-plus-realign pairs above) and **counts depth**, because the
   hotkey and the URL scheme fire the latter two mid-drag; only the outermost
   resume writes. So each suspend needs its own resume. A spare resume is fine
   (the count clamps at zero), a missing one is not — and unlike the old `Bool`

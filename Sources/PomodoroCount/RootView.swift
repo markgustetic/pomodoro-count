@@ -245,7 +245,21 @@ struct RootView: View {
                             // here a long category name would push the pill past
                             // the panel's edge instead of truncating. "pinned
                             // to " is a few points wider than "towards ", so the
-                            // cap grew to match.
+                            // cap grew to match — checked against the real
+                            // panel, since `--preview` can't render this state
+                            // (`PreviewRenderer` hardcodes its own demo
+                            // categories and ignores `--store` entirely).
+                            // Driven through the Accessibility API with a
+                            // genuinely long pinned label, the panel opened at
+                            // the same 300pt width as the default "towards …"
+                            // pill — the cap is holding, not pushing the panel
+                            // wider. The pill's own rendered width inside that
+                            // cap is still arithmetic, not a pixel count: this
+                            // non-activating panel hands `kAXWindowsAttribute`
+                            // back a self-referencing `AXApplication` instead of
+                            // its real window, and a screenshot of just that
+                            // window needs Screen Recording permission this
+                            // environment doesn't have.
                             .frame(maxWidth: 180, alignment: .leading)
                     }
                 }
