@@ -63,7 +63,41 @@ import AppKit
         #expect(StatusIcon.glyph(phase: .breakReady, running: true) == .cup)
     }
 
+    // MARK: Control state
+
+    /// The precedence every button style draws by, lifted out of the styles
+    /// for the same reason the glyph is: a rendered button is not assertable,
+    /// the decision behind it is. `SoftIconButtonStyle` branched on pressed and
+    /// hovering alone, so the disabled stop button drew pixel-identically to a
+    /// live one.
+    @Test func disabledOutranksEveryOtherControlState() {
+        #expect(ControlState.of(enabled: false, pressed: false, hovering: false) == .disabled)
+        #expect(ControlState.of(enabled: false, pressed: true, hovering: false) == .disabled)
+        // `--preview --hover` forces hovering on every control at once, and a
+        // dead button must stay dark under a real pointer too, so nothing but
+        // this precedence keeps it from lighting up. Confirmed in a render:
+        // the idle stop button is pixel-identical with and without `--hover`.
+        #expect(ControlState.of(enabled: false, pressed: false, hovering: true) == .disabled)
+    }
+
+    /// Pressed outranks hovering because the pointer is necessarily inside the
+    /// button it is pressing.
+    @Test func aLiveControlPrefersPressedThenHoveringThenRest() {
+        #expect(ControlState.of(enabled: true, pressed: true, hovering: true) == .pressed)
+        #expect(ControlState.of(enabled: true, pressed: false, hovering: true) == .hovering)
+        #expect(ControlState.of(enabled: true, pressed: false, hovering: false) == .resting)
+    }
+
     // MARK: Themes
+
+    /// The disabled dim routes through the palette like every other colour
+    /// decision. Both themes have to dim far enough to read as dead at a
+    /// glance — the numbers themselves were picked against rendered previews.
+    @Test(arguments: ThemeChoice.allCases)
+    func everyPaletteDimsDisabledControls(choice: ThemeChoice) {
+        #expect(choice.palette.disabledOpacity > 0)
+        #expect(choice.palette.disabledOpacity <= 0.45)
+    }
 
     @Test func classicIsPlainAndSynthwaveIsNeon() {
         #expect(!ThemeChoice.classic.palette.neon)

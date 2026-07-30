@@ -21,6 +21,44 @@ private func applyCursor(_ inside: Bool) {
     if inside { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
 }
 
+// MARK: - Control state
+
+/// Which of a control's four looks a button style draws.
+///
+/// Lifted out of the styles for the same reason `StatusIcon.glyph` is lifted
+/// out of the drawing: a rendered button isn't assertable, the decision behind
+/// it is. And the decision was wrong — every style branched on `pressed` and
+/// `hovering` alone, so `.disabled(…)` changed nothing a user could see. The
+/// Focus tab's stop button, disabled the whole time the timer is idle, sat
+/// there looking live and did nothing when pressed.
+enum ControlState: Equatable {
+    case disabled, pressed, hovering, resting
+
+    /// Disabled outranks everything else. `PreviewOverrides.forceHover` lights
+    /// every control at once whatever the pointer is doing, and a dead button
+    /// must not brighten under a real pointer either — so this precedence, not
+    /// the hope that SwiftUI withholds hover from a disabled view, is what
+    /// keeps it dark. Pressed outranks hovering because the pointer is
+    /// necessarily inside the button it is pressing.
+    static func of(enabled: Bool, pressed: Bool, hovering: Bool) -> ControlState {
+        if !enabled { return .disabled }
+        if pressed { return .pressed }
+        if hovering { return .hovering }
+        return .resting
+    }
+}
+
+extension View {
+    /// The app's one disabled treatment: fade the finished control — fill,
+    /// border, glyph and shadow together — by the palette's own factor.
+    /// Applied last in each style's chain so it dims the whole assembly rather
+    /// than one layer of it, and shared so the three styles can't drift into
+    /// three different ideas of what "off" looks like.
+    func dimmed(_ state: ControlState, _ palette: Palette) -> some View {
+        opacity(state == .disabled ? palette.disabledOpacity : 1)
+    }
+}
+
 // MARK: - Filled gradient button
 
 /// Glossy gradient button: fill + top gloss + bright top edge + layered
@@ -44,11 +82,14 @@ struct GradientButtonStyle: ButtonStyle {
         let vPadding: CGFloat
         let elevation: CGFloat
         @Environment(\.palette) private var palette
+        @Environment(\.isEnabled) private var isEnabled
         @State private var hover = false
 
         var body: some View {
-            let pressed = configuration.isPressed
-            let hovering = (hover || PreviewOverrides.forceHover) && !pressed
+            let state = ControlState.of(enabled: isEnabled, pressed: configuration.isPressed,
+                                        hovering: hover || PreviewOverrides.forceHover)
+            let pressed = state == .pressed
+            let hovering = state == .hovering
             let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             let neon = palette.neon
 
@@ -92,9 +133,10 @@ struct GradientButtonStyle: ButtonStyle {
                 .shadow(color: tint.shadow.opacity(tintOpacity), radius: tintRadius, x: 0, y: tintY)
                 .scaleEffect(pressed ? 0.97 : (hovering ? 1.015 : 1.0))
                 .brightness(pressed ? -0.04 : (hovering ? 0.06 : 0.0))
+                .dimmed(state, palette)
                 .animation(.spring(response: 0.26, dampingFraction: 0.62), value: pressed)
                 .animation(.easeOut(duration: 0.15), value: hover)
-                .onHover { hover = $0; applyCursor($0) }
+                .onHover { hover = $0; applyCursor($0 && isEnabled) }
         }
     }
 }
@@ -115,11 +157,14 @@ struct SoftIconButtonStyle: ButtonStyle {
         let width: CGFloat
         let height: CGFloat
         @Environment(\.palette) private var palette
+        @Environment(\.isEnabled) private var isEnabled
         @State private var hover = false
 
         var body: some View {
-            let pressed = configuration.isPressed
-            let hovering = (hover || PreviewOverrides.forceHover) && !pressed
+            let state = ControlState.of(enabled: isEnabled, pressed: configuration.isPressed,
+                                        hovering: hover || PreviewOverrides.forceHover)
+            let pressed = state == .pressed
+            let hovering = state == .hovering
             let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
             let neon = palette.neon
             let base = palette.cool
@@ -141,9 +186,14 @@ struct SoftIconButtonStyle: ButtonStyle {
                 }
                 .neonGlow(base, enabled: neon && hovering, radius: 8, opacity: 0.55)
                 .scaleEffect(pressed ? 0.95 : (hovering ? 1.03 : 1.0))
+                // This is the row where it mattered first: `.idle` and
+                // `.breakReady` are two stopped phases the user toggles between
+                // with the stop button, and it was the only control in the row
+                // that gave no reading of its own liveness.
+                .dimmed(state, palette)
                 .animation(.spring(response: 0.24, dampingFraction: 0.6), value: pressed)
                 .animation(.easeOut(duration: 0.13), value: hover)
-                .onHover { hover = $0; applyCursor($0) }
+                .onHover { hover = $0; applyCursor($0 && isEnabled) }
         }
     }
 }
@@ -174,10 +224,16 @@ struct HoverTextButtonStyle: ButtonStyle {
         let configuration: Configuration
         let emphasis: Emphasis
         @Environment(\.palette) private var palette
+        @Environment(\.isEnabled) private var isEnabled
         @State private var hover = false
 
         var body: some View {
-            let hovering = hover || PreviewOverrides.forceHover
+            let state = ControlState.of(enabled: isEnabled, pressed: configuration.isPressed,
+                                        hovering: hover || PreviewOverrides.forceHover)
+            // Pressing keeps the lit look here rather than dropping back to
+            // rest — the pointer is on the label it is pressing, and the fade
+            // below is what marks the press.
+            let hovering = state == .hovering || state == .pressed
             let neon = palette.neon
             let active = switch emphasis {
             case .action:      neon ? palette.cool : palette.text
@@ -190,9 +246,10 @@ struct HoverTextButtonStyle: ButtonStyle {
             configuration.label
                 .foregroundStyle(hovering ? active : resting)
                 .neonGlow(active, enabled: neon && hovering, radius: 6, opacity: 0.6)
-                .opacity(configuration.isPressed ? 0.6 : 1)
+                .opacity(state == .pressed ? 0.6 : 1)
+                .dimmed(state, palette)
                 .animation(.easeOut(duration: 0.12), value: hover)
-                .onHover { hover = $0; applyCursor($0) }
+                .onHover { hover = $0; applyCursor($0 && isEnabled) }
         }
     }
 }

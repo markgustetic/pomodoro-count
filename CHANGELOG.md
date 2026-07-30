@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   button becomes "Start break", and the menu bar shows a cup beside your count.
   The stop button skips it, and skipping a long break keeps it owed.
 
+### Fixed
+
+- Buttons that are switched off now look switched off. The stop button in the
+  Focus tab was drawn exactly like a live one while the timer sat idle, so it
+  invited a press that did nothing — most visibly now that it is the control you
+  toggle between idle and a waiting break.
+
 ## [1.2.0] - 2026-07-29
 
 ### Added

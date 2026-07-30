@@ -71,6 +71,12 @@ struct Palette {
     var trackFill: Color
     var trackStroke: Color
     var hairline: Color
+    /// How far a disabled control fades — well, border and glyph together (see
+    /// `ControlState`). A colour decision like any other, so it lives here and
+    /// not in the styles: Classic dims against the system's own greys, while
+    /// Synthwave's glyphs are saturated neon on near-black and need to drop
+    /// further before they stop reading as live.
+    var disabledOpacity: Double
 
     // Type
     var text: Color
@@ -101,6 +107,7 @@ struct Palette {
         trackFill: Color.primary.opacity(0.07),
         trackStroke: .clear,
         hairline: Color.primary.opacity(0.15),
+        disabledOpacity: 0.40,
         text: .primary,
         textDim: .secondary,
         accent: Color(red: 0.88, green: 0.22, blue: 0.19),
@@ -129,6 +136,7 @@ struct Palette {
         // Also the unfilled progress dot and the empty half of a progress bar,
         // so it has to stay visible against a card, not just against the panel.
         hairline: Color(hex: 0x8B68CC).opacity(0.55),
+        disabledOpacity: 0.32,
         text: Color(hex: 0xF3EAFF),
         // Purple-on-purple loses more legibility to the shared hue than the
         // luminance ratio suggests, so this sits brighter than a nominal
