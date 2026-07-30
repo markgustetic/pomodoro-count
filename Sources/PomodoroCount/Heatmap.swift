@@ -22,6 +22,21 @@ enum HeatmapLayout {
         }
         return out
     }
+
+    /// The pixel geometry of the grid: the square each day gets, and the gap
+    /// between squares.
+    ///
+    /// Extracted from the draw loop so the hit test can read the same numbers.
+    /// A hit test that recomputed this independently could drift by a fraction
+    /// of a point and name a different day than the one it highlights — which
+    /// is exactly the failure a hover readout would make invisible.
+    static func metrics(columns: Int, size: CGSize) -> (cell: CGFloat, gap: CGFloat) {
+        let gap: CGFloat = 1
+        guard columns > 0 else { return (0, gap) }
+        let cell = min((size.width - gap * CGFloat(columns - 1)) / CGFloat(columns),
+                       (size.height - gap * 6) / 7)
+        return (max(0, cell), gap)
+    }
 }
 
 /// A year of days as a GitHub-style grid: one cell per day, weekday rows,
@@ -39,9 +54,7 @@ struct HeatmapView: View {
         let total = stats.reduce(0) { $0 + $1.count }
 
         Canvas { context, size in
-            let gap: CGFloat = 1
-            let cell = min((size.width - gap * CGFloat(columns - 1)) / CGFloat(columns),
-                           (size.height - gap * 6) / 7)
+            let (cell, gap) = HeatmapLayout.metrics(columns: columns, size: size)
             for c in cells {
                 let rect = CGRect(x: CGFloat(c.column) * (cell + gap),
                                   y: CGFloat(c.row) * (cell + gap),

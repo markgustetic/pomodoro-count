@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import CoreGraphics
 @testable import PomodoroCount
 
 /// The year heatmap's grid arithmetic: days map to (column, row) where rows
@@ -59,5 +60,29 @@ import Foundation
 
     @Test func theYearRangeCoversThreeSixtyFive() {
         #expect(HistoryTab.ChartRange.year.days == 365)
+    }
+
+    /// The real canvas: the panel is 300pt wide and `HeatmapView` is 40pt tall.
+    private var canvas: CGSize { CGSize(width: 276, height: 40) }
+
+    /// A year is ~53 week-columns, and at that count the width is what binds:
+    /// 53 squares plus 52 gaps have to fit across the canvas.
+    @Test func metricsFitAYearAcrossTheCanvas() {
+        let (cell, gap) = HeatmapLayout.metrics(columns: 53, size: canvas)
+        #expect(gap == 1)
+        #expect(abs(cell - (276 - 52) / 53) < 0.001)
+        #expect(53 * cell + 52 * gap <= 276.001)
+    }
+
+    /// With few columns there is width to spare, so the seven weekday rows are
+    /// what binds instead.
+    @Test func aShortSeriesIsBoundByHeight() {
+        let (cell, _) = HeatmapLayout.metrics(columns: 1, size: canvas)
+        #expect(abs(cell - (40 - 6) / 7) < 0.001)
+    }
+
+    /// No days, no grid — and no division by zero.
+    @Test func anEmptyGridHasNoCell() {
+        #expect(HeatmapLayout.metrics(columns: 0, size: canvas).cell == 0)
     }
 }
