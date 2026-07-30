@@ -43,14 +43,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   activated at all — so the counter a row opens was unreachable without a mouse.
   A row now reads as "Alpha, 2 of 5 pomodoros, goal met", takes a press, and can
   be focused from the keyboard. Nothing about how the rows look has changed.
-
-### Fixed
-
 - **A long category name no longer pushes the Focus tab off the panel.** The
   session-target pill now shortens the name to fit — "pinned to Machine learning
   coursework and…" — instead of drawing itself, the timer card and the Start
   focus button past both edges of the panel. Screen readers still hear the whole
   name.
+- **Settings' "Add category" and "Remove category" popovers now follow the
+  Synthwave theme.** Both drew on the system's light background while the panel
+  behind them stayed dark, which left the "New category" caption and the note
+  about what survives a removal too faint to read.
 
 ## [1.3.0] - 2026-07-30
 

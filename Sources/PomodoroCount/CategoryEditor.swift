@@ -63,6 +63,20 @@ struct AddCategoryForm: View {
         }
         .padding(12)
         .frame(width: 200)
+        // `.themed(palette)`, applied by the caller (`SettingsTab`, since a
+        // popover is its own window), only swaps the SwiftUI environment's
+        // `colorScheme` — it does not repaint the NSPopover's own background
+        // material, which is what actually shows through the padding above.
+        // `RootView.swift`'s `.background { if palette.paintsBackground { … } }`
+        // is the established fix: Classic's `paintsBackground` is false, so the
+        // system's own (light) material still shows there, but Synthwave's is
+        // true because its look cannot be carried by any system material.
+        // Without this the form stayed light-grey under Synthwave, carrying a
+        // correctly-dark text field on a light card, and the "New category"
+        // caption — `palette.textDim`, a pale lavender — washed out to almost
+        // nothing.
+        .foregroundStyle(palette.text)
+        .background { if palette.paintsBackground { palette.background } }
         .onAppear { nameFocused = true }
     }
 
@@ -118,6 +132,16 @@ struct RemoveCategoryConfirmation: View {
         }
         .padding(12)
         .frame(width: 230)
+        // Paints its own background for the reason `AddCategoryForm` gives
+        // above: `.themed(palette)` swaps the environment's `colorScheme` but
+        // cannot repaint the NSPopover's material, and Synthwave's look is one
+        // no system material carries. The `foregroundStyle` goes with it rather
+        // than being redundant — the title below deliberately has no colour of
+        // its own, and `RootView`'s ambient one does not survive the crossing
+        // into the popover's separate window, so it was drawing in the system's
+        // near-black against a background about to become near-black too.
+        .foregroundStyle(palette.text)
+        .background { if palette.paintsBackground { palette.background } }
     }
 }
 
