@@ -297,6 +297,18 @@ extension AppModel {
     /// overshooting a goal on purpose still works.
     func advanceTargetIfMet() {
         guard settings.categoriesEnabled, settings.autoAdvanceTarget else { return }
+        // Don't re-aim a session that is actually in flight: an external log
+        // that backfills the running target's last slot must not hand the
+        // credit to wherever the target moves next — the record that finishes
+        // this session still has to land on what Start was pressed against.
+        // This does *not* block the advance at completion: `complete()` sets
+        // `isRunning = false` before it appends the record and calls here, so
+        // a session that meets its own goal still credits the right category
+        // and only then hands the target on. `phase == .work && isRunning` is
+        // deliberately the same "actually running, not idle or paused" test
+        // `todayProgress` uses for `isSessionTarget` — a paused session's
+        // target row isn't held still either, so the advance shouldn't be.
+        guard !(phase == .work && isRunning) else { return }
         guard let next = CategoryAdvance.next(after: sessionTarget, in: todayProgress)
         else { return }
         sessionTarget = next

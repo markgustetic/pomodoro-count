@@ -95,6 +95,7 @@ import Foundation
         m.startWork()
         m.forceCompleteForTesting()
         #expect(m.records.last?.category == "Music")
+        #expect(m.sessionTarget == .named("Work"))
     }
 
     /// The day's whole plan is met, so there is nowhere to advance to and
@@ -127,5 +128,55 @@ import Foundation
         m.sessionTarget = .named("Music")
         m.logExternal(to: .named("Music"))
         #expect(m.sessionTarget == .named("Music"))
+    }
+
+    // MARK: A running session is not re-aimed
+
+    /// A log that backfills the *running* session's own goal must not hand its
+    /// credit to wherever the target advances next — Start already chose the
+    /// destination, and only the next session should see the move. The advance
+    /// itself isn't disabled, though: it still fires the moment `complete()`
+    /// appends its own record, because `isRunning` is false by then — this is
+    /// the assertion that would catch a guard "simplified" into blocking
+    /// `complete()` too.
+    @Test func anExternalLogMidSessionDoesNotReAimTheRunningTarget() {
+        let m = configured()
+        m.sessionTarget = .named("Music")        // goal 1
+        m.startWork()
+        m.logExternal(to: .named("Music"))       // meets Music's goal while running
+        #expect(m.sessionTarget == .named("Music"))
+        m.forceCompleteForTesting()
+        #expect(m.records.last?.category == "Music")
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
+    /// A paused session is not "actually running" — the same test
+    /// `todayProgress` applies to `isSessionTarget` — so, unlike the running
+    /// case above, a log that meets its goal while paused advances the target
+    /// immediately.
+    @Test func aPausedSessionDoesNotBlockTheAdvance() {
+        let m = configured()
+        m.sessionTarget = .named("Music")        // goal 1
+        m.startWork()
+        m.pause()
+        m.logExternal(to: .named("Music"))
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
+    // MARK: Persistence
+
+    /// The `suspendSaves()`/`resumeSaves()` bracket around the advance is new
+    /// behaviour on this path, and its failure mode is silent: a lost resume
+    /// would leave every other test passing while the pill simply forgot where
+    /// it advanced to on relaunch. Reloading from disk is what proves the
+    /// resume actually flushed the pending write.
+    @Test func anAdvancedTargetSurvivesAReload() {
+        let (m, url) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Work", dailyGoal: 4),
+                                 Category(name: "Music", dailyGoal: 1)]
+        m.sessionTarget = .named("Music")
+        m.logExternal(to: .named("Music"))
+        #expect(AppModel(storeURL: url).settings.sessionTargetName == "Work")
     }
 }
