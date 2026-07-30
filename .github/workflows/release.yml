@@ -56,16 +56,22 @@ jobs:
           keychain="$RUNNER_TEMP/build.keychain"
           password="$(uuidgen)"
           security create-keychain -p "$password" "$keychain"
-          security set-keychain-settings -lut 900 "$keychain"
+          # The import now sits ahead of a full build-app.sh run rather than
+          # seconds before its one codesign call, so the timeout has to
+          # outlive the build, not just the import: 6 hours, not 15 minutes.
+          security set-keychain-settings -lut 21600 "$keychain"
           security unlock-keychain -p "$password" "$keychain"
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
 
           echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          # Must also fire on the failure path: a wrong P12_PASSWORD aborts
+          # set -e inside `security import` and would otherwise leave the
+          # decoded private key on disk for the rest of the job.
+          trap 'rm -f "$RUNNER_TEMP/cert.p12"' EXIT
           security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$P12_PASSWORD" \
             -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$password" "$keychain" >/dev/null
-          rm -f "$RUNNER_TEMP/cert.p12"
 
           # Read the identity out of the keychain rather than carrying it as a
           # secret. A stored string can disagree with the certificate, and what
@@ -94,6 +100,30 @@ jobs:
         env:
           CODESIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
         run: ./build-app.sh
+
+      # Runs before notarization, not after, so a missing Team ID fails in
+      # seconds instead of after a notarytool round trip: this is the check
+      # that would have caught the -maxdepth walk which skipped Sparkle's XPC
+      # services — they stayed ad-hoc, with no team at all, and notarization
+      # failed without naming them.
+      - name: Verify every nested binary carries the app's team
+        if: env.HAS_SIGNING == 'true'
+        env:
+          APP: build/Pomodoro Count.app
+        run: |
+          set -euo pipefail
+          team="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+          [ -n "$team" ] || { echo "the app has no TeamIdentifier"; exit 1; }
+          fw="$APP/Contents/Frameworks/Sparkle.framework"
+          ver="$(readlink "$fw/Versions/Current")"
+          for nested in XPCServices/Downloader.xpc XPCServices/Installer.xpc \
+                        Updater.app Autoupdate; do
+            got="$(codesign -dvv "$fw/Versions/$ver/$nested" 2>&1 |
+                   sed -n 's/^TeamIdentifier=//p')"
+            [ "$got" = "$team" ] \
+              || { echo "$nested has TeamIdentifier '${got:-not set}', want '$team'"; exit 1; }
+          done
+          echo "Every nested binary carries team $team"
 
       # Inert until a Developer ID exists. Add these repository secrets to turn
       # it on, with no other change needed — see packaging/signing/README.md:
@@ -140,29 +170,20 @@ jobs:
           # for other accept sources too — "the user already trusts it" — so the
           # source is asserted, not just the exit code. This runs after stapling,
           # so it resolves from the embedded ticket rather than the network.
-          assessment="$(spctl --assess --type execute --verbose=4 "$APP" 2>&1)"
+          #
+          # spctl exits 3 when it rejects the app, and under `set -euo
+          # pipefail` that would kill the step right at the assignment —
+          # before the case below ever runs, so the maintainer would see only
+          # "exit code 3" and never spctl's own reason. The `|| true` lets the
+          # diagnostic outlive a rejection so the case statement is what
+          # decides, and can say why.
+          assessment="$(spctl --assess --type execute --verbose=4 "$APP" 2>&1 || true)"
           echo "$assessment"
           case "$assessment" in
             *"source=Notarized Developer ID"*) ;;
             *) echo "Gatekeeper did not accept this as notarized"; exit 1 ;;
           esac
-
-          # Every nested binary must carry the app's Team ID. This is the check
-          # that would have caught the -maxdepth walk which skipped Sparkle's XPC
-          # services: they stayed ad-hoc, with no team at all, and notarization
-          # failed without naming them.
-          team="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
-          [ -n "$team" ] || { echo "the app has no TeamIdentifier"; exit 1; }
-          fw="$APP/Contents/Frameworks/Sparkle.framework"
-          ver="$(readlink "$fw/Versions/Current")"
-          for nested in XPCServices/Downloader.xpc XPCServices/Installer.xpc \
-                        Updater.app Autoupdate; do
-            got="$(codesign -dvv "$fw/Versions/$ver/$nested" 2>&1 |
-                   sed -n 's/^TeamIdentifier=//p')"
-            [ "$got" = "$team" ] \
-              || { echo "$nested has TeamIdentifier '${got:-not set}', want '$team'"; exit 1; }
-          done
-          echo "Signed, notarized, stapled — team $team"
+          echo "Signed, notarized, and stapled"
 
       - name: Package
         id: package
