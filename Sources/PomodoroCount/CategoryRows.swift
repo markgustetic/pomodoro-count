@@ -64,7 +64,7 @@ struct CategoryRow: View {
                     bar
                 }
 
-                Text(progress.goal > 0 ? "\(progress.done)/\(progress.goal)" : "\(progress.done)")
+                Text(progress.countText)
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(progress.isMet ? palette.accent : palette.textDim)
                     .frame(width: 40, alignment: .trailing)
@@ -153,9 +153,12 @@ struct CategoryRow: View {
 
 /// The `−`/count/`+` strip a category row opens.
 ///
-/// Takes closures rather than the model, like `AddCategoryForm` and
-/// `RemoveCategoryConfirmation`: `@EnvironmentObject` does not reliably reach
-/// popover content, and it fails by *crashing* rather than by looking wrong.
+/// Takes its dependencies as parameters rather than reading them from the
+/// environment — the rule every popover in this app follows, whether that
+/// means the model itself (`AddCategoryForm`) or closures (
+/// `RemoveCategoryConfirmation`, and this): `@EnvironmentObject` does not
+/// reliably reach popover content, and it fails by *crashing* rather than by
+/// looking wrong.
 ///
 /// The name is deliberately not repeated here — the row that was tapped is
 /// still on screen immediately beside this, and a second copy of the label in a
@@ -178,13 +181,21 @@ struct CategoryCountPopover: View {
             .buttonStyle(SoftIconButtonStyle(width: 34, height: 30))
             .disabled(progress.done == 0)
             .help("Take one back from \(progress.name)")
-            .accessibilityLabel("Remove one pomodoro")
+            // Not just "Remove one pomodoro": the row beside this popover is
+            // what makes the bare version unambiguous for a sighted user, and
+            // that reasoning doesn't survive VoiceOver moving focus into a
+            // separate popover window where the row is no longer what's read.
+            .accessibilityLabel("Remove one pomodoro from \(progress.name)")
 
-            Text(progress.goal > 0 ? "\(progress.done)/\(progress.goal)" : "\(progress.done)")
+            Text(progress.countText)
                 .font(.system(.title3, design: .rounded).weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(progress.isMet ? palette.accent : palette.text)
-                // Fixed width so the strip doesn't jump between 9 and 10.
+                // A minimum, not a fixed width: `done` can climb past `goal`
+                // (a category logged 100 times against a goal of 20 still
+                // reads "100/20"), and a fixed width would clip it. 48pt just
+                // keeps the strip from jumping in place between one and two
+                // digits at the common single-digit boundary.
                 .frame(minWidth: 48)
                 .accessibilityLabel(progress.accessibilityValue)
 
@@ -193,9 +204,22 @@ struct CategoryCountPopover: View {
             }
             .buttonStyle(SoftIconButtonStyle(width: 34, height: 30))
             .help("Log one pomodoro to \(progress.name)")
-            .accessibilityLabel("Add one pomodoro")
+            .accessibilityLabel("Add one pomodoro to \(progress.name)")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        // `.themed(palette)`, applied by the caller (`CategoryRow`, since a
+        // popover is its own window), only swaps the SwiftUI environment's
+        // `colorScheme` — it does not repaint the NSPopover's own background
+        // material, which is what actually shows through the padding above.
+        // `RootView.swift`'s `.background { if palette.paintsBackground { … } }`
+        // is the established fix for exactly this: Classic's `paintsBackground`
+        // is false, so the system's own (light) material still shows there, but
+        // Synthwave's is true because its look cannot be carried by any system
+        // material. Without this, the popover stayed light-grey under Synthwave
+        // and the disabled `−` — drawn from `palette.cool`, further dimmed —
+        // disappeared into it.
+        .foregroundStyle(palette.text)
+        .background { if palette.paintsBackground { palette.background } }
     }
 }
