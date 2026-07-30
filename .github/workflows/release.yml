@@ -26,6 +26,7 @@ jobs:
       - name: Resolve version
         id: version
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
@@ -36,6 +37,21 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             [ "$TAG" = "v$version" ] \
               || { echo "Tag $TAG does not match VERSION $version"; exit 1; }
+          fi
+
+          # Refuse here rather than at "Publish the release", which is the last
+          # step of a ~90s job. Dispatching this workflow on main re-releases
+          # whatever VERSION currently says, so an already-published version
+          # used to build the whole app and then die on `gh release create`
+          # with "a release with the same tag name already exists" — a red X
+          # that looks like a broken release and isn't. (Real case: run
+          # 30557384284, dispatched on main while VERSION was the shipped
+          # 1.3.0.) A tag push reaches here before its release exists, so this
+          # only ever catches a genuine re-run.
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version is already released."
+            echo "Bump VERSION to publish something new, or delete that release to republish it."
+            exit 1
           fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
