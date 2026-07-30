@@ -181,8 +181,20 @@ extension AppModel {
 
     /// Archives rather than deletes: the category leaves the list but its
     /// records keep their name, so History, totals and CSV are unchanged.
+    ///
+    /// A pin does not survive its own category leaving. The `sessionTarget`
+    /// getter resolves a name no longer in the list to `.fallback`, so a pin
+    /// left standing would silently pin the bucket — a category the user never
+    /// asked to overshoot in.
     func removeCategory(id: UUID) {
-        settings.categories.removeAll { $0.id == id }
+        let leaving = settings.categories.first { $0.id == id }
+            .map { Category.normalized($0.name) }
+        var updated = settings
+        updated.categories.removeAll { $0.id == id }
+        if let leaving, updated.sessionTargetName.map(Category.normalized) == leaving {
+            updated.targetPinned = false
+        }
+        settings = updated
     }
 
     /// Moves one category to a destination index.
@@ -285,32 +297,122 @@ extension AppModel {
 @MainActor
 extension AppModel {
 
-    /// Moves the session target on when it has met its goal, so the next
-    /// pomodoro lands on something unfinished.
+    /// Keeps the session target pointed at the day's plan.
+    ///
+    /// Two automatic triggers live here because they share every check around
+    /// them. The start-of-day reset comes first and returns: at the start of a
+    /// day nothing is met, so falling through to the advance could only ever be
+    /// a no-op, and returning says so instead of leaving a reader to work it out.
     ///
     /// Called after every record is appended — a completed session and every
-    /// external log — because a goal is met by whichever of those happens to
-    /// fill the last slot, and external hardware is this app's headline source.
+    /// external log — because a goal is met by whichever of those fills the last
+    /// slot, and external hardware is this app's headline source. Also at launch
+    /// and from the day-change/wake notification, which is where a new day gets
+    /// noticed while the app is idle.
     ///
     /// Nothing re-checks this when a session starts, and that is deliberate: it
-    /// is what lets a deliberate re-pick of a finished category stick, so
-    /// overshooting a goal on purpose still works.
-    func advanceTargetIfMet() {
+    /// is what lets a hand-picked target stick until its own goal is met.
+    func realignTarget() {
         guard settings.categoriesEnabled, settings.autoAdvanceTarget else { return }
         // Don't re-aim a session that is actually in flight: an external log
         // that backfills the running target's last slot must not hand the
         // credit to wherever the target moves next — the record that finishes
         // this session still has to land on what Start was pressed against.
         // This does *not* block the advance at completion: `complete()` sets
-        // `isRunning = false` before it appends the record and calls here, so
-        // a session that meets its own goal still credits the right category
-        // and only then hands the target on. `phase == .work && isRunning` is
-        // deliberately the same "actually running, not idle or paused" test
-        // `todayProgress` uses for `isSessionTarget` — a paused session's
-        // target row isn't held still either, so the advance shouldn't be.
+        // `isRunning = false` before it appends the record and calls here, so a
+        // session that meets its own goal still credits the right category and
+        // only then hands the target on. Nor does it lose a start-of-day reset:
+        // the stamp stays stale, and `complete()` is itself one of the points
+        // that re-checks it. `phase == .work && isRunning` is deliberately the
+        // same "actually running, not idle or paused" test `todayProgress` uses
+        // for `isSessionTarget` — a paused session's target row isn't held
+        // still either, so neither trigger should be.
         guard !(phase == .work && isRunning) else { return }
-        guard let next = CategoryAdvance.next(after: sessionTarget, in: todayProgress)
+
+        // A stamp from an earlier day (or none at all, on a store written
+        // before this feature existed) means the app has not aimed the target
+        // today. Counts have reset, so the plan restarts at the top and
+        // yesterday's pin is stale.
+        guard Calendar.current.isDateInToday(settings.targetAimedOn ?? .distantPast)
+        else { return restartFromTopOfRanking() }
+
+        guard let next = CategoryAdvance.next(after: sessionTarget,
+                                              in: todayProgress,
+                                              pinned: settings.targetPinned)
         else { return }
         sessionTarget = next
+    }
+
+    /// Clears the pin, aims at the highest-ranked category with a goal left, and
+    /// stamps today.
+    ///
+    /// Shared by the start-of-day reset above and by *Follow the order* in the
+    /// target menu, which want exactly the same thing for different reasons.
+    ///
+    /// The stamp is written even when there is nothing to aim at — no category
+    /// carries a goal, so `topUnmet` is nil. That makes this a start-of-day
+    /// event rather than a lazy one: adding a goal at noon must not make the
+    /// reset fire retroactively and move a target the user has been using all
+    /// morning.
+    ///
+    /// One assignment to `settings`, not three. Each mutation of `settings` is
+    /// its own `didSet` and its own synchronous write to disk, and the
+    /// alternative — bracketing in `suspendSaves()`/`resumeSaves()` — would add
+    /// call sites to a mechanism whose comment in Store.swift enumerates the
+    /// existing ones by name and explains why each needs its own resume.
+    func restartFromTopOfRanking() {
+        var updated = settings
+        updated.targetPinned = false
+        updated.targetAimedOn = Date()
+        if let top = CategoryAdvance.topUnmet(in: todayProgress) {
+            updated.aim(at: top)
+        }
+        settings = updated
+    }
+
+    /// Aims the target where the user asked, and records which of the two kinds
+    /// of pick it was.
+    ///
+    /// Picking a category that is **already met** can only mean "let me
+    /// overshoot here", so it pins and the advance stops firing until the day
+    /// turns over or the user hands control back. Picking one with a goal
+    /// **left** just says "work here next" and needs no pin: the advance only
+    /// fires on a met target, so the pick holds until the goal is reached and
+    /// then rejoins the ranking on its own.
+    ///
+    /// Pinning *every* hand pick was the obvious design and is the wrong one. It
+    /// gives the same overshoot, but one pick in the morning then leaves the
+    /// ranking switched off for the rest of the day with only the user able to
+    /// switch it back on — which is the papercut the advance exists to remove,
+    /// reintroduced behind a single click.
+    ///
+    /// A goal-0 category needs no special case: `isMet` is false for it forever,
+    /// so it never pins — and the advance can never fire on it either, so it
+    /// holds regardless.
+    ///
+    /// The stamp matters as much as the pin. Without it a pick made this
+    /// afternoon would still carry this morning's date only by luck, and a pick
+    /// made on a store last touched yesterday would be wiped by the very next
+    /// realign.
+    func pickTarget(_ target: CategoryTarget) {
+        var updated = settings
+        updated.aim(at: target)
+        updated.targetPinned = CategoryAdvance.isMet(target, in: todayProgress)
+        updated.targetAimedOn = Date()
+        settings = updated
+    }
+
+    /// Hands control back to the ranking, from the target menu's first entry.
+    ///
+    /// Deliberately not routed through `realignTarget()`, whose advance guards
+    /// on the *current* target being met: handing control back has to work from
+    /// an unfinished target too, and from a pinned one, which is precisely the
+    /// case that guard would refuse. It also skips `realignTarget()`'s other
+    /// guards — `categoriesEnabled`, `autoAdvanceTarget`, and `phase == .work &&
+    /// isRunning` — and that is just as deliberate: this is a hand action, the
+    /// same as the pill's category buttons, which have always been free to
+    /// re-aim a session already in flight.
+    func followTheOrder() {
+        restartFromTopOfRanking()
     }
 }

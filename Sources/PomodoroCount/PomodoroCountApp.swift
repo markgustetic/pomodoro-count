@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppModel.shared.syncGlobalShortcut()
         // Roll today's count back to 0 when the calendar day changes.
         AppModel.shared.startDayMonitoring()
+        // Catch a day that turned over while the app was quit or the lid was
+        // shut, which the notification below can only report while running.
+        AppModel.shared.realignTarget()
         // Pause a running session when the Mac goes unattended.
         AppModel.shared.startScreenLockMonitoring()
         // Arm the end-of-day reminder, if one is configured, and keep it

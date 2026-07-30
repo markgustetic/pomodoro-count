@@ -136,9 +136,9 @@ struct SettingsTab: View {
                         // Caption2 explanation underneath, matching how the
                         // long-break and shortcut settings carry theirs.
                         VStack(alignment: .leading, spacing: 2) {
-                            Toggle("Move on when a goal is met",
+                            Toggle("Follow the category order",
                                    isOn: $model.settings.autoAdvanceTarget)
-                            Text("A finished category hands the target to the next one with a goal left.")
+                            Text("The top category with a goal left is the target, and each new day starts at the top again. Pick one by hand to work there next; pick a finished one to keep going past its goal.")
                                 .font(.caption2)
                                 .foregroundStyle(palette.textDim)
                         }

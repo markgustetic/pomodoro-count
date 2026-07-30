@@ -91,6 +91,18 @@ struct Settings: Codable {
     /// still has one. Defaults on: it can only ever fire once the user has set
     /// goals, and the panel's "towards …" pill shows it happen.
     var autoAdvanceTarget = true
+    /// True when the user aimed the target at a category that was *already*
+    /// met. The only reading of such a pick is "let me overshoot here", so it
+    /// suppresses the met-goal advance until the day turns over or the user
+    /// hands control back. A pick of an unfinished category leaves this false:
+    /// it needs no pin, because the advance only ever fires on a met target.
+    var targetPinned = false
+    /// The day the target was last aimed, so the start-of-day reset survives a
+    /// quit or a long sleep. `NSCalendarDayChanged` only fires while the app is
+    /// running, so a reset driven by that notification alone would be missed by
+    /// anyone who closes their laptop overnight. A stamp is checked whenever the
+    /// app next looks, however it finds out the day turned over.
+    var targetAimedOn: Date?
     /// The hour (0–23) of the end-of-day reminder. nil means no reminder.
     var nudgeHour: Int?
 
@@ -115,9 +127,28 @@ struct Settings: Codable {
         fallbackGoal          = try c.decodeIfPresent(Int.self, forKey: .fallbackGoal) ?? 0
         sessionTargetName     = try c.decodeIfPresent(String.self, forKey: .sessionTargetName)
         autoAdvanceTarget     = try c.decodeIfPresent(Bool.self, forKey: .autoAdvanceTarget) ?? true
+        targetPinned          = try c.decodeIfPresent(Bool.self, forKey: .targetPinned) ?? false
+        targetAimedOn         = try c.decodeIfPresent(Date.self, forKey: .targetAimedOn)
         nudgeHour             = try c.decodeIfPresent(Int.self, forKey: .nudgeHour)
         // `usesFallbackBucket` and `defaultCategoryName` were dropped. Decoding
         // is key-by-key, so a data.json still carrying them just ignores them.
+    }
+}
+
+extension Settings {
+    /// Writes a session target into the settings value.
+    ///
+    /// `AppModel.sessionTarget`'s setter is the usual way in, but the paths that
+    /// change the target *and* the pin *and* the day stamp have to batch all
+    /// three into one assignment — each separate mutation of `settings` is its
+    /// own `didSet` and its own write to disk. They need this mapping on a local
+    /// copy, so it lives here and the setter calls it rather than the two
+    /// keeping their own copies of the same switch.
+    mutating func aim(at target: CategoryTarget) {
+        switch target {
+        case .named(let name): sessionTargetName = name
+        case .fallback: sessionTargetName = nil
+        }
     }
 }
 

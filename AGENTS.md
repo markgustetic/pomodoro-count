@@ -90,10 +90,17 @@ that one fact:
   `settings.categories`.
 - `pomodorocount://log[?category=Name]` logs externally; a URL may not invent
   categories — unknown names land in the bucket.
-- Every record-appending path also calls `advanceTargetIfMet()` — append
-  first, so the record credits the target it ran against, then advance. The
-  advance is suppressed while a focus session is actually running, so an
-  external log can't re-aim a session Start already pointed elsewhere.
+- Every record-appending path also calls `realignTarget()` — append first, so
+  the record credits the target it ran against, then realign. It holds two
+  automatic triggers: a met target hands off to the **highest-ranked** category
+  with a goal left (the list is a priority ranking, not a rotation), and a
+  `settings.targetAimedOn` stamp from an earlier day restarts the plan at the
+  top. Both are suppressed while a focus session is actually running, so an
+  external log can't re-aim a session Start already pointed elsewhere, and both
+  are gated by `settings.autoAdvanceTarget`. `settings.targetPinned` suppresses
+  the first on its own: it is set by `pickTarget(_:)` only when the user aims at
+  a category that is *already met*, which is the one reading of that pick, and
+  it is what makes a deliberate overshoot last longer than one pomodoro.
 - `Phase` has **four** cases, and `.breakReady` is a state of its own, not a
   flavour of idle: a finished session's break is armed at its configured length
   waiting to be started or skipped. Anything that switches on phase must handle
@@ -102,7 +109,7 @@ that one fact:
   truthful source); once the break is *running*, `currentBreakIsLong` is, because
   `startBreak()` has already zeroed `focusSessionsThisCycle`.
 - `suspendSaves()` has three call sites (a drag reorder, and the two
-  record-append-plus-advance pairs above) and **counts depth**, because the
+  record-append-plus-realign pairs above) and **counts depth**, because the
   hotkey and the URL scheme fire the latter two mid-drag; only the outermost
   resume writes. So each suspend needs its own resume. A spare resume is fine
   (the count clamps at zero), a missing one is not — and unlike the old `Bool`
@@ -159,7 +166,7 @@ strands every existing install permanently. One-time Apple-side setup is in
   commented decision without new evidence; don't strip the comments.
 - **Tested logic is extracted from SwiftUI.** `Reorder.destination`,
   `HeatmapLayout.cells`, `PanelMetrics.tabHeightCap(visibleHeight:)`,
-  `CategoryAdvance.next(after:in:)` and `StatusIcon.glyph(phase:running:)` are
+  `CategoryAdvance.next(after:in:pinned:)` and `StatusIcon.glyph(phase:running:)` are
   pure and unit-tested; views are thin over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`
   (swift-testing, not XCTest). The glyph is the clearest case for why: it was

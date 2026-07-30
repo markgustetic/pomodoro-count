@@ -161,6 +161,25 @@ import Foundation
         #expect(m.settings.globalShortcutEnabled)
         #expect(m.settings.theme == .classic)
         #expect(m.settings.autoAdvanceTarget)
+        // An older data.json carries neither key. Decoding them to these
+        // defaults is what makes the first launch after this ships re-aim once
+        // — a nil stamp reads as "the day turned over" — rather than needing a
+        // migration step of its own.
+        #expect(!m.settings.targetPinned)
+        #expect(m.settings.targetAimedOn == nil)
+    }
+
+    /// The pin and the day stamp both survive a relaunch: a pin the user set
+    /// this morning must still hold after lunch, and a stamp that didn't
+    /// persist would make every launch look like a new day.
+    @Test func theTargetPinAndDayStampRoundTrip() {
+        let (m, url) = makeModel()
+        let stamp = Date(timeIntervalSince1970: 1_780_000_000)
+        m.settings.targetPinned = true
+        m.settings.targetAimedOn = stamp
+        let reloaded = AppModel(storeURL: url).settings
+        #expect(reloaded.targetPinned)
+        #expect(reloaded.targetAimedOn == stamp)
     }
 
     /// A truncated or hand-edited file must not take the app down on launch.

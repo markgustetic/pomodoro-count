@@ -45,12 +45,7 @@ final class AppModel: ObservableObject {
             }
             return .named(name)
         }
-        set {
-            switch newValue {
-            case .named(let name): settings.sessionTargetName = name
-            case .fallback: settings.sessionTargetName = nil
-            }
-        }
+        set { settings.aim(at: newValue) }
     }
 
     /// What the panel's "towards …" control says a finished session will credit.
@@ -60,6 +55,25 @@ final class AppModel: ObservableObject {
     /// happened when it read an unset target as "the bucket" on its own.
     var sessionTargetLabel: String {
         resolve(sessionTarget) ?? settings.fallbackName
+    }
+
+    /// What the target pill says, and what VoiceOver reads.
+    ///
+    /// Two different promises rather than a mode indicator: `towards …` means
+    /// the ranking is driving and will move on when that category is done,
+    /// `pinned to …` means the user asked to keep going past a goal already met.
+    /// Wording them differently is the whole visible difference between the two
+    /// kinds of hand pick, so it carries real information rather than decorating
+    /// a state.
+    ///
+    /// With `autoAdvanceTarget` off there is no automatic behaviour for a pin to
+    /// hold out against, so the distinction stops being worth showing and
+    /// everything reads `towards …`. The flag stays recorded, so turning the
+    /// rule back on restores whatever the pill was already promising.
+    var sessionTargetDescription: String {
+        settings.targetPinned && settings.autoAdvanceTarget
+            ? "pinned to \(sessionTargetLabel)"
+            : "towards \(sessionTargetLabel)"
     }
 
     /// Drives the timer to completion immediately. Used by tests, and by
@@ -402,14 +416,14 @@ final class AppModel: ObservableObject {
 
         if finished == .work {
             focusSessionsThisCycle += 1
-            // The record and the target it may have just finished off are one
-            // change as far as the store is concerned, so they cost one write
-            // rather than two. The append comes first: this session credits the
-            // target it actually ran against, and only the next one moves.
+            // The record and the target it may have just moved are one change
+            // as far as the store is concerned, so they cost one write rather
+            // than two. The append comes first: this session credits the target
+            // it actually ran against, and only the next one moves.
             suspendSaves()
             records.append(Record(at: Date(), source: "timer",
                                   category: resolve(sessionTarget)))
-            advanceTargetIfMet()
+            realignTarget()
             resumeSaves()
             play(.sessionDone)
             notify("Pomodoro complete",
@@ -442,7 +456,7 @@ final class AppModel: ObservableObject {
         // timer will credit is finished.
         suspendSaves()
         records.append(Record(at: Date(), source: "manual", category: resolve(target)))
-        advanceTargetIfMet()
+        realignTarget()
         resumeSaves()
         play(.countUp)
         if announce {

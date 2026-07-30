@@ -214,9 +214,16 @@ struct RootView: View {
 
             if model.settings.categoriesEnabled {
                 Menu {
-                    Button(model.settings.fallbackName) { model.sessionTarget = .fallback }
+                    // Only while the rule is running: with it off there is
+                    // nothing to hand control back *to*, and an entry that did
+                    // nothing visible would be worse than no entry.
+                    if model.settings.autoAdvanceTarget {
+                        Button("Follow the order") { model.followTheOrder() }
+                        Divider()
+                    }
+                    Button(model.settings.fallbackName) { model.pickTarget(.fallback) }
                     ForEach(model.settings.categories) { category in
-                        Button(category.name) { model.sessionTarget = .named(category.name) }
+                        Button(category.name) { model.pickTarget(.named(category.name)) }
                     }
                 } label: {
                     // No decorative dot here, and it isn't an oversight.
@@ -225,23 +232,42 @@ struct RootView: View {
                     // (a Circle rendered as nothing) and paints an Image in the
                     // control's own text colour, ignoring foregroundStyle. So a
                     // dot can only ever be a black bullet that matches neither
-                    // palette. The text and the chevron carry the meaning.
+                    // palette. The text and the chevron carry the meaning —
+                    // including the difference between "towards" and "pinned
+                    // to", which is why those read as two different promises
+                    // rather than as an icon the control would refuse to draw.
                     HStack(spacing: 4) {
-                        Text("towards \(model.sessionTargetLabel)")
+                        Text(model.sessionTargetDescription)
                             .font(.caption)
                             .lineLimit(1)
                             .truncationMode(.tail)
                             // The Menu below is `.fixedSize()`, so without a cap
                             // here a long category name would push the pill past
-                            // the panel's edge instead of truncating.
-                            .frame(maxWidth: 160, alignment: .leading)
+                            // the panel's edge instead of truncating. "pinned
+                            // to " is a few points wider than "towards ", so the
+                            // cap grew to match — checked against the real
+                            // panel, since `--preview` can't render this state
+                            // (`PreviewRenderer` hardcodes its own demo
+                            // categories and ignores `--store` entirely).
+                            // Driven through the Accessibility API with a
+                            // genuinely long pinned label, the panel opened at
+                            // the same 300pt width as the default "towards …"
+                            // pill — the cap is holding, not pushing the panel
+                            // wider. The pill's own rendered width inside that
+                            // cap is still arithmetic, not a pixel count: this
+                            // non-activating panel hands `kAXWindowsAttribute`
+                            // back a self-referencing `AXApplication` instead of
+                            // its real window, and a screenshot of just that
+                            // window needs Screen Recording permission this
+                            // environment doesn't have.
+                            .frame(maxWidth: 180, alignment: .leading)
                     }
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .help("Which category a finished session credits")
                 .accessibilityLabel("Session target")
-                .accessibilityValue(model.sessionTargetLabel)
+                .accessibilityValue(model.sessionTargetDescription)
             }
 
             HStack(spacing: 8) {

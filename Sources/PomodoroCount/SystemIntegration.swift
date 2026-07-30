@@ -218,7 +218,12 @@ extension AppModel {
     func startDayMonitoring() {
         guard dayChangeObserver == nil else { return }
         let refresh: @Sendable (Notification) -> Void = { [weak self] _ in
-            MainActor.assumeIsolated { self?.objectWillChange.send() }
+            MainActor.assumeIsolated {
+                // The target follows the day as well as the count does: a new
+                // day restarts the plan at the top of the ranking.
+                self?.realignTarget()
+                self?.objectWillChange.send()
+            }
         }
         dayChangeObserver = NotificationCenter.default.addObserver(
             forName: .NSCalendarDayChanged, object: nil, queue: .main, using: refresh)
