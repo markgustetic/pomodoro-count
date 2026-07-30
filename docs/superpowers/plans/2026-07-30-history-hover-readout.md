@@ -481,7 +481,7 @@ verifiable at all.
 
 **Files:**
 - Modify: `Sources/PomodoroCount/Styles.swift:7-18` (`PreviewOverrides`)
-- Modify: `Sources/PomodoroCount/PomodoroCountApp.swift:46-52` (the `--preview` block)
+- Modify: `Sources/PomodoroCount/PomodoroCountApp.swift` (the `--preview` block)
 - Modify: `Sources/PomodoroCount/HistoryTab.swift:11` (initial `range`)
 - Modify: `AGENTS.md` (the debug-flags paragraph)
 
@@ -518,7 +518,7 @@ In `Sources/PomodoroCount/PomodoroCountApp.swift`, inside the `--preview` block,
             }
 ```
 
-Update the comment above `if let i = args.firstIndex(of: "--preview")` to name the new flags:
+Extend the *first paragraph* of the comment above `if let i = args.firstIndex(of: "--preview")` to name the new flags — leave the `--store` paragraph below it alone:
 
 ```swift
         // --preview <path> renders the popover UI to a PNG and exits (no window).
@@ -564,18 +564,23 @@ Expected: PASS, no regressions.
 
 - [ ] **Step 6: Document the flags**
 
-In `AGENTS.md`, in the "Debug flags on the binary" paragraph, replace:
+In `AGENTS.md`, in the "Debug flags on the binary" list, replace the `--preview` bullet's flag line:
 
 ```
-`--preview <png> [--hover] [--armed-break] [--theme Synthwave]`
+- `--preview <png> [--hover] [--armed-break] [--theme Synthwave] [--store <path>]`
 ```
 
 with:
 
 ```
-`--preview <png> [--hover] [--armed-break] [--theme Synthwave]
-[--history-range Week|Month|Year] [--hover-graph <index>]`
+- `--preview <png> [--hover] [--armed-break] [--theme Synthwave] [--store <path>]
+  [--history-range Week|Month|Year] [--hover-graph <index>]`
 ```
+
+Leave the rest of that bullet and the paragraph below it intact — they document
+which flags compose and that `--store` is read through a copy. Add the two new
+flags to the "applied *after* the model is built" sentence, since they are
+`PreviewOverrides` and compose with `--store` the same way the other three do.
 
 - [ ] **Step 7: Commit**
 
