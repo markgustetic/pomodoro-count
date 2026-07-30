@@ -91,6 +91,21 @@ struct CategoryRow: View {
                         }
                     }
             }
+            // Collapsed here, inside the label — NOT on the Button, which is
+            // where these three sat until the AX tree was actually read back.
+            // `.accessibilityElement(children: .ignore)` builds a fresh, plain
+            // element and throws away the one it is applied to, so on the
+            // Button it discarded the button itself: the row came out
+            // `AXUnknown` with no `AXPress` and no focus, and because a plain
+            // element has no `AXValue` attribute at all, the macOS bridge
+            // demoted `accessibilityValue` to `AXValueDescription`. One cause,
+            // three symptoms. Applied to the label, it collapses only the
+            // HStack, and the Button wraps that in its own element — role,
+            // press, focus and value all intact. Measured through the
+            // Accessibility API, not assumed.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(progress.name)
+            .accessibilityValue(progress.accessibilityValue)
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
@@ -105,9 +120,9 @@ struct CategoryRow: View {
         }
         .help(progress.isMet ? "\(progress.name): goal met — adjust today's count"
                              : "Adjust today's count for \(progress.name)")
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(progress.name)
-        .accessibilityValue(progress.accessibilityValue)
+        // The hint and the adjustable action stay on the Button: both are
+        // additive, so they reach the button's own element rather than
+        // replacing it.
         .accessibilityHint("Opens a counter you can adjust")
         // Restores what the popover would otherwise cost VoiceOver. The row used
         // to log in one activation; routing it through a popover would make that
