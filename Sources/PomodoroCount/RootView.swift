@@ -106,6 +106,8 @@ struct RootView: View {
         switch model.phase {
         case .idle:
             EmptyView()
+        case .breakReady:
+            badge("Break ready", palette.breakColor)
         case .work:
             badge(model.isRunning ? "Focus" : "Paused", palette.focusColor)
         case .breakTime:
@@ -155,7 +157,7 @@ struct RootView: View {
         switch model.phase {
         case .idle: return palette.idleColor
         case .work: return palette.focusColor
-        case .breakTime: return palette.breakColor
+        case .breakTime, .breakReady: return palette.breakColor
         }
     }
 
@@ -163,7 +165,7 @@ struct RootView: View {
         switch model.phase {
         case .idle: return palette.idleButton
         case .work: return palette.focusButton
-        case .breakTime: return palette.breakButton
+        case .breakTime, .breakReady: return palette.breakButton
         }
     }
 
@@ -173,6 +175,7 @@ struct RootView: View {
         if model.isRunning { return "Pause the timer" }
         switch model.phase {
         case .idle: return "Start a \(model.settings.workMinutes)-minute focus session"
+        case .breakReady: return "Start your \(model.armedBreakMinutes)-minute break"
         case .work, .breakTime: return "Resume where you left off"
         }
     }
@@ -181,6 +184,10 @@ struct RootView: View {
         let target = model.settings.categoriesEnabled ? " · \(model.sessionTargetLabel)" : ""
         switch model.phase {
         case .idle: return "Focus session · \(model.settings.workMinutes) min"
+        case .breakReady:
+            return model.nextBreakIsLong
+                ? "Long break — earned · \(model.armedBreakMinutes) min"
+                : "Break · \(model.armedBreakMinutes) min"
         case .work: return model.isRunning ? "Focus in progress\(target)" : "Paused"
         case .breakTime:
             guard model.isRunning else { return "Paused" }

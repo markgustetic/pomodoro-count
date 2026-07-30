@@ -32,7 +32,7 @@ import AppKit
         #expect(image.size.height > 0)
     }
 
-    @Test(arguments: [Phase.idle, .work, .breakTime])
+    @Test(arguments: [Phase.idle, .work, .breakTime, .breakReady])
     func statusIconRendersForEveryPhase(phase: Phase) {
         for running in [true, false] {
             let image = StatusIcon.render(phase: phase, running: running, text: "12")
@@ -59,6 +59,8 @@ import AppKit
         #expect(StatusIcon.glyph(phase: .work, running: false) == .pause)
         #expect(StatusIcon.glyph(phase: .breakTime, running: true) == .cup)
         #expect(StatusIcon.glyph(phase: .breakTime, running: false) == .pause)
+        #expect(StatusIcon.glyph(phase: .breakReady, running: false) == .cup)
+        #expect(StatusIcon.glyph(phase: .breakReady, running: true) == .cup)
     }
 
     // MARK: Themes

@@ -82,6 +82,9 @@ enum StatusIcon {
     static func glyph(phase: Phase, running: Bool) -> Glyph {
         switch phase {
         case .idle:      return .tomato
+        // Stopped, but not paused — there is no countdown behind it to resume,
+        // so the cup says "a break is waiting" and the pause glyph would lie.
+        case .breakReady: return .cup
         case .work:      return running ? .tomato : .pause
         case .breakTime: return running ? .cup : .pause
         }
