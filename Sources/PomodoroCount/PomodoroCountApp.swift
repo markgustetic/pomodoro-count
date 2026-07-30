@@ -41,14 +41,22 @@ enum Entry {
     static func main() {
         let args = CommandLine.arguments
         // --preview <path> renders the popover UI to a PNG and exits (no window).
-        // Add --hover to render buttons in their hover state, or --armed-break
-        // to render the Focus tab with a completed session's break waiting.
+        // Add --hover to render buttons in their hover state, --armed-break
+        // to render the Focus tab with a completed session's break waiting,
+        // --history-range to pick which History graph shows, or --hover-graph
+        // to hover a day on it.
         if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {
             PreviewOverrides.isRendering = true
             PreviewOverrides.forceHover = args.contains("--hover")
             PreviewOverrides.armedBreak = args.contains("--armed-break")
             if let t = args.firstIndex(of: "--theme"), t + 1 < args.count {
                 PreviewOverrides.theme = ThemeChoice(rawValue: args[t + 1].capitalized)
+            }
+            if let h = args.firstIndex(of: "--hover-graph"), h + 1 < args.count {
+                PreviewOverrides.hoveredGraphIndex = Int(args[h + 1])
+            }
+            if let r = args.firstIndex(of: "--history-range"), r + 1 < args.count {
+                PreviewOverrides.historyRange = args[r + 1].capitalized
             }
             MainActor.assumeIsolated { PreviewRenderer.render(to: args[i + 1]) }
         }

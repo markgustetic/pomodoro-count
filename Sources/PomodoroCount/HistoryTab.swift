@@ -8,7 +8,10 @@ import UniformTypeIdentifiers
 struct HistoryTab: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.palette) private var palette
-    @State private var range: ChartRange = .week
+    // Week unless a preview asked for another: the Year heatmap is otherwise
+    // unreachable headlessly, since nothing can drive the picker in a render.
+    @State private var range: ChartRange =
+        PreviewOverrides.historyRange.flatMap(ChartRange.init(rawValue:)) ?? .week
     @State private var grouping: Grouping = .day
 
     enum ChartRange: String, CaseIterable {

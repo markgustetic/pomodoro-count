@@ -30,7 +30,8 @@ Single suite: `swift test --filter ReorderTests` (prefix `DEVELOPER_DIR=/Applica
 
 Debug flags on the binary: `--store <path>` (redirect persistence — always use a
 scratch store for experiments), `--seed-store <path>` (write a known-categories
-store and exit), `--preview <png> [--hover] [--armed-break] [--theme Synthwave]`, and
+store and exit), `--preview <png> [--hover] [--armed-break] [--theme Synthwave]
+[--history-range Week|Month|Year] [--hover-graph <index>]`, and
 `--reorder-window` (hosts the panel UI in a plain window — see the harness rule
 below).
 

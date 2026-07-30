@@ -15,6 +15,16 @@ enum PreviewOverrides {
     /// `.breakReady` panel can be looked at without sitting out a real focus
     /// session.
     nonisolated(unsafe) static var armedBreak = false
+    /// Forces a hovered day on the History graphs. No real pointer exists in a
+    /// headless render, so without this the readout and the highlight can only
+    /// be seen by hand.
+    nonisolated(unsafe) static var hoveredGraphIndex: Int?
+    /// The `ChartRange` raw value the History tab opens on when rendering.
+    /// A string rather than the enum because `ChartRange` is nested in a view
+    /// and this file has no business importing that isolation. Without it a
+    /// preview only ever shows the Week chart, and the Year heatmap has no
+    /// headless coverage at all.
+    nonisolated(unsafe) static var historyRange: String?
 }
 
 private func applyCursor(_ inside: Bool) {
