@@ -71,4 +71,100 @@ import Foundation
         m.logExternal()
         #expect(Set(m.records.map(\.id)).count == 2)
     }
+
+    // MARK: Per-category subtract
+
+    @Test func unlogTodayRemovesFromTheNamedCategory() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Writing", dailyGoal: 3),
+                                 Category(name: "Admin", dailyGoal: 3)]
+        m.logExternal(to: .named("Writing"))
+        m.logExternal(to: .named("Admin"))
+
+        m.unlogToday(from: .named("Writing"))
+
+        #expect(m.todayCount(inCategory: "Writing") == 0)
+        #expect(m.todayCount(inCategory: "Admin") == 1)
+    }
+
+    /// The whole point of a per-category subtract: a newer pomodoro somewhere
+    /// else is exactly the case the global "Undo last" gets wrong.
+    @Test func unlogTodayIgnoresANewerRecordInAnotherCategory() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Writing", dailyGoal: 3),
+                                 Category(name: "Admin", dailyGoal: 3)]
+        m.records = [
+            Record(at: .todayAt(hour: 9), source: "manual", category: "Writing"),
+            Record(at: .todayAt(hour: 12), source: "manual", category: "Admin"),
+        ]
+
+        m.unlogToday(from: .named("Writing"))
+
+        #expect(m.records.count == 1)
+        #expect(m.records.first?.category == "Admin")
+    }
+
+    @Test func unlogTodayOnAnEmptyCategoryIsANoOp() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Writing", dailyGoal: 3)]
+
+        m.unlogToday(from: .named("Writing"))
+        m.unlogToday(from: .named("Writing"))
+
+        #expect(m.records.isEmpty)
+        #expect(m.todayCount == 0)
+    }
+
+    /// The row shows today, so the subtract adjusts today. Yesterday's history
+    /// is not a reserve the counter can draw down.
+    @Test func unlogTodayLeavesEarlierDaysAlone() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Writing", dailyGoal: 3)]
+        m.records = [Record(at: .daysAgo(1), source: "manual", category: "Writing")]
+
+        m.unlogToday(from: .named("Writing"))
+
+        #expect(m.records.count == 1)
+    }
+
+    @Test func unlogTodayRemovesABucketRecord() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Writing", dailyGoal: 3)]
+        m.records = [
+            Record(at: .todayAt(hour: 9), source: "manual", category: nil),
+            Record(at: .todayAt(hour: 12), source: "manual", category: "Writing"),
+        ]
+
+        m.unlogToday(from: .fallback)
+
+        #expect(m.records.count == 1)
+        #expect(m.records.first?.category == "Writing")
+    }
+
+    /// A removal must not re-aim the session. The advance is forward-only on
+    /// purpose: re-aiming because a count dropped would move the target out
+    /// from under a Start the user has already pressed.
+    ///
+    /// Non-vacuous by construction: after the removal Writing is both unmet and
+    /// top-ranked, so a `realignTarget()` here *would* pull the target off
+    /// Admin. The assertion fails if anyone adds one for symmetry.
+    @Test func unlogTodayLeavesTheSessionTargetAlone() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.autoAdvanceTarget = true
+        m.settings.categories = [Category(name: "Writing", dailyGoal: 1),
+                                 Category(name: "Admin", dailyGoal: 3)]
+        m.records = [Record(at: .todayAt(hour: 9), source: "manual", category: "Writing")]
+        m.settings.targetAimedOn = Date()
+        m.sessionTarget = .named("Admin")
+
+        m.unlogToday(from: .named("Writing"))
+
+        #expect(m.sessionTarget == .named("Admin"))
+    }
 }

@@ -101,6 +101,9 @@ that one fact:
   the first on its own: it is set by `pickTarget(_:)` only when the user aims at
   a category that is *already met*, which is the one reading of that pick, and
   it is what makes a deliberate overshoot last longer than one pomodoro.
+  Record-*removing* paths (`undoLast`, `unlogToday`) deliberately do not
+  realign: the advance is forward-only, and a correction must not move the
+  target out from under a Start already pressed.
 - `Phase` has **four** cases, and `.breakReady` is a state of its own, not a
   flavour of idle: a finished session's break is armed at its configured length
   waiting to be started or skipped. Anything that switches on phase must handle
