@@ -441,6 +441,97 @@ case "counter":
     usleep(1_000_000)
     report("after Escape — steppers should be ABSENT, row still present")
 
+case "settingsshot":
+    // Open the panel, go to Settings, click a named button, screenshot. Exists to
+    // compare a PRE-EXISTING popover's appearance against a new one under the
+    // same theme — "the new popover looks wrong" and "every popover in this app
+    // looks like that" call for different fixes, and only a side-by-side tells
+    // them apart.
+    let btnName = CommandLine.arguments[3]
+    let outFile = CommandLine.arguments[4]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    click(CGPoint(x: frame(item).midX, y: frame(item).midY))
+    usleep(1_500_000)
+
+    func namedButton(_ name: String) -> AXUIElement? {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                str(el, kAXRoleAttribute) == kAXButtonRole as String
+                    && (str(el, kAXTitleAttribute) == name || str(el, kAXDescriptionAttribute) == name)
+            }
+        }
+        return els.first
+    }
+
+    guard let settingsBtn = namedButton("Settings") else { print("no Settings button"); exit(1) }
+    click(CGPoint(x: frame(settingsBtn).midX, y: frame(settingsBtn).midY))
+    usleep(1_400_000)
+    guard let target = namedButton(btnName) else { print("no button '\(btnName)'"); exit(1) }
+    click(CGPoint(x: frame(target).midX, y: frame(target).midY))
+    usleep(1_500_000)
+
+    var shotBox = CGRect.null
+    for w in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] { shotBox = shotBox.union(frame(w)) }
+    shotBox = shotBox.insetBy(dx: -40, dy: -40)
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+    p.arguments = ["-x", "-R\(Int(shotBox.minX)),\(Int(shotBox.minY)),\(Int(shotBox.width)),\(Int(shotBox.height))", outFile]
+    try? p.run()
+    p.waitUntilExit()
+    print("screencapture exit \(p.terminationStatus) -> \(outFile)")
+
+case "countershot":
+    // Open the panel, raise a row's count popover, and screenshot it from
+    // INSIDE this process. A popover is its own window and the panel dismisses
+    // when it loses key status, so a separate `screencapture` invocation would
+    // photograph an already-closed popover. This is the only way to see the
+    // thing `--preview` structurally cannot render.
+    let rowName = CommandLine.arguments[3]
+    let outPath = CommandLine.arguments[4]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    click(CGPoint(x: frame(item).midX, y: frame(item).midY))
+    usleep(1_500_000)
+
+    var rowEls: [AXUIElement] = []
+    for root in roots() {
+        findAll(root, into: &rowEls) { el in
+            str(el, kAXTitleAttribute) == rowName || str(el, kAXDescriptionAttribute) == rowName
+        }
+    }
+    guard let shotRow = rowEls.max(by: { frame($0).width < frame($1).width })
+    else { print("no row '\(rowName)'"); exit(1) }
+    click(CGPoint(x: frame(shotRow).midX, y: frame(shotRow).midY))
+    usleep(1_400_000)
+
+    // Union of the panel window and the popover's buttons, so the capture holds
+    // both and the popover's placement relative to the row is visible.
+    var box = CGRect.null
+    for w in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
+        box = box.union(frame(w))
+    }
+    var stepEls: [AXUIElement] = []
+    for root in roots() {
+        findAll(root, into: &stepEls) { el in
+            str(el, kAXRoleAttribute) == kAXButtonRole as String
+                && ["Remove one pomodoro", "Add one pomodoro"]
+                    .contains(str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute))
+        }
+    }
+    guard !stepEls.isEmpty else { print("popover never opened — nothing to shoot"); exit(1) }
+    for el in stepEls { box = box.union(frame(el)) }
+    box = box.insetBy(dx: -24, dy: -24)
+    print("capturing \(Int(box.width))x\(Int(box.height)) at (\(Int(box.minX)),\(Int(box.minY)))")
+
+    let shot = Process()
+    shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+    shot.arguments = ["-x", "-R\(Int(box.minX)),\(Int(box.minY)),\(Int(box.width)),\(Int(box.height))", outPath]
+    try? shot.run()
+    shot.waitUntilExit()
+    print("screencapture exit \(shot.terminationStatus) -> \(outPath)")
+
 case "counterkeys":
     // The VoiceOver path and Escape dismissal, in a DELIBERATELY SHORT sequence.
     // `counter`'s full click run takes ~12s of posted events, and the panel has
