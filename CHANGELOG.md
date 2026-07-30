@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   last" and hoping nothing has landed on another category since. VoiceOver keeps
   its one-swipe adjustment on the row itself.
 
+### Fixed
+
+- **Settings' "Add category" and "Remove category" popovers now follow the
+  Synthwave theme.** Both drew on the system's light background while the panel
+  behind them stayed dark, which left the "New category" caption and the note
+  about what survives a removal too faint to read.
+
 ## [1.3.0] - 2026-07-30
 
 ### Changed
