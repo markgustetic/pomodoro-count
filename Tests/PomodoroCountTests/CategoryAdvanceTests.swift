@@ -96,7 +96,7 @@ import Testing
     }
 
     /// A goal of 0 means "tracked without a target", so `isMet` is false for it
-    /// forever — landing there would be a sink the rotation could never leave.
+    /// forever — landing there would be a sink nothing could ever leave.
     @Test func skipsCategoriesWithNoGoal() {
         let next = CategoryAdvance.next(
             after: .named("Work"),

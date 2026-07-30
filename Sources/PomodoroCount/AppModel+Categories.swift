@@ -309,10 +309,14 @@ extension AppModel {
         // `todayProgress` uses for `isSessionTarget` — a paused session's
         // target row isn't held still either, so the advance shouldn't be.
         guard !(phase == .work && isRunning) else { return }
-        // `pinned: false` is a stopgap: there is no pin concept yet on this
-        // branch (a later task adds `Settings.targetPinned`), so this call
-        // simply preserves the pre-ranking behaviour until that task rewires
-        // this function into `realignTarget()`.
+        // The destination this call picks does change with this commit: `next`
+        // now searches the ranking from the top instead of walking forward and
+        // wrapping, so a met target can hand off to a *different* category than
+        // it used to (see `handsOffToTheHighestRankedUnmetCategory`). `pinned:
+        // false` is correct here only because no pin state exists yet — nothing
+        // could be pinned before this task and nothing can be until a later one
+        // adds `Settings.targetPinned` and rewires this function into
+        // `realignTarget()`, which replaces this call outright.
         guard let next = CategoryAdvance.next(after: sessionTarget, in: todayProgress,
                                               pinned: false)
         else { return }
