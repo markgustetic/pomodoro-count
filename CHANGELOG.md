@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-30
+
 ### Changed
 
 - **A finished focus session now offers the break** — with "Auto-start break"
@@ -123,7 +125,8 @@ First public release.
 - Releases are unsigned. macOS Gatekeeper asks for a one-time confirmation on
   first launch — see [Installing](README.md#install) for the two-second step.
 
-[Unreleased]: https://github.com/markgustetic/pomodoro-count/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/markgustetic/pomodoro-count/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/markgustetic/pomodoro-count/releases/tag/v1.0.0
