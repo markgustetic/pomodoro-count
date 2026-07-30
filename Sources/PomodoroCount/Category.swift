@@ -42,9 +42,16 @@ struct CategoryProgress: Identifiable {
     let goal: Int
     /// True for the fallback bucket, whose records carry no category name.
     let isFallback: Bool
-    /// True while a focus session is actually running and aimed at this
-    /// category — not merely while one is paused or idle.
-    let isSessionTarget: Bool
+    /// True when finished pomodoros land here — idle, paused, running, or
+    /// between sessions.
+    ///
+    /// Not "a session is running and aimed here", which is what this meant
+    /// while the target was picked from a dropdown. The rows are now how the
+    /// target is chosen, so a row has to show its selection before Start is
+    /// pressed; a mark that appears only once a session runs would be absent
+    /// at exactly the moment the user is deciding. Whether a session is
+    /// *running* is answered by the countdown directly above the list.
+    let isTarget: Bool
 
     /// A goal of 0 means "no target", so it can never be met.
     var isMet: Bool { goal > 0 && done >= goal }
@@ -65,7 +72,7 @@ struct CategoryProgress: Identifiable {
     /// stated here rather than being left to the accent colour — the outline
     /// says it to the eye, this says it on the row itself.
     var accessibilityValue: String {
-        let target = isSessionTarget ? ", current session target" : ""
+        let target = isTarget ? ", session target" : ""
         guard goal > 0 else {
             return "\(done) \(done == 1 ? "pomodoro" : "pomodoros")" + target
         }

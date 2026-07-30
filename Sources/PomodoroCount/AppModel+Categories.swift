@@ -49,10 +49,9 @@ extension AppModel {
     var todayProgress: [CategoryProgress] {
         guard settings.categoriesEnabled else { return [] }
 
-        // "Running" means an actual focus session in progress, not idle or
-        // paused — a paused session's target row should not stay outlined.
-        let sessionRunning = phase == .work && isRunning
-        let targetName = sessionRunning ? resolve(sessionTarget) : nil
+        // Not gated on a running session: these rows are how the target gets
+        // chosen, so the mark has to be readable before Start is pressed.
+        let targetName = resolve(sessionTarget)
         let normalizedTarget = targetName.map(Category.normalized)
 
         // One tally pass over the records, not one full scan per category —
@@ -72,7 +71,7 @@ extension AppModel {
                 done: doneToday[Category.normalized(category.name)] ?? 0,
                 goal: category.dailyGoal,
                 isFallback: false,
-                isSessionTarget: sessionRunning && normalizedTarget == Category.normalized(category.name))
+                isTarget: normalizedTarget == Category.normalized(category.name))
         }
 
         // Unconditional: it is the only row that can take a pomodoro belonging
@@ -83,7 +82,7 @@ extension AppModel {
             done: doneToday[""] ?? 0,
             goal: settings.fallbackGoal,
             isFallback: true,
-            isSessionTarget: sessionRunning && targetName == nil))
+            isTarget: targetName == nil))
         return rows
     }
 }
@@ -323,10 +322,12 @@ extension AppModel {
         // session that meets its own goal still credits the right category and
         // only then hands the target on. Nor does it lose a start-of-day reset:
         // the stamp stays stale, and `complete()` is itself one of the points
-        // that re-checks it. `phase == .work && isRunning` is deliberately the
-        // same "actually running, not idle or paused" test `todayProgress` uses
-        // for `isSessionTarget` — a paused session's target row isn't held
-        // still either, so neither trigger should be.
+        // that re-checks it.
+        // `phase == .work && isRunning` is "actually running, not idle or
+        // paused". `todayProgress` used to gate its target mark on this same
+        // test and no longer does — the mark answers "where do pomodoros
+        // land", which is true in every phase, while this guard answers "is a
+        // Start already pointed somewhere", which is only true in one.
         guard !(phase == .work && isRunning) else { return }
 
         // A stamp from an earlier day (or none at all, on a store written

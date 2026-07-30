@@ -158,10 +158,10 @@ import Foundation
         #expect(m.sessionTarget == .named("Work"))
     }
 
-    /// A paused session is not "actually running" — the same test
-    /// `todayProgress` applies to `isSessionTarget` — so, unlike the running
-    /// case above, a log that meets its goal while paused advances the target
-    /// immediately.
+    /// A paused session is not "actually running" — `realignTarget`'s guard is
+    /// `phase == .work && isRunning`, not just `phase == .work` — so, unlike
+    /// the running case above, a log that meets its goal while paused advances
+    /// the target immediately.
     @Test func aPausedSessionDoesNotBlockTheAdvance() {
         let m = configured()
         m.sessionTarget = .named("Music")        // goal 1

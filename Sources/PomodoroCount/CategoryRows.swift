@@ -83,9 +83,11 @@ struct CategoryRow: View {
                             RoundedRectangle(cornerRadius: 11, style: .continuous)
                                 .fill(palette.accent.opacity(0.12))
                         }
-                        // The running session's target row stays outlined so
-                        // it's clear where the next completed pomodoro lands.
-                        if progress.isSessionTarget {
+                        // The target row stays outlined so it is clear where
+                        // the next finished pomodoro lands, and — since the
+                        // rows are what aim it — which row a click already
+                        // selected.
+                        if progress.isTarget {
                             RoundedRectangle(cornerRadius: 11, style: .continuous)
                                 .strokeBorder(palette.accent.opacity(0.8), lineWidth: 1.5)
                         }

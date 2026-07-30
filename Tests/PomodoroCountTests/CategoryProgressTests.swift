@@ -96,13 +96,13 @@ import Foundation
 
     @Test func countTextShowsGoalAsAFraction() {
         let progress = CategoryProgress(id: "work", name: "Work", done: 2, goal: 4,
-                                         isFallback: false, isSessionTarget: false)
+                                         isFallback: false, isTarget: false)
         #expect(progress.countText == "2/4")
     }
 
     @Test func countTextIsBareForAGoallessCategory() {
         let progress = CategoryProgress(id: "general", name: "General", done: 3, goal: 0,
-                                         isFallback: true, isSessionTarget: false)
+                                         isFallback: true, isTarget: false)
         #expect(progress.countText == "3")
     }
 
@@ -111,7 +111,7 @@ import Foundation
     /// rather than clip at the goal.
     @Test func countTextKeepsGrowingPastTheGoal() {
         let progress = CategoryProgress(id: "work", name: "Work", done: 6, goal: 4,
-                                         isFallback: false, isSessionTarget: false)
+                                         isFallback: false, isTarget: false)
         #expect(progress.countText == "6/4")
     }
 
@@ -138,18 +138,15 @@ import Foundation
         #expect(work.accessibilityValue == "1 of 4 pomodoros")
     }
 
-    /// A met goal must be conveyed in the value, not by colour alone.
-    /// The outline marking the session's target row is colour; the fact it
-    /// marks must reach VoiceOver on the row itself, not only via the picker.
-    @Test func accessibilityValueNamesTheSessionTarget() {
+    /// A met goal and the target mark are both conveyed in the value, not by
+    /// colour alone. The outline is colour; this is what VoiceOver gets.
+    @Test func accessibilityValueNamesTheTarget() {
         let (m, _) = makeModel()
         m.settings.categoriesEnabled = true
         m.settings.categories = [Category(name: "Work", dailyGoal: 4)]
         m.sessionTarget = .named("Work")
-        m.startWork()
         let work = m.todayProgress.first { $0.name == "Work" }!
-        #expect(work.accessibilityValue.hasSuffix(", current session target"))
-        m.reset()
+        #expect(work.accessibilityValue.hasSuffix(", session target"))
     }
 
     @Test func accessibilityValueSaysWhenAGoalIsMet() {
@@ -161,55 +158,60 @@ import Foundation
 
     @Test func accessibilityValueForAGoallessCategoryIsJustTheCount() {
         let m = configured()
+        // Aim elsewhere: unset, the bucket is itself the automatic target,
+        // which would append the target suffix this test isn't about.
+        m.sessionTarget = .named("Work")
         m.records = [Record(at: Date(), source: "manual")]
         let bucket = m.todayProgress.first { $0.isFallback }!
         #expect(bucket.accessibilityValue == "1 pomodoro")
     }
 
-    // MARK: Session-target outline
+    // MARK: Target mark
 
-    @Test func isSessionTargetMarksOnlyTheRunningTargetCategory() {
+    @Test func isTargetMarksOnlyTheTargetCategory() {
         let m = configured()
         m.sessionTarget = .named("Work")
-        m.settings.workMinutes = 1
-        m.startWork()
         let work = m.todayProgress.first { $0.name == "Work" }!
         let ai = m.todayProgress.first { $0.name == "AI study" }!
-        #expect(work.isSessionTarget)
-        #expect(!ai.isSessionTarget)
+        #expect(work.isTarget)
+        #expect(!ai.isTarget)
     }
 
-    @Test func isSessionTargetMarksTheBucketWhenThatIsTheRunningTarget() {
-        let m = configured()   // sessionTarget unset -> automatic -> bucket (bucket on)
-        m.settings.workMinutes = 1
-        m.startWork()
+    @Test func isTargetMarksTheBucketWhenThatIsTheTarget() {
+        let m = configured()   // sessionTarget unset -> automatic -> bucket
         let bucket = m.todayProgress.first { $0.isFallback }!
-        #expect(bucket.isSessionTarget)
+        #expect(bucket.isTarget)
     }
 
-    @Test func isSessionTargetIsFalseWithNoSessionRunning() {
+    /// The three tests below asserted the opposite until the rows became how
+    /// the target is *chosen*. A row you click to select has to show its
+    /// selection before Start is pressed, so the mark has to survive every
+    /// state a not-yet-running session can be in.
+    @Test func isTargetSurvivesWithNoSessionRunning() {
         let m = configured()
         m.sessionTarget = .named("Work")
         let work = m.todayProgress.first { $0.name == "Work" }!
-        #expect(!work.isSessionTarget)
+        #expect(work.isTarget)
     }
 
-    @Test func isSessionTargetIsFalseDuringABreak() {
+    @Test func isTargetSurvivesABreak() {
         let m = configured()
         m.sessionTarget = .named("Work")
         m.settings.breakMinutes = 1
         m.startBreak()
         let work = m.todayProgress.first { $0.name == "Work" }!
-        #expect(!work.isSessionTarget)
+        #expect(work.isTarget)
+        m.reset()
     }
 
-    @Test func isSessionTargetIsFalseWhilePaused() {
+    @Test func isTargetSurvivesAPause() {
         let m = configured()
         m.sessionTarget = .named("Work")
         m.settings.workMinutes = 1
         m.startWork()
         m.pause()
         let work = m.todayProgress.first { $0.name == "Work" }!
-        #expect(!work.isSessionTarget)
+        #expect(work.isTarget)
+        m.reset()
     }
 }
