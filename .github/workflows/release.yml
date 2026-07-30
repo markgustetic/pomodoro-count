@@ -45,28 +45,12 @@ jobs:
       - name: Run tests before releasing
         run: swift test
 
-      # SPARKLE_PUBLIC_KEY comes from a repository variable (it isn't secret).
-      # Without it the app builds with its updater disabled rather than shipping
-      # one that can't verify anything.
-      - name: Build the .app
-        run: ./build-app.sh
-
-      # Inert until a Developer ID is available. Add these repository secrets to
-      # turn it on, with no other change needed:
-      #   DEVELOPER_ID_P12         base64 of the exported .p12
-      #   DEVELOPER_ID_P12_PASSWORD
-      #   DEVELOPER_ID_IDENTITY    e.g. "Developer ID Application: Name (TEAMID)"
-      #   NOTARY_APPLE_ID, NOTARY_PASSWORD (app-specific), NOTARY_TEAM_ID
-      - name: Sign and notarize
+      - name: Import the signing certificate
+        id: signing
         if: env.HAS_SIGNING == 'true'
         env:
           P12: ${{ secrets.DEVELOPER_ID_P12 }}
           P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
-          IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
-          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
-          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
-          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
-          APP: build/Pomodoro Count.app
         run: |
           set -euo pipefail
           keychain="$RUNNER_TEMP/build.keychain"
@@ -83,17 +67,102 @@ jobs:
             -s -k "$password" "$keychain" >/dev/null
           rm -f "$RUNNER_TEMP/cert.p12"
 
-          codesign --force --deep --options runtime --timestamp \
-            --sign "$IDENTITY" "$APP"
-          codesign --verify --strict --verbose=2 "$APP"
+          # Read the identity out of the keychain rather than carrying it as a
+          # secret. A stored string can disagree with the certificate, and what
+          # that produces is "no identity found" at codesign time. Asserting the
+          # prefix catches the certificate that is easy to export by mistake: an
+          # "Apple Development" cert signs fine and notarizes never.
+          found="$(security find-identity -v -p codesigning "$keychain" |
+                   sed -n 's/.*"\(.*\)".*/\1/p')"
+          identity="$(printf '%s\n' "$found" |
+                      grep '^Developer ID Application: ' | head -1 || true)"
+          if [ -z "$identity" ]; then
+            echo "The imported .p12 holds no 'Developer ID Application' certificate."
+            echo "It holds: ${found:-<nothing>}"
+            exit 1
+          fi
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+          echo "Signing as $identity"
 
+      # SPARKLE_PUBLIC_KEY comes from a repository variable (it isn't secret).
+      # Without it the app builds with its updater disabled rather than shipping
+      # one that can't verify anything.
+      #
+      # CODESIGN_IDENTITY is empty when signing is off, and build-app.sh reads
+      # that as ad-hoc — the same bundle every CI push already produces.
+      - name: Build the .app
+        env:
+          CODESIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: ./build-app.sh
+
+      # Inert until a Developer ID exists. Add these repository secrets to turn
+      # it on, with no other change needed — see packaging/signing/README.md:
+      #   DEVELOPER_ID_P12          base64 of the exported .p12
+      #   DEVELOPER_ID_P12_PASSWORD
+      #   NOTARY_KEY_ID, NOTARY_ISSUER_ID, NOTARY_KEY_P8
+      - name: Notarize and staple
+        if: env.HAS_SIGNING == 'true'
+        env:
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          APP: build/Pomodoro Count.app
+        run: |
+          set -euo pipefail
+          keyfile="$RUNNER_TEMP/notary.p8"
+          printf '%s' "$NOTARY_KEY_P8" > "$keyfile"
+          trap 'rm -f "$keyfile"' EXIT
+          chmod 600 "$keyfile"
+
+          # An App Store Connect API key, not an Apple ID and app-specific
+          # password: the password is revoked whenever that account's password
+          # changes, which breaks releases months later for an unrelated reason.
           ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
           xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
-            --apple-id "$NOTARY_APPLE_ID" \
-            --password "$NOTARY_PASSWORD" \
-            --team-id "$NOTARY_TEAM_ID" \
+            --key "$keyfile" \
+            --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER_ID" \
             --wait
+          # Staples the ticket into the bundle so first launch needs no network.
           xcrun stapler staple "$APP"
+
+      - name: Verify Gatekeeper accepts it
+        if: env.HAS_SIGNING == 'true'
+        env:
+          APP: build/Pomodoro Count.app
+        run: |
+          set -euo pipefail
+          codesign --verify --strict --deep --verbose=2 "$APP"
+          xcrun stapler validate "$APP"
+
+          # The question a release actually has to answer: what does Gatekeeper
+          # do with this on a machine that has never seen it. spctl exits zero
+          # for other accept sources too — "the user already trusts it" — so the
+          # source is asserted, not just the exit code. This runs after stapling,
+          # so it resolves from the embedded ticket rather than the network.
+          assessment="$(spctl --assess --type execute --verbose=4 "$APP" 2>&1)"
+          echo "$assessment"
+          case "$assessment" in
+            *"source=Notarized Developer ID"*) ;;
+            *) echo "Gatekeeper did not accept this as notarized"; exit 1 ;;
+          esac
+
+          # Every nested binary must carry the app's Team ID. This is the check
+          # that would have caught the -maxdepth walk which skipped Sparkle's XPC
+          # services: they stayed ad-hoc, with no team at all, and notarization
+          # failed without naming them.
+          team="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+          [ -n "$team" ] || { echo "the app has no TeamIdentifier"; exit 1; }
+          fw="$APP/Contents/Frameworks/Sparkle.framework"
+          ver="$(readlink "$fw/Versions/Current")"
+          for nested in XPCServices/Downloader.xpc XPCServices/Installer.xpc \
+                        Updater.app Autoupdate; do
+            got="$(codesign -dvv "$fw/Versions/$ver/$nested" 2>&1 |
+                   sed -n 's/^TeamIdentifier=//p')"
+            [ "$got" = "$team" ] \
+              || { echo "$nested has TeamIdentifier '${got:-not set}', want '$team'"; exit 1; }
+          done
+          echo "Signed, notarized, stapled — team $team"
 
       - name: Package
         id: package
