@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The category list is now a priority ranking.** When a category meets its
+  daily goal the session target falls to the highest-ranked category that still
+  has a goal left, rather than to whichever one happens to sit below it. Each new
+  day starts at the top of the list again.
+- **Re-picking a finished category now holds there.** Pointing the target at a
+  category you have already completed keeps it there for as many pomodoros as
+  follow, instead of moving on after one — the pill reads `pinned to …` while it
+  does. Picking a category that still has a goal left is unchanged: it holds
+  until you finish it, then rejoins the ranking.
+- **The target menu has a new first entry, "Follow the order",** which hands
+  control back to the ranking.
+- The Settings toggle "Move on when a goal is met" is now "Follow the category
+  order". Your existing setting is kept.
+
 ## [1.3.0] - 2026-07-30
 
 ### Changed
