@@ -107,4 +107,26 @@ import Foundation
         #expect(m.dailySeries(days: 7).allSatisfy { $0.count == 0 })
         #expect(m.dailySeries(days: 30).map(\.count).reduce(0, +) == 1)
     }
+
+    /// `HistoryTab` derives its day list from `dailySeries(days:)` instead of
+    /// calling `history(days:)` a second time on every pointer move — both
+    /// read `windowStart(days:)` and bucket by `startOfDay`, but this pins
+    /// that the substitution is exact rather than merely plausible. Records
+    /// land on the window's first and last day, with a zero-record gap day
+    /// (2 days ago) inside it.
+    @Test func historyMatchesDailySeriesReversedAndFilteredToNonZeroDays() {
+        let (m, _) = makeModel()
+        m.records = [
+            Record(at: Date(), source: "manual"),      // today: window's last day
+            Record(at: .daysAgo(1), source: "manual"),
+            Record(at: .daysAgo(1), source: "timer"),
+            Record(at: .daysAgo(4), source: "manual"),
+            Record(at: .daysAgo(6), source: "manual"), // window's first day (days: 7)
+        ]
+        let days = 7
+        let history = m.history(days: days)
+        let derived = m.dailySeries(days: days).reversed().filter { $0.count > 0 }
+        #expect(history.map(\.date) == derived.map(\.date))
+        #expect(history.map(\.count) == derived.map(\.count))
+    }
 }

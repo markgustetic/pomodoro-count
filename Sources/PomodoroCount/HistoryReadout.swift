@@ -19,10 +19,11 @@ enum HistoryReadout {
     /// The tooltip's line, or nil when nothing is hovered.
     ///
     /// No noun. The card floats over a graph of pomodoros in an app about
-    /// pomodoros, and at 300pt of panel "Jul 28 · 4 pomodoros" is twice the
-    /// width of "Jul 28 · 4" — 40% of the plot against 22% of it. That is the
-    /// difference between a card that obscures the comparison it explains and
-    /// one that doesn't, which is why the noun is gone and should stay gone.
+    /// pomodoros, and at 300pt of panel "Sun, Jul 26 · 2 pomodoros" is nearly
+    /// twice the width of "Sun, Jul 26 · 2" — 51% of the plot against 30% of
+    /// it. That is the difference between a card that obscures the comparison
+    /// it explains and one that doesn't, which is why the noun is gone and
+    /// should stay gone.
     ///
     /// An out-of-range index reads as no hover rather than trapping — the
     /// range picker swaps the series under a live pointer, and a stale index

@@ -2,9 +2,10 @@ import Testing
 import Foundation
 @testable import PomodoroCount
 
-/// The hover readout under the History graphs. Naming a day is `dayLabel`'s
-/// job and is pinned in `PresentationTests`; these pin the composition around
-/// it, so a stub label keeps the assertions free of the machine's locale.
+/// The hover readout card floating over the History graphs. Naming a day is
+/// `dayLabel`'s job and is pinned in `PresentationTests`; these pin the
+/// composition around it, so a stub label keeps the assertions free of the
+/// machine's locale.
 @Suite struct HistoryReadoutTests {
 
     private let cal = Calendar(identifier: .gregorian)

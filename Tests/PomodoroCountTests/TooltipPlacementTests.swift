@@ -4,17 +4,18 @@ import Foundation
 
 /// Where the hover card lands. The numbers below are the real ones: a ~276pt
 /// graph inside a 300pt panel, a 108pt chart and a 40pt heatmap, and a card
-/// about 62x18 carrying "Jul 28 · 4".
+/// about 84x18 carrying "Sun, Jul 26 · 2" — `dayLabel`'s real `"EEE, MMM d"`
+/// format, not the shorter `"MMM d"` guess an earlier measurement used.
 @Suite struct TooltipPlacementTests {
 
-    private let card = CGSize(width: 62, height: 18)
+    private let card = CGSize(width: 84, height: 18)
     private let chart = CGSize(width: 276, height: 108)
     private let heatmap = CGSize(width: 276, height: 40)
 
     @Test func theCardCentresOnTheCursor() {
         let p = TooltipPlacement.origin(cursor: CGPoint(x: 100, y: 60),
                                         tooltip: card, in: chart)
-        #expect(p.x == CGFloat(100 - 31))
+        #expect(p.x == CGFloat(100 - 42))
     }
 
     @Test func theCardSitsAboveTheCursorWhenThereIsRoom() {
@@ -42,7 +43,7 @@ import Foundation
     @Test func theCardClampsAtTheRightEdge() {
         let p = TooltipPlacement.origin(cursor: CGPoint(x: 274, y: 60),
                                         tooltip: card, in: chart)
-        #expect(p.x == CGFloat(276 - 62))
+        #expect(p.x == CGFloat(276 - 84))
         #expect(p.x + card.width <= chart.width)
     }
 

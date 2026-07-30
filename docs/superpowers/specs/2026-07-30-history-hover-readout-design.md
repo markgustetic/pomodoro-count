@@ -215,10 +215,16 @@ Dropping it changes the arithmetic that drove the decision:
 
 | content | width at `.caption2` | share of the ~276pt plot |
 |---|---|---|
-| `Jul 28 · 4 pomodoros` | ~120pt | 40% |
-| `Jul 28 · 4` | ~62pt | 22% |
+| `Sun, Jul 26 · 2 pomodoros` | ~142pt | 51% |
+| `Sun, Jul 26 · 2` | ~84pt | 30% |
 
-22% is a different affordance from 40%. The objection was real and is now
+(Measured off a real render — `dayLabel` produces `"EEE, MMM d"`, not the bare
+`"MMM d"` this doc first guessed at, so the card is a full weekday wider than
+the original estimate. `Today` and `Yesterday` are the short cases, not the
+typical one: a `Yesterday`-named card at the same font measures ~77pt, close
+to the long-form no-noun row above.)
+
+30% is a different affordance from 51%. The objection was real and is now
 answered by making the card smaller, not by deciding the objection was wrong.
 
 ### What it costs

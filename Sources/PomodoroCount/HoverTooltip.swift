@@ -53,12 +53,17 @@ struct HoverTooltip: View {
                     .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(palette.cardStroke) }
             }
             .fixedSize()
+            // `allowsHitTesting(false)` on the overlay keeps the pointer out,
+            // but VoiceOver still finds a hidden view — the graphs already
+            // carry their own summary-level accessibility values, so the
+            // card itself has nothing to add.
+            .accessibilityHidden(true)
     }
 }
 
 /// Reports the card's measured size back up so `TooltipPlacement` can clamp it.
 /// Measured rather than hand-set because the label runs from "Today" to
-/// "Wednesday" and a fixed width would clamp the wrong edge for one of them.
+/// "Wed, Jul 29" and a fixed width would clamp the wrong edge for one of them.
 struct TooltipSizeKey: PreferenceKey {
     static let defaultValue = CGSize.zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }

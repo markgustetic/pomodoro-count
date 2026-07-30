@@ -15,6 +15,9 @@ struct HistoryTab: View {
     @State private var grouping: Grouping = .day
     @State private var hoveredIndex: Int?
     @State private var hoverPoint: CGPoint?
+    // Starts .zero and keeps the previous card's size across hovers, so a
+    // newly-shown card lays out once at the wrong width before the
+    // preference below lands. Invisible at 60Hz — not a bug.
     @State private var tooltipSize: CGSize = .zero
 
     enum ChartRange: String, CaseIterable {
@@ -31,15 +34,22 @@ struct HistoryTab: View {
     enum Grouping: String, CaseIterable { case day = "By day", category = "By category" }
 
     var body: some View {
-        // Only the visible grouping's query runs — each is a full pass over
-        // the window's records, and body re-evaluates on every model change:
-        // a log, an undo, any settings edit. (Not on the timer tick — that
-        // publishes from SessionClock, which this tab doesn't observe.)
+        // Only the visible grouping's full pass runs — series and
+        // categoryTotals each walk the window's records, and body
+        // re-evaluates on every model change: a log, an undo, any settings
+        // edit — and, now that hoverPoint is @State on this view too, every
+        // pointer move over the graph. stats used to be its own pass
+        // (history(days:)); it's derived from series below instead, so a
+        // hover doesn't cost two full passes over the records on every move.
         let showsCategoryBreakdown = grouping == .category && model.settings.categoriesEnabled
-        let stats = showsCategoryBreakdown ? [] : model.history(days: range.days)
+        let series = model.dailySeries(days: range.days)
+        // Equivalent to history(days: range.days) — same window, same
+        // startOfDay bucketing — just newest-first instead of oldest-first
+        // and without the zero-count days. Pinned in HistoryTests so this
+        // substitution can't drift from what history(days:) actually does.
+        let stats = showsCategoryBreakdown ? [] : series.reversed().filter { $0.count > 0 }
         let categoryTotals = showsCategoryBreakdown ? model.categoryTotals(days: range.days) : []
         let isEmpty = showsCategoryBreakdown ? categoryTotals.isEmpty : stats.isEmpty
-        let series = model.dailySeries(days: range.days)
         PanelTabScroller {
             // 14 rather than the panel's usual 10: this tab is dense with
             // distinct sections — picker, chart, tiles, picker, list — and
@@ -146,8 +156,8 @@ struct HistoryTab: View {
             .foregroundStyle(LinearGradient(
                 colors: [palette.accent, palette.accent2],
                 startPoint: .top, endPoint: .bottom))
-            // Only the hovered bar stays lit, so the line underneath can't be
-            // read as describing some other day.
+            // Only the hovered bar stays lit, so the card at the pointer
+            // can't be read as describing some other day.
             .opacity(hovered == nil || hovered == item.offset ? 1 : 0.45)
         }
         .chartYAxis {
@@ -198,20 +208,28 @@ struct HistoryTab: View {
                         // The bar's own x, at mid-height of the plot.
                         //
                         // `position(forX:)` returns the *leading edge* of the
-                        // date's band, not its centre — the x axis here is a
-                        // uniform band scale (one band per day), so the width
-                        // of a band is the plot width divided by the day
-                        // count, and its centre is half a band past the
-                        // leading edge `position(forX:)` hands back. Measured
-                        // against a render: without this the card sat half a
-                        // bar-width left of the bar it named.
+                        // date's band, not its centre, and the bands are not
+                        // exactly plotWidth/count wide — measuring one step
+                        // off the scale is exact whatever padding Charts puts
+                        // around the temporal domain. (plotWidth/count was
+                        // tried first: ~0.5pt off mid-row, but +4pt / −10pt at
+                        // the row's own ends — precisely the indices this flag
+                        // exists to check.) Measured against a render: without
+                        // the half-step the card sat left of the bar it named.
                         guard let forced = PreviewOverrides.hoveredGraphIndex,
                               series.indices.contains(forced),
+                              series.count >= 2,
                               let plot = proxy.plotFrame,
                               let x = proxy.position(forX: series[forced].date)
                         else { return }
-                        let band = geo[plot].width / CGFloat(series.count)
-                        hoverPoint = CGPoint(x: geo[plot].origin.x + x + band / 2,
+                        // No neighbour past the last index, so borrow the
+                        // previous step — the one other case position(forX:)
+                        // can't supply a forward pair for.
+                        let neighbor = forced + 1 < series.count ? forced + 1 : forced - 1
+                        guard let neighborX = proxy.position(forX: series[neighbor].date)
+                        else { return }
+                        let step = abs(neighborX - x)
+                        hoverPoint = CGPoint(x: geo[plot].origin.x + x + step / 2,
                                              y: geo[plot].midY)
                     }
             }
