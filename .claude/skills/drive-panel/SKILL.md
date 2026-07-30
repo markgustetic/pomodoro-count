@@ -49,7 +49,9 @@ swift drive.swift <pid> tree            # see what's there
 
 Commands: `tree` (roles/titles/values/frames), `open`, `button <name>`,
 `openclick <name>`, `rows`, `drag <A> <B>` (slow, samples positions),
-`statusitem`, `measuretabs` (per-tab panel heights), `window`. Coordinates
+`statusitem`, `measuretabs` (per-tab panel heights), `window`, `advance <row>`
+(click a category row, read the session-target pill before and after, in one
+process — proves the pill updates live rather than on reopen). Coordinates
 are CG global, top-left origin. Temporary NSLog lines in the app + captured
 stderr give the event stream; remove them before committing.
 

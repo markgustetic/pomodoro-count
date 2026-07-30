@@ -112,8 +112,9 @@ can group it however you like.
 **Categories** are optional. Turn them on in Settings and the log button becomes
 one row per category, each with its own daily goal — Work 4, AI study 1, Music 1
 — so a tap files the pomodoro and your progress is the first thing you see. Point
-a focus session at one with the **towards…** picker, and History gains a **By
-category** view. Deleting a category never deletes its history.
+a focus session at one with the **towards…** picker — which also moves on by
+itself to the next unfinished category once its goal is met — and History
+gains a **By category** view. Deleting a category never deletes its history.
 
 **Streaks and reminders.** Two or more consecutive days with a pomodoro puts a
 flame and a count in the header — and an empty morning doesn't break
