@@ -34,4 +34,14 @@ extension Date {
     static func daysAgo(_ n: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: -n, to: Date())!
     }
+
+    /// A stamp guaranteed to land on today, `hour` hours in.
+    ///
+    /// Tests needing two same-day timestamps can't just offset `Date()` by an
+    /// hour: a run starting at 00:00:30 would push the earlier one into
+    /// yesterday, and the assertion would fail for reasons having nothing to do
+    /// with the code under test.
+    static func todayAt(hour: Int) -> Date {
+        Calendar.current.startOfDay(for: Date()).addingTimeInterval(Double(hour) * 3600)
+    }
 }

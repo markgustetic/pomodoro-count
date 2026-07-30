@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The panel's category list. Replaces the hero log button when categories are
-/// on: tapping a row logs one pomodoro to that category.
+/// on: tapping a row opens a counter that adds to or subtracts from its count.
 struct CategoryRows: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.palette) private var palette
@@ -23,9 +23,11 @@ struct CategoryRows: View {
                 ScrollView {
                     VStack(spacing: 5) {
                         ForEach(rows) { row in
-                            CategoryRow(progress: row) {
-                                model.logExternal(to: row.isFallback ? .fallback : .named(row.name))
-                            }
+                            let target: CategoryTarget =
+                                row.isFallback ? .fallback : .named(row.name)
+                            CategoryRow(progress: row,
+                                        onAdd: { model.logExternal(to: target) },
+                                        onSubtract: { model.unlogToday(from: target) })
                         }
                     }
                 }
@@ -39,13 +41,15 @@ struct CategoryRows: View {
 /// One tappable category. A real Button, so VoiceOver and the keyboard reach it.
 struct CategoryRow: View {
     let progress: CategoryProgress
-    let action: () -> Void
+    let onAdd: () -> Void
+    let onSubtract: () -> Void
 
     @Environment(\.palette) private var palette
     @State private var hover = false
+    @State private var showingCounter = false
 
     var body: some View {
-        Button(action: action) {
+        Button { showingCounter = true } label: {
             HStack(spacing: 8) {
                 Text(progress.name)
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
@@ -60,7 +64,7 @@ struct CategoryRow: View {
                     bar
                 }
 
-                Text(progress.goal > 0 ? "\(progress.done)/\(progress.goal)" : "\(progress.done)")
+                Text(progress.countText)
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(progress.isMet ? palette.accent : palette.textDim)
                     .frame(width: 40, alignment: .trailing)
@@ -90,12 +94,31 @@ struct CategoryRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-        .help(progress.isMet ? "\(progress.name): goal met — one more still counts"
-                             : "Log one pomodoro to \(progress.name)")
+        // Trailing, not bottom: the rows are a list, and a popover hanging off
+        // the bottom edge covers the neighbours whose counts give this one its
+        // context.
+        .popover(isPresented: $showingCounter, arrowEdge: .trailing) {
+            // A popover is its own window: it inherits the environment but not
+            // the appearance, so the theme has to be applied again here.
+            CategoryCountPopover(progress: progress, onAdd: onAdd, onSubtract: onSubtract)
+                .themed(palette)
+        }
+        .help(progress.isMet ? "\(progress.name): goal met — adjust today's count"
+                             : "Adjust today's count for \(progress.name)")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(progress.name)
         .accessibilityValue(progress.accessibilityValue)
-        .accessibilityHint("Logs one pomodoro")
+        .accessibilityHint("Opens a counter you can adjust")
+        // Restores what the popover would otherwise cost VoiceOver. The row used
+        // to log in one activation; routing it through a popover would make that
+        // three. Swipe up and down adjust the count without opening anything.
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: onAdd()
+            case .decrement: onSubtract()
+            @unknown default: break
+            }
+        }
     }
 
     /// One dot per goal unit, filled up to what's done. Decorative — the count
@@ -125,5 +148,78 @@ struct CategoryRow: View {
         }
         .frame(width: 60, height: 6)
         .accessibilityHidden(true)
+    }
+}
+
+/// The `−`/count/`+` strip a category row opens.
+///
+/// Takes its dependencies as parameters rather than reading them from the
+/// environment — the rule every popover in this app follows, whether that
+/// means the model itself (`AddCategoryForm`) or closures (
+/// `RemoveCategoryConfirmation`, and this): `@EnvironmentObject` does not
+/// reliably reach popover content, and it fails by *crashing* rather than by
+/// looking wrong.
+///
+/// The name is deliberately not repeated here — the row that was tapped is
+/// still on screen immediately beside this, and a second copy of the label in a
+/// strip this small reads as clutter.
+struct CategoryCountPopover: View {
+    let progress: CategoryProgress
+    let onAdd: () -> Void
+    let onSubtract: () -> Void
+
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // SoftIconButtonStyle, not a borderless style: it branches on
+            // `ControlState`, so `.disabled` at zero actually looks dead. A
+            // hand-rolled style here is how the dimming bug got in last time.
+            Button(action: onSubtract) {
+                Image(systemName: "minus")
+            }
+            .buttonStyle(SoftIconButtonStyle(width: 34, height: 30))
+            .disabled(progress.done == 0)
+            .help("Take one back from \(progress.name)")
+            // Not just "Remove one pomodoro": the row beside this popover is
+            // what makes the bare version unambiguous for a sighted user, and
+            // that reasoning doesn't survive VoiceOver moving focus into a
+            // separate popover window where the row is no longer what's read.
+            .accessibilityLabel("Remove one pomodoro from \(progress.name)")
+
+            Text(progress.countText)
+                .font(.system(.title3, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(progress.isMet ? palette.accent : palette.text)
+                // A minimum, not a fixed width: `done` can climb past `goal`
+                // (a category logged 100 times against a goal of 20 still
+                // reads "100/20"), and a fixed width would clip it. 48pt just
+                // keeps the strip from jumping in place between one and two
+                // digits at the common single-digit boundary.
+                .frame(minWidth: 48)
+                .accessibilityLabel(progress.accessibilityValue)
+
+            Button(action: onAdd) {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(SoftIconButtonStyle(width: 34, height: 30))
+            .help("Log one pomodoro to \(progress.name)")
+            .accessibilityLabel("Add one pomodoro to \(progress.name)")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        // `.themed(palette)`, applied by the caller (`CategoryRow`, since a
+        // popover is its own window), only swaps the SwiftUI environment's
+        // `colorScheme` — it does not repaint the NSPopover's own background
+        // material, which is what actually shows through the padding above.
+        // `RootView.swift`'s `.background { if palette.paintsBackground { … } }`
+        // is the established fix for exactly this: Classic's `paintsBackground`
+        // is false, so the system's own (light) material still shows there, but
+        // Synthwave's is true because its look cannot be carried by any system
+        // material. Without this, the popover stayed light-grey under Synthwave
+        // and the disabled `−` — drawn from `palette.cool`, further dimmed —
+        // disappeared into it.
+        .foregroundStyle(palette.text)
+        .background { if palette.paintsBackground { palette.background } }
     }
 }

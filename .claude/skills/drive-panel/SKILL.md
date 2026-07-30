@@ -51,7 +51,12 @@ Commands: `tree` (roles/titles/values/frames), `open`, `button <name>`,
 `openclick <name>`, `rows`, `drag <A> <B>` (slow, samples positions),
 `statusitem`, `measuretabs` (per-tab panel heights), `window`, `advance <row>`
 (click a category row, read the session-target pill before and after, in one
-process — proves the pill updates live rather than on reopen). Coordinates
+process — proves the pill updates live rather than on reopen), `counter <row>`
+(open its count popover and work its − and + in one process), `counterkeys
+<row>` (same popover, the short VoiceOver-and-Escape probe), `countershot
+<row> <path>` (screenshot the popover in place, from inside the process),
+`settingsshot <button> <path>` (open Settings, click `<button>`, and
+screenshot — for comparing a pre-existing popover against a new one). Coordinates
 are CG global, top-left origin. Temporary NSLog lines in the app + captured
 stderr give the event stream; remove them before committing.
 

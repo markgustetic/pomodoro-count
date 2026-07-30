@@ -53,6 +53,14 @@ struct CategoryProgress: Identifiable {
     /// that the row draws a bar in the same space.
     var showsDots: Bool { goal > 0 && goal <= 8 }
 
+    /// What a sighted user sees for the count: `done/goal` once there is a
+    /// goal, or a bare `done` for a goal-less category. Shared by the row's
+    /// trailing column and `CategoryCountPopover`, which the design requires
+    /// to show the same text — one rule instead of two copies that could
+    /// silently drift apart. `done` is deliberately not clamped to `goal`: it
+    /// can exceed it, and the text should keep growing ("100/20"), not clip.
+    var countText: String { goal > 0 ? "\(done)/\(goal)" : "\(done)" }
+
     /// What VoiceOver reads. A met goal and the session-target mark are both
     /// stated here rather than being left to the accent colour — the outline
     /// says it to the eye, this says it on the row itself.

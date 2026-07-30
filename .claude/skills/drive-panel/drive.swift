@@ -11,6 +11,10 @@ import ApplicationServices
 //   rows                 — print each category row's frame
 //   advance <row>        — read the session-target pill, click row <row> to meet
 //                          its goal, read the pill again, without reopening
+//   counter <row>        — open row <row>'s count popover and work its − and +
+//   counterkeys <row>    — same popover, short VoiceOver-and-Escape probe only
+//   countershot <row> <path> — open row <row>'s popover and screenshot it in place
+//   settingsshot <button> <path> — open Settings, click <button>, and screenshot
 
 let pid = pid_t(CommandLine.arguments[1])!
 let command = CommandLine.arguments[2]
@@ -295,6 +299,319 @@ case "advance":
     usleep(1_200_000)
     print("pill after:  \(pillValue())")
     print("row after:   '\((attr(row, kAXValueAttribute) as? String) ?? "")'")
+
+case "counter":
+    // Open the panel, tap a category row to raise its count popover, then work
+    // the popover's − and + in the same process.
+    //
+    // The claim under test is the one neither the unit suite nor `--preview`
+    // can reach: that a popover presents *at all* from inside the
+    // non-activating NSPanel — the panel dismisses when it loses key status,
+    // which is what rules alerts out — and that its buttons commit while it
+    // stays up. Re-queried before every click, because each tap rebuilds the
+    // popover's content and stales the previous element reference.
+    let rowName = CommandLine.arguments[3]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    let itemFrame = frame(item)
+    click(CGPoint(x: itemFrame.midX, y: itemFrame.midY))
+    usleep(1_500_000)
+
+    // The panel's right edge, read now while it is still the only AX window —
+    // once the popover opens there are two, and nothing at that point says
+    // which is which. `popoverCount()` below uses this instead of a coordinate
+    // from one particular display, which only ever worked on the display it
+    // was measured against and returned silently empty everywhere else.
+    let panelMaxX = (attr(app, kAXWindowsAttribute) as? [AXUIElement])?.first.map { frame($0).maxX } ?? 0
+
+    // A category's name also labels its Settings text field. `advance` picks the
+    // Focus row by requiring a progress string in the value; that is deliberately
+    // NOT the rule here, because whether the row still exposes a value is one of
+    // the things under test. Fall back to the widest match inside a scroll area.
+    func focusRow() -> AXUIElement? {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                str(el, kAXTitleAttribute) == rowName || str(el, kAXDescriptionAttribute) == rowName
+            }
+        }
+        return els.first { ((attr($0, kAXValueAttribute) as? String) ?? "").contains("pomodoro") }
+            ?? els.max { frame($0).width < frame($1).width }
+    }
+
+    func rowValue() -> String {
+        guard let row = focusRow() else { return "<row gone>" }
+        let role = str(row, kAXRoleAttribute)
+        let value = (attr(row, kAXValueAttribute) as? String) ?? ""
+        // The action names are the only honest test of an
+        // `accessibilityAdjustableAction`: it is meant to give VoiceOver a
+        // swipe-up/down on the row, which shows up here as AXIncrement and
+        // AXDecrement. Reading only role and value would let a silently
+        // unreachable action pass as working.
+        var names: CFArray?
+        AXUIElementCopyActionNames(row, &names)
+        let actions = (names as? [String]) ?? []
+        return "role=\(role) value='\(value)' actions=\(actions)"
+    }
+
+    func stepper(_ label: String) -> (enabled: Bool, frame: CGRect)? {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                // `hasPrefix`, not `==`: the accessibility labels now carry the
+                // category name too ("Remove one pomodoro from Alpha"), and this
+                // helper is called with just the fixed lead-in.
+                str(el, kAXRoleAttribute) == kAXButtonRole as String
+                    && (str(el, kAXTitleAttribute).hasPrefix(label) || str(el, kAXDescriptionAttribute).hasPrefix(label))
+            }
+        }
+        guard let el = els.first else { return nil }
+        return ((attr(el, kAXEnabledAttribute) as? NSNumber)?.boolValue ?? true, frame(el))
+    }
+
+    func describe(_ s: (enabled: Bool, frame: CGRect)?) -> String {
+        guard let s else { return "ABSENT" }
+        return "enabled=\(s.enabled) at (\(Int(s.frame.midX)),\(Int(s.frame.midY)))"
+    }
+
+    func report(_ stage: String) {
+        print("[\(stage)]")
+        print("    row:   \(rowValue())")
+        print("    minus: \(describe(stepper("Remove one pomodoro")))")
+        print("    plus:  \(describe(stepper("Add one pomodoro")))")
+    }
+
+    func tap(_ label: String, _ stage: String) {
+        guard let s = stepper(label), s.enabled else {
+            print("[\(stage)] SKIPPED — '\(label)' \(stepper(label) == nil ? "absent" : "disabled")")
+            return
+        }
+        click(CGPoint(x: s.frame.midX, y: s.frame.midY))
+        usleep(900_000)
+        report(stage)
+    }
+
+    report("panel open, before row tap")
+    guard let row = focusRow() else { print("no row '\(rowName)'"); exit(1) }
+    let rf = frame(row)
+    print("row frame: (\(Int(rf.origin.x)),\(Int(rf.origin.y))) \(Int(rf.width))x\(Int(rf.height))")
+    click(CGPoint(x: rf.midX, y: rf.midY))
+    usleep(1_400_000)
+    report("after row tap")
+
+    // A popover is its own window, so it should appear here as a second entry.
+    let wins = (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+    print("AX windows now: \(wins.count)")
+    for w in wins {
+        print("    role=\(str(w, kAXRoleAttribute)) subrole=\(str(w, kAXSubroleAttribute)) frame=\(frame(w))")
+    }
+
+    // The popover's count carries `progress.accessibilityValue` as its label,
+    // so this reads the number the popover is actually promising, not pixels.
+    func popoverCount() -> String {
+        var texts: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &texts) { el in
+                str(el, kAXRoleAttribute) == kAXStaticTextRole as String
+                    && str(el, kAXDescriptionAttribute).contains("pomodoro")
+                    && frame(el).midX > panelMaxX   // inside the popover, not the panel
+            }
+        }
+        return texts.map { str($0, kAXDescriptionAttribute) }.joined(separator: " | ")
+    }
+
+    print("popover count readout: '\(popoverCount())'")
+
+    tap("Add one pomodoro", "after + (1st)")
+    print("    count readout: '\(popoverCount())'")
+    tap("Add one pomodoro", "after + (2nd)")
+    print("    count readout: '\(popoverCount())'")
+    tap("Remove one pomodoro", "after - (1st)")
+    print("    count readout: '\(popoverCount())'")
+    tap("Remove one pomodoro", "after - (2nd)")
+    print("    count readout: '\(popoverCount())'")
+    tap("Remove one pomodoro", "after - (3rd, expect count 0)")
+    report("after three - taps — minus should be disabled at zero")
+
+    // The VoiceOver path, exercised as VoiceOver would: perform the AX actions
+    // rather than clicking. Proves the adjustable action is wired to something,
+    // not merely advertised.
+    if let row = focusRow() {
+        AXUIElementPerformAction(row, "AXIncrement" as CFString)
+        usleep(900_000)
+        print("[after AXIncrement] count readout: '\(popoverCount())' \(rowValue())")
+        AXUIElementPerformAction(row, "AXDecrement" as CFString)
+        usleep(900_000)
+        print("[after AXDecrement] count readout: '\(popoverCount())' \(rowValue())")
+    }
+
+    // Escape must close the popover and leave the panel standing.
+    if let esc = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true) {
+        esc.post(tap: .cghidEventTap)
+    }
+    if let escUp = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: false) {
+        escUp.post(tap: .cghidEventTap)
+    }
+    usleep(1_000_000)
+    report("after Escape — steppers should be ABSENT, row still present")
+
+case "settingsshot":
+    // Open the panel, go to Settings, click a named button, screenshot. Exists to
+    // compare a PRE-EXISTING popover's appearance against a new one under the
+    // same theme — "the new popover looks wrong" and "every popover in this app
+    // looks like that" call for different fixes, and only a side-by-side tells
+    // them apart.
+    let btnName = CommandLine.arguments[3]
+    let outFile = CommandLine.arguments[4]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    click(CGPoint(x: frame(item).midX, y: frame(item).midY))
+    usleep(1_500_000)
+
+    func namedButton(_ name: String) -> AXUIElement? {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                str(el, kAXRoleAttribute) == kAXButtonRole as String
+                    && (str(el, kAXTitleAttribute) == name || str(el, kAXDescriptionAttribute) == name)
+            }
+        }
+        return els.first
+    }
+
+    guard let settingsBtn = namedButton("Settings") else { print("no Settings button"); exit(1) }
+    click(CGPoint(x: frame(settingsBtn).midX, y: frame(settingsBtn).midY))
+    usleep(1_400_000)
+    guard let target = namedButton(btnName) else { print("no button '\(btnName)'"); exit(1) }
+    click(CGPoint(x: frame(target).midX, y: frame(target).midY))
+    usleep(1_500_000)
+
+    var shotBox = CGRect.null
+    for w in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] { shotBox = shotBox.union(frame(w)) }
+    shotBox = shotBox.insetBy(dx: -40, dy: -40)
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+    p.arguments = ["-x", "-R\(Int(shotBox.minX)),\(Int(shotBox.minY)),\(Int(shotBox.width)),\(Int(shotBox.height))", outFile]
+    try? p.run()
+    p.waitUntilExit()
+    print("screencapture exit \(p.terminationStatus) -> \(outFile)")
+
+case "countershot":
+    // Open the panel, raise a row's count popover, and screenshot it from
+    // INSIDE this process. A popover is its own window and the panel dismisses
+    // when it loses key status, so a separate `screencapture` invocation would
+    // photograph an already-closed popover. This is the only way to see the
+    // thing `--preview` structurally cannot render.
+    let rowName = CommandLine.arguments[3]
+    let outPath = CommandLine.arguments[4]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    click(CGPoint(x: frame(item).midX, y: frame(item).midY))
+    usleep(1_500_000)
+
+    var rowEls: [AXUIElement] = []
+    for root in roots() {
+        findAll(root, into: &rowEls) { el in
+            str(el, kAXTitleAttribute) == rowName || str(el, kAXDescriptionAttribute) == rowName
+        }
+    }
+    guard let shotRow = rowEls.max(by: { frame($0).width < frame($1).width })
+    else { print("no row '\(rowName)'"); exit(1) }
+    click(CGPoint(x: frame(shotRow).midX, y: frame(shotRow).midY))
+    usleep(1_400_000)
+
+    // Union of the panel window and the popover's buttons, so the capture holds
+    // both and the popover's placement relative to the row is visible.
+    var box = CGRect.null
+    for w in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
+        box = box.union(frame(w))
+    }
+    var stepEls: [AXUIElement] = []
+    for root in roots() {
+        findAll(root, into: &stepEls) { el in
+            // `hasPrefix`, not exact match — see the same note in `stepper` in
+            // the `counter` case: the label now carries the category name too.
+            let combined = str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute)
+            return str(el, kAXRoleAttribute) == kAXButtonRole as String
+                && ["Remove one pomodoro", "Add one pomodoro"].contains { combined.hasPrefix($0) }
+        }
+    }
+    guard !stepEls.isEmpty else { print("popover never opened — nothing to shoot"); exit(1) }
+    for el in stepEls { box = box.union(frame(el)) }
+    box = box.insetBy(dx: -24, dy: -24)
+    print("capturing \(Int(box.width))x\(Int(box.height)) at (\(Int(box.minX)),\(Int(box.minY)))")
+
+    let shot = Process()
+    shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+    shot.arguments = ["-x", "-R\(Int(box.minX)),\(Int(box.minY)),\(Int(box.width)),\(Int(box.height))", outPath]
+    try? shot.run()
+    shot.waitUntilExit()
+    print("screencapture exit \(shot.terminationStatus) -> \(outPath)")
+
+case "counterkeys":
+    // The VoiceOver path and Escape dismissal, in a DELIBERATELY SHORT sequence.
+    // `counter`'s full click run takes ~12s of posted events, and the panel has
+    // been observed dismissing on its own before the end of it — long sequences
+    // cannot distinguish "Escape closed the popover" from "the panel had already
+    // gone". So this does the minimum: open, tap the row, and probe.
+    let rowName = CommandLine.arguments[3]
+    guard let extras = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item = children(extras as! AXUIElement).first else { print("no status item"); exit(1) }
+    click(CGPoint(x: frame(item).midX, y: frame(item).midY))
+    usleep(1_500_000)
+
+    func row2() -> AXUIElement? {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                str(el, kAXTitleAttribute) == rowName || str(el, kAXDescriptionAttribute) == rowName
+            }
+        }
+        return els.max { frame($0).width < frame($1).width }
+    }
+
+    func steppersPresent() -> String {
+        var els: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &els) { el in
+                // `hasPrefix`, not exact match — see the same note in `stepper`
+                // in the `counter` case: the label now carries the category name.
+                let combined = str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute)
+                return str(el, kAXRoleAttribute) == kAXButtonRole as String
+                    && ["Remove one pomodoro", "Add one pomodoro"].contains { combined.hasPrefix($0) }
+            }
+        }
+        return els.isEmpty ? "ABSENT" : "PRESENT (\(els.count))"
+    }
+
+    guard let r = row2() else { print("no row '\(rowName)'"); exit(1) }
+    print("steppers before row tap: \(steppersPresent())")
+
+    // AXIncrement with the popover still CLOSED — the adjustable action is on
+    // the row itself, and the point of it is that VoiceOver never needs the
+    // popover at all.
+    AXUIElementPerformAction(r, "AXIncrement" as CFString)
+    usleep(1_000_000)
+    print("after AXIncrement (popover never opened): steppers \(steppersPresent())")
+    AXUIElementPerformAction(r, "AXIncrement" as CFString)
+    usleep(1_000_000)
+    AXUIElementPerformAction(r, "AXDecrement" as CFString)
+    usleep(1_000_000)
+    print("performed +2 then -1 via AX actions; check the store for a net +1")
+
+    click(CGPoint(x: frame(r).midX, y: frame(r).midY))
+    usleep(1_400_000)
+    print("steppers after row tap: \(steppersPresent())")
+
+    if let esc = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true) {
+        esc.post(tap: .cghidEventTap)
+    }
+    if let escUp = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: false) {
+        escUp.post(tap: .cghidEventTap)
+    }
+    usleep(1_200_000)
+    print("steppers after Escape: \(steppersPresent())")
+    print("panel still up? row \(row2() == nil ? "GONE — panel dismissed too" : "still present")")
 
 case "window":
     // The app's window frames, from AX and from the window server. Compare

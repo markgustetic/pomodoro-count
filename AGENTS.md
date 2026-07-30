@@ -101,6 +101,9 @@ that one fact:
   the first on its own: it is set by `pickTarget(_:)` only when the user aims at
   a category that is *already met*, which is the one reading of that pick, and
   it is what makes a deliberate overshoot last longer than one pomodoro.
+  Record-*removing* paths (`undoLast`, `unlogToday`) deliberately do not
+  realign: the advance is forward-only, and a correction must not move the
+  target out from under a Start already pressed.
 - `Phase` has **four** cases, and `.breakReady` is a state of its own, not a
   flavour of idle: a finished session's break is armed at its configured length
   waiting to be started or skipped. Anything that switches on phase must handle
@@ -166,8 +169,9 @@ strands every existing install permanently. One-time Apple-side setup is in
   commented decision without new evidence; don't strip the comments.
 - **Tested logic is extracted from SwiftUI.** `Reorder.destination`,
   `HeatmapLayout.cells`, `PanelMetrics.tabHeightCap(visibleHeight:)`,
-  `CategoryAdvance.next(after:in:pinned:)` and `StatusIcon.glyph(phase:running:)` are
-  pure and unit-tested; views are thin over them. Follow that shape: new
+  `CategoryAdvance.next(after:in:pinned:)`, `CountAdjust.newestTodayIndex` and
+  `StatusIcon.glyph(phase:running:)` are pure and unit-tested; views are thin
+  over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`
   (swift-testing, not XCTest). The glyph is the clearest case for why: it was
   lifted out of the drawing routine so that a phase arriving without its own

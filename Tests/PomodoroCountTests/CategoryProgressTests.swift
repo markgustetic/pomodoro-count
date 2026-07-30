@@ -92,6 +92,29 @@ import Foundation
         #expect(work.isMet)
     }
 
+    // MARK: countText — shared between the row's trailing column and the popover
+
+    @Test func countTextShowsGoalAsAFraction() {
+        let progress = CategoryProgress(id: "work", name: "Work", done: 2, goal: 4,
+                                         isFallback: false, isSessionTarget: false)
+        #expect(progress.countText == "2/4")
+    }
+
+    @Test func countTextIsBareForAGoallessCategory() {
+        let progress = CategoryProgress(id: "general", name: "General", done: 3, goal: 0,
+                                         isFallback: true, isSessionTarget: false)
+        #expect(progress.countText == "3")
+    }
+
+    /// `done` can run past `goal` (overshoot is allowed, not clamped — see
+    /// `overshootingKeepsCounting` above), and the text must keep growing
+    /// rather than clip at the goal.
+    @Test func countTextKeepsGrowingPastTheGoal() {
+        let progress = CategoryProgress(id: "work", name: "Work", done: 6, goal: 4,
+                                         isFallback: false, isSessionTarget: false)
+        #expect(progress.countText == "6/4")
+    }
+
     @Test func aGoalOfZeroIsNeverMetAndDrawsNoDots() {
         let m = configured()
         let bucket = m.todayProgress.first { $0.isFallback }!

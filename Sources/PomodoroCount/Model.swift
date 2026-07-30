@@ -471,4 +471,29 @@ final class AppModel: ObservableObject {
         play(.countDown)
     }
 
+    /// Removes today's most recent record in one category — the subtract half of
+    /// the category row's counter. A category with nothing logged today is a
+    /// no-op, so a count can never go negative; the popover disables its `−`
+    /// there too, but the model must not depend on a view for that.
+    ///
+    /// Deliberately does **not** call `realignTarget()`, unlike every appending
+    /// path. The advance is forward-only on purpose: re-aiming because a count
+    /// dropped would move the target out from under a Start the user has already
+    /// pressed, and it would undo a hand-picked pin the moment a mis-tap was
+    /// corrected. `undoLast()` has left the target alone for the same reason
+    /// since it was written. `unlogTodayLeavesTheSessionTargetAlone` fails if
+    /// this gets "fixed" for symmetry.
+    ///
+    /// No `suspendSaves()` bracket either: that exists for a *burst* of related
+    /// changes, and this is one mutation of `records`, whose `didSet` should
+    /// write exactly once. `logExternal` brackets because it pairs an append
+    /// with a target advance; a removal has no second half to pair with.
+    func unlogToday(from target: CategoryTarget) {
+        guard let index = CountAdjust.newestTodayIndex(in: records,
+                                                      category: resolve(target))
+        else { return }
+        records.remove(at: index)
+        play(.countDown)
+    }
+
 }
