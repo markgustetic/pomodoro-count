@@ -194,13 +194,20 @@ strands every existing install permanently. One-time Apple-side setup is in
   `HeatmapLayout.cells`, `HeatmapLayout.metrics`, `HeatmapLayout.hitTest`,
   `HeatmapLayout.center(of:)`, `PanelMetrics.tabHeightCap(visibleHeight:)`,
   `CategoryAdvance.next(after:in:pinned:)`, `CountAdjust.newestTodayIndex`,
-  `StatusIcon.glyph(phase:running:)`, `HistoryReadout.tooltip` and
-  `TooltipPlacement.origin` are pure and unit-tested; views are thin over
-  them. Follow that shape: new behavior gets a failing test first, in
-  `Tests/PomodoroCountTests` (swift-testing, not XCTest). The glyph is the
-  clearest case for why: it was lifted out of the drawing routine so that a
-  phase arriving without its own glyph rule fails a test, instead of waiting
-  for someone to notice the wrong icon in the menu bar.
+  `StatusIcon.glyph(phase:running:)`, `HistoryReadout.tooltip`,
+  `TooltipPlacement.origin` and `TargetPill.label(prefix:name:)` are pure and
+  unit-tested; views are thin over them. Follow that shape: new behavior gets a
+  failing test first, in `Tests/PomodoroCountTests` (swift-testing, not
+  XCTest). The glyph is the clearest case for why: it was lifted out of the
+  drawing routine so that a phase arriving without its own glyph rule fails a
+  test, instead of waiting for someone to notice the wrong icon in the menu
+  bar. `TargetPill` is the case for *how far* out: the session target pill is
+  drawn through `NSPopUpButton`, which ignores SwiftUI frames on its content,
+  so a `.frame(maxWidth:)` sat on it for months doing nothing while a long
+  category name drew the pill 336pt wide inside a 244pt card. Text that a
+  control will not clip has to be cut before it gets there — and the constant
+  it is cut against is measured off the real panel on every test run, because
+  a hand-built stand-in for that control measured five points narrower.
 - Commit subjects are short imperative sentences that tell the story
   ("Measure the drag in the list's own coordinate space"), bodies explain the
   why; CHANGELOG.md (Keep a Changelog) gets an entry for user-visible changes,

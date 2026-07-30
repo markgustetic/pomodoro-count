@@ -71,9 +71,25 @@ final class AppModel: ObservableObject {
     /// everything reads `towards …`. The flag stays recorded, so turning the
     /// rule back on restores whatever the pill was already promising.
     var sessionTargetDescription: String {
-        settings.targetPinned && settings.autoAdvanceTarget
-            ? "pinned to \(sessionTargetLabel)"
-            : "towards \(sessionTargetLabel)"
+        sessionTargetPromise + sessionTargetLabel
+    }
+
+    /// Which of the two promises is in force, trailing space included so it
+    /// composes with a name.
+    private var sessionTargetPromise: String {
+        settings.targetPinned && settings.autoAdvanceTarget ? "pinned to " : "towards "
+    }
+
+    /// The same promise, shortened to what the pill can actually draw.
+    ///
+    /// Separate from `sessionTargetDescription` rather than replacing it: this
+    /// one is for the eye, that one is for VoiceOver, and a screen reader has no
+    /// reason to hear a name cut short by a width it cannot perceive. So the
+    /// visible label truncates and the spoken value stays whole — see
+    /// `TargetPill` for why the shortening has to happen here, before the string
+    /// reaches the control.
+    var sessionTargetPillText: String {
+        TargetPill.label(prefix: sessionTargetPromise, name: sessionTargetLabel)
     }
 
     /// Drives the timer to completion immediately. Used by tests, and by

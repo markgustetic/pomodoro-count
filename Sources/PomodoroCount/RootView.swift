@@ -237,42 +237,26 @@ struct RootView: View {
                     // to", which is why those read as two different promises
                     // rather than as an icon the control would refuse to draw.
                     HStack(spacing: 4) {
-                        // KNOWN BUG, measured: a long category name overflows
-                        // this pill, and nothing here can stop it. There used to
-                        // be a `.frame(maxWidth: 180)` on this Text justified as
-                        // the cap that made long names truncate. It never did
-                        // anything. `.menuStyle(.borderlessButton)` draws the
-                        // label through NSPopUpButton, which ignores SwiftUI
-                        // frames on its content the same way it drops Shapes and
-                        // overrides foregroundStyle (see the note above) — so
-                        // `.lineLimit`/`.truncationMode` below never get a width
-                        // to truncate against either.
+                        // Already shortened, and it has to be: nothing applied
+                        // here can cap this label's width. NSPopUpButton ignores
+                        // SwiftUI frames on its content the same way it drops
+                        // Shapes and overrides foregroundStyle (above), so
+                        // `.lineLimit`/`.truncationMode` never get a width to
+                        // truncate against — a `.frame(maxWidth: 180)` sat here
+                        // for months doing nothing while a long category name
+                        // drew this pill 336pt wide inside a 244pt card, taking
+                        // the card and the Start button past the panel's edge.
+                        // `TargetPill` measures the string and cuts it first.
+                        // The two modifiers below are inert for the same reason
+                        // and stay anyway: they are what would do this job if
+                        // this label ever stopped going through NSPopUpButton,
+                        // and a reader reaching for them should find them here
+                        // with the reason they don't work attached.
                         //
-                        // Pixel-measured off `--preview --store` (which now
-                        // renders a pinned target; the flag used to ignore
-                        // `--store`, which is why the old note here recorded
-                        // this as unverifiable). Rendered pill widths, one
-                        // category pinned:
-                        //
-                        //     "pinned to Bravo"                          85.5pt
-                        //     "pinned to Machine learning coursework"   199.5pt
-                        //     …+ " and thesis revision block"           310.5pt
-                        //
-                        // No truncation at any length, and a hard
-                        // `.frame(width: 180)` measures 310.5pt too. Past ~300pt
-                        // the timer card is drawn wider than the panel's fixed
-                        // 300pt and the card and Start button clip at both edges.
-                        //
-                        // The earlier Accessibility-API check that read this as
-                        // "the cap is holding" was measuring the wrong thing: the
-                        // panel window is hard-framed to 300pt below, so its
-                        // width cannot report content overflowing it.
-                        //
-                        // A fix has to shorten the string before it reaches the
-                        // label — a pure, tested truncation on
-                        // `sessionTargetDescription` — since no modifier applied
-                        // inside this label survives NSPopUpButton.
-                        Text(model.sessionTargetDescription)
+                        // `sessionTargetPillText`, not `sessionTargetDescription`
+                        // — the untruncated one is still what VoiceOver reads,
+                        // on the Menu itself below.
+                        Text(model.sessionTargetPillText)
                             .font(.caption)
                             .lineLimit(1)
                             .truncationMode(.tail)
