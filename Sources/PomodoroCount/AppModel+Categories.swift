@@ -403,6 +403,33 @@ extension AppModel {
         settings = updated
     }
 
+    /// What a click on a category row does.
+    ///
+    /// The row list is the target picker now, so one gesture has to carry both
+    /// halves of what the dropdown offered: its category entries, and the
+    /// *Follow the order* entry that handed control back to the ranking. A
+    /// click on a different row aims; a second click on the row already aimed
+    /// at releases a pin, if there is one to release.
+    ///
+    /// The decision itself is in `TargetPick` rather than here because two of
+    /// its cases do nothing, and "does nothing" is the part of a rule that
+    /// rots silently.
+    ///
+    /// `resolve` on both sides, not `==` on the targets: it returns the
+    /// canonical stored spelling, so a row's `.named("work")` and a stored
+    /// `.named("Work")` compare equal, and `.fallback` resolves to nil on both
+    /// sides.
+    func selectTarget(_ target: CategoryTarget) {
+        let isAlreadyTarget = resolve(target) == resolve(sessionTarget)
+        switch TargetPick.action(isAlreadyTarget: isAlreadyTarget,
+                                 pinned: settings.targetPinned,
+                                 autoAdvance: settings.autoAdvanceTarget) {
+        case .aim: pickTarget(target)
+        case .release: followTheOrder()
+        case .ignore: break
+        }
+    }
+
     /// Hands control back to the ranking, from the target menu's first entry.
     ///
     /// Deliberately not routed through `realignTarget()`, whose advance guards
