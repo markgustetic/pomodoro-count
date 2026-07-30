@@ -368,6 +368,16 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The body of the banner a finished focus session posts. Extracted and
+    /// pure because `notify` returns early unless the app is bundled, so this
+    /// wording posts nothing under test — and with auto-start off it is the
+    /// only news a user with the panel closed gets.
+    static func completionBody(count: Int, breakArmed: Bool) -> String {
+        breakArmed
+            ? "That's \(count) today — break's ready when you are."
+            : "Nice — that's \(count) today."
+    }
+
     private func complete() {
         stopTimer()
         isRunning = false
@@ -386,7 +396,9 @@ final class AppModel: ObservableObject {
             advanceTargetIfMet()
             resumeSaves()
             play(.sessionDone)
-            notify("Pomodoro complete", "Nice — that's \(todayCount) today.")
+            notify("Pomodoro complete",
+                   Self.completionBody(count: todayCount,
+                                       breakArmed: !settings.autoStartBreak))
             if settings.autoStartBreak {
                 startBreak()
             } else {

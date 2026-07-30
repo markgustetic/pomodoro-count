@@ -227,4 +227,19 @@ import Foundation
         #expect(m.resetHelp.contains("Skip the break"))
         #expect(!m.resetHelp.contains("nothing is logged"))
     }
+
+    // MARK: The banner
+
+    /// With auto-start off and the panel closed, this banner is the only thing
+    /// that tells you a break is waiting.
+    @Test func theBannerNamesTheWaitingBreak() {
+        #expect(AppModel.completionBody(count: 4, breakArmed: true)
+                == "That's 4 today — break's ready when you are.")
+    }
+
+    /// The auto-start path keeps the wording it has always had.
+    @Test func theBannerIsUnchangedWhenTheBreakStartsItself() {
+        #expect(AppModel.completionBody(count: 4, breakArmed: false)
+                == "Nice — that's 4 today.")
+    }
 }

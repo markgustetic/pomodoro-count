@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A finished focus session now offers the break** — with "Auto-start break"
+  off, a completed session no longer drops back to idle. The Focus tab holds the
+  break at its configured length (the long one when you have earned it), the big
+  button becomes "Start break", and the menu bar shows a cup beside your count.
+  The stop button skips it, and skipping a long break keeps it owed.
+
 ## [1.2.0] - 2026-07-29
 
 ### Added
