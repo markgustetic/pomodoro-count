@@ -181,8 +181,20 @@ extension AppModel {
 
     /// Archives rather than deletes: the category leaves the list but its
     /// records keep their name, so History, totals and CSV are unchanged.
+    ///
+    /// A pin does not survive its own category leaving. The `sessionTarget`
+    /// getter resolves a name no longer in the list to `.fallback`, so a pin
+    /// left standing would silently pin the bucket — a category the user never
+    /// asked to overshoot in.
     func removeCategory(id: UUID) {
-        settings.categories.removeAll { $0.id == id }
+        let leaving = settings.categories.first { $0.id == id }
+            .map { Category.normalized($0.name) }
+        var updated = settings
+        updated.categories.removeAll { $0.id == id }
+        if let leaving, updated.sessionTargetName.map(Category.normalized) == leaving {
+            updated.targetPinned = false
+        }
+        settings = updated
     }
 
     /// Moves one category to a destination index.
@@ -356,5 +368,47 @@ extension AppModel {
             updated.aim(at: top)
         }
         settings = updated
+    }
+
+    /// Aims the target where the user asked, and records which of the two kinds
+    /// of pick it was.
+    ///
+    /// Picking a category that is **already met** can only mean "let me
+    /// overshoot here", so it pins and the advance stops firing until the day
+    /// turns over or the user hands control back. Picking one with a goal
+    /// **left** just says "work here next" and needs no pin: the advance only
+    /// fires on a met target, so the pick holds until the goal is reached and
+    /// then rejoins the ranking on its own.
+    ///
+    /// Pinning *every* hand pick was the obvious design and is the wrong one. It
+    /// gives the same overshoot, but one pick in the morning then leaves the
+    /// ranking switched off for the rest of the day with only the user able to
+    /// switch it back on — which is the papercut the advance exists to remove,
+    /// reintroduced behind a single click.
+    ///
+    /// A goal-0 category needs no special case: `isMet` is false for it forever,
+    /// so it never pins — and the advance can never fire on it either, so it
+    /// holds regardless.
+    ///
+    /// The stamp matters as much as the pin. Without it a pick made this
+    /// afternoon would still carry this morning's date only by luck, and a pick
+    /// made on a store last touched yesterday would be wiped by the very next
+    /// realign.
+    func pickTarget(_ target: CategoryTarget) {
+        var updated = settings
+        updated.aim(at: target)
+        updated.targetPinned = CategoryAdvance.isMet(target, in: todayProgress)
+        updated.targetAimedOn = Date()
+        settings = updated
+    }
+
+    /// Hands control back to the ranking, from the target menu's first entry.
+    ///
+    /// Deliberately not routed through `realignTarget()`, whose advance guards
+    /// on the *current* target being met: handing control back has to work from
+    /// an unfinished target too, and from a pinned one, which is precisely the
+    /// case that guard would refuse.
+    func followTheOrder() {
+        restartFromTopOfRanking()
     }
 }

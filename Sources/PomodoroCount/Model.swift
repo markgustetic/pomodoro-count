@@ -57,6 +57,25 @@ final class AppModel: ObservableObject {
         resolve(sessionTarget) ?? settings.fallbackName
     }
 
+    /// What the target pill says, and what VoiceOver reads.
+    ///
+    /// Two different promises rather than a mode indicator: `towards …` means
+    /// the ranking is driving and will move on when that category is done,
+    /// `pinned to …` means the user asked to keep going past a goal already met.
+    /// Wording them differently is the whole visible difference between the two
+    /// kinds of hand pick, so it carries real information rather than decorating
+    /// a state.
+    ///
+    /// With `autoAdvanceTarget` off there is no automatic behaviour for a pin to
+    /// hold out against, so the distinction stops being worth showing and
+    /// everything reads `towards …`. The flag stays recorded, so turning the
+    /// rule back on restores whatever the pill was already promising.
+    var sessionTargetDescription: String {
+        settings.targetPinned && settings.autoAdvanceTarget
+            ? "pinned to \(sessionTargetLabel)"
+            : "towards \(sessionTargetLabel)"
+    }
+
     /// Drives the timer to completion immediately. Used by tests, and by
     /// `PreviewRenderer` under `--preview --armed-break` — both need a
     /// finished session without sitting out the real 50 minutes.

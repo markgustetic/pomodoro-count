@@ -281,4 +281,109 @@ import Foundation
         m.logExternal(to: .named("Music"))
         #expect(AppModel(storeURL: url).settings.sessionTargetName == "Work")
     }
+
+    // MARK: pickTarget — telling the two kinds of hand pick apart
+
+    /// The rule, both halves. Picking a finished category can only mean "let me
+    /// overshoot here" and pins; picking one with a goal left just says "work
+    /// here next" and needs no pin, because the advance only fires on a met
+    /// target and will hand back to the ranking once the goal is reached.
+    @Test func pickingAFinishedCategoryPinsAndPickingAnUnfinishedOneDoesNot() {
+        let m = configured()
+        m.logExternal(to: .named("Music"))       // Music (goal 1) is now met
+        m.pickTarget(.named("Music"))
+        #expect(m.settings.targetPinned)
+        m.pickTarget(.named("Work"))             // goal 4, nothing logged
+        #expect(!m.settings.targetPinned)
+    }
+
+    /// The unpinned half, end to end: a hand pick holds while it is unfinished,
+    /// then rejoins the ranking on its own — at the *top*, not at the row below.
+    @Test func anUnfinishedHandPickHandsBackToTheTopWhenItIsMet() {
+        let m = configured()
+        m.settings.categories.append(Category(name: "Admin", dailyGoal: 1))
+        m.pickTarget(.named("Admin"))            // ranks last, goal 1
+        #expect(m.sessionTarget == .named("Admin"))
+        m.logExternal(to: .named("Admin"))       // meets it
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
+    /// A hand pick stamps today, or the next realign would read the target as
+    /// yesterday's and wipe a pick made moments ago.
+    @Test func aHandPickStampsToday() {
+        let m = configured()
+        m.settings.targetAimedOn = Date(timeIntervalSinceNow: -60 * 60 * 48)
+        m.pickTarget(.named("Work"))
+        m.realignTarget()
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
+    /// A goal of 0 can never be met, so picking one never pins — and the advance
+    /// can never fire on it either, so it holds anyway. Both halves of "no
+    /// special case needed".
+    @Test func pickingAGoalLessCategoryNeitherPinsNorMoves() {
+        let m = configured()
+        m.settings.categories.append(Category(name: "Reading", dailyGoal: 0))
+        m.pickTarget(.named("Reading"))
+        #expect(!m.settings.targetPinned)
+        m.logExternal(to: .named("Reading"))
+        #expect(m.sessionTarget == .named("Reading"))
+    }
+
+    /// Handing control back has to work from an unfinished target too, which is
+    /// why it does not route through the advance and its met-target guard.
+    @Test func followingTheOrderClearsThePinAndAimsAtTheTop() {
+        let m = configured()
+        m.logExternal(to: .named("Music"))
+        m.pickTarget(.named("Music"))            // pinned, and Music is met
+        m.followTheOrder()
+        #expect(!m.settings.targetPinned)
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
+    /// The getter resolves an archived name to `.fallback`, so a pin that
+    /// outlived its category would silently pin the bucket instead.
+    @Test func archivingThePinnedCategoryClearsThePin() {
+        let m = configured()
+        let music = m.settings.categories[1]
+        m.logExternal(to: .named("Music"))
+        m.pickTarget(.named("Music"))
+        #expect(m.settings.targetPinned)
+        m.removeCategory(id: music.id)
+        #expect(!m.settings.targetPinned)
+    }
+
+    /// Archiving some *other* category is not the pinned one's business.
+    @Test func archivingAnotherCategoryLeavesThePinAlone() {
+        let m = configured()
+        let work = m.settings.categories[0]
+        m.logExternal(to: .named("Music"))
+        m.pickTarget(.named("Music"))
+        m.removeCategory(id: work.id)
+        #expect(m.settings.targetPinned)
+    }
+
+    /// Two different promises, not a mode indicator: one says the ranking will
+    /// move on when this is done, the other says it won't.
+    @Test func theDescriptionSaysWhichPromiseIsInForce() {
+        let m = configured()
+        #expect(m.sessionTargetDescription == "towards \(m.settings.fallbackName)")
+        m.pickTarget(.named("Work"))
+        #expect(m.sessionTargetDescription == "towards Work")
+        m.logExternal(to: .named("Music"))
+        m.pickTarget(.named("Music"))
+        #expect(m.sessionTargetDescription == "pinned to Music")
+    }
+
+    /// With the rule off there is no automatic behaviour for a pin to hold out
+    /// against, so the distinction stops being worth showing. The flag is still
+    /// recorded, so turning the rule back on restores what the pill promised.
+    @Test func theDescriptionDropsThePinWhileTheRuleIsOff() {
+        let m = configured()
+        m.logExternal(to: .named("Music"))
+        m.pickTarget(.named("Music"))
+        m.settings.autoAdvanceTarget = false
+        #expect(m.sessionTargetDescription == "towards Music")
+        #expect(m.settings.targetPinned)
+    }
 }
