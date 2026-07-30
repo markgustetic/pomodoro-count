@@ -36,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   last" and hoping nothing has landed on another category since. VoiceOver keeps
   its one-swipe adjustment on the row itself.
 
+### Fixed
+
+- **VoiceOver now reads a category row properly.** The rows announced their name
+  but never their progress, were not announced as buttons, and could not be
+  activated at all — so the counter a row opens was unreachable without a mouse.
+  A row now reads as "Alpha, 2 of 5 pomodoros, goal met", takes a press, and can
+  be focused from the keyboard. Nothing about how the rows look has changed.
+
 ## [1.3.0] - 2026-07-30
 
 ### Changed

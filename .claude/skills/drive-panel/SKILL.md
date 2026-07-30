@@ -36,6 +36,27 @@ status item title) plus posted CGEvents for input. The bundled
 6. **Check the window before trusting element frames.** AX positions elements
    that are laid out below a collapsed window (`window` command compares AX vs
    CGWindowList). Events aimed there land in whatever app is behind.
+7. **An empty `AXValue` is not proof of a missing value — dump the attribute
+   list first.** Which attribute a SwiftUI modifier lands in depends on the
+   element's *role*, and `tree` prints only `AXValue`:
+   - `AXStaticText` — a `Text`'s `.accessibilityLabel` lands in **`AXValue`**
+     (a static text's "value" *is* its string), leaving `AXDescription` empty.
+   - `AXButton` / `AXMenuButton` — `.accessibilityLabel` → `AXDescription`,
+     `.accessibilityValue` → `AXValue`.
+   - `AXUnknown` (a generic element) — has **no `AXValue` attribute at all**;
+     `.accessibilityValue` is demoted to **`AXValueDescription`**.
+
+   `AXUIElementCopyAttributeNames` settles it in one call. Reading only
+   `AXValue` once produced a bug report against working code — and hid the real
+   defect underneath it (rule 8).
+8. **`.accessibilityElement(children: .ignore)` goes *inside* a `Button`'s
+   label, never on the `Button`.** It builds a fresh plain element and discards
+   the one it is applied to, so on a Button it throws the button away: the role
+   drops to `AXUnknown`, `AXPress` and focusability vanish, and the value is
+   demoted per rule 7 — one cause, three symptoms, none of them visible on
+   screen or to the unit suite. `CategoryRow` carries the fix and the full
+   reasoning; `CategoryRowAccessibilityUITests` is the regression gate, and
+   XCUITest is the only suite here that can see any of it.
 
 ## Recipe
 
