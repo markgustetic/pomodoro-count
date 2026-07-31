@@ -45,6 +45,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Clicking a notification now opens the app you already have running,** rather
+  than starting a second copy of it. The click never reached the running app at
+  all: it asked macOS to open Pomodoro Count by name, and if more than one copy
+  was on the machine — an installed one, a downloaded one, a build — macOS was
+  free to start whichever it liked. Two copies then shared one history file and
+  took turns overwriting each other. A second copy now hands over to the one
+  already running and quits, and the click drops the panel open where you can
+  see it.
+- **Opening the panel now clears the notification that sent you there.** Banners
+  stacked up in Notification Center until you cleared them by hand, so acting on
+  one still left you the same news to dismiss a second time.
+
 - **VoiceOver now reads a category row properly.** The rows announced their name
   but never their progress, were not announced as buttons, and could not be
   activated at all. A row now reads as "Alpha, 2 of 5 pomodoros, goal met",

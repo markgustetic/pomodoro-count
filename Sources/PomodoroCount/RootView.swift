@@ -46,6 +46,14 @@ struct RootView: View {
         .foregroundStyle(palette.text)
         .background { if palette.paintsBackground { palette.background } }
         .themed(palette)
+        // Opening the panel answers whatever a banner was announcing, so take
+        // it down rather than leaving the user the same news to dismiss twice.
+        //
+        // `onAppear` fires on *every* opening, not just the first — measured
+        // against the running app, because SwiftUI keeps the panel's window
+        // alive between openings and could just as easily have kept its content
+        // alive too, which would have made this fire once and never again.
+        .onAppear { model.clearNotifications() }
     }
 
     // MARK: Header

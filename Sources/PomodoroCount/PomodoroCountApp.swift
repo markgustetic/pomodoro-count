@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// pomodorocount:// URLs — see `URLCommand`. Launch Services starts the
@@ -11,6 +12,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu-bar-only app: never show a Dock icon.
         NSApp.setActivationPolicy(.accessory)
+        // Take notification taps in this process. Without a delegate the system
+        // falls back to its own default — ask Launch Services to open the bundle
+        // identifier — and that is how clicking a banner used to start a second
+        // copy of the app instead of raising this one. Assigned during launch
+        // because that is the documented deadline; a delegate set later misses
+        // the tap that did the launching. Guarded like `notify()`:
+        // UNUserNotificationCenter needs a real bundle.
+        if AppModel.shared.isBundled {
+            UNUserNotificationCenter.current().delegate = self
+        }
+        // Show the panel when a second copy stands down in our favour.
+        SingleInstance.startHandoffMonitoring()
         // Register the global hotkey now that the app event loop is up.
         AppModel.shared.syncGlobalShortcut()
         // Roll today's count back to 0 when the calendar day changes.
@@ -35,6 +48,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if AppModel.shared.isFirstLaunch {
             AppModel.shared.markLaunched()
             MenuBarPanel.present()
+        }
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+
+    /// A tap on a banner, or on the entry in Notification Center.
+    ///
+    /// The panel is where every one of these notifications leads — the count,
+    /// the armed break, the goal still to go — so open it, and clear the banner
+    /// the tap has now dealt with.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        Task { @MainActor in
+            MenuBarPanel.presentIfClosed()
+            center.removeAllDeliveredNotifications()
+            completionHandler()
         }
     }
 }
@@ -93,6 +126,16 @@ enum Entry {
             MainActor.assumeIsolated { ReorderHarness.run() }
             return
         }
+        // Last, after every flag that exits on its own: a second copy of the app
+        // hands its launch to the one already running rather than starting
+        // beside it. See `SingleInstance` for why a notification click is what
+        // usually asks for that second copy.
+        //
+        // Below the flags on purpose — `--preview`, `--seed-store` and
+        // `--reorder-window` are tools, not the app, and must still run while it
+        // is up. (They are also unbundled in practice, which the guard checks
+        // for anyway.)
+        if MainActor.assumeIsolated({ SingleInstance.handOffIfAlreadyRunning() }) { return }
         PomodoroCountApp.main()
     }
 }
@@ -145,6 +188,39 @@ private struct StatusItemLabel: View {
 enum MenuBarPanel {
     static func dismiss() {
         statusItemButton?.performClick(nil)
+    }
+
+    /// Opens the panel unless it is already open.
+    ///
+    /// `present()` gets there by clicking the status item, and a click
+    /// *toggles*: aimed at a panel that is already up it would close the very
+    /// thing it was asked to show.
+    static func presentIfClosed() {
+        guard !isPanelOpen else { return }
+        present()
+    }
+
+    /// Whether the panel is on screen right now.
+    ///
+    /// Read from the window rather than from the status item button, which is
+    /// the reading that looks obvious and is wrong. `NSStatusBarButton.state`
+    /// only goes `.on` when SwiftUI itself handled the click that opened the
+    /// panel; a panel raised any other way — `SingleInstance`'s handoff, where a
+    /// second copy stands down and asks this one to show itself — leaves it at
+    /// `.off` while the panel is plainly up. A "present if closed" built on that
+    /// reading clicks, and closes the panel it was asked to open. Measured, not
+    /// assumed: the button read `.off` 1.6s *after* the panel's `onAppear`.
+    ///
+    /// The app has exactly two windows — the status bar window AppKit owns, and
+    /// the panel — so "a visible window that isn't the status bar one" names the
+    /// panel without hardcoding SwiftUI's private `MenuBarExtraWindow` class.
+    /// `isVisible` and not existence: SwiftUI keeps the panel's window in
+    /// `NSApp.windows` after the first opening and merely hides it, so asking
+    /// whether it exists answers "has the panel ever been opened".
+    private static var isPanelOpen: Bool {
+        NSApp.windows.contains {
+            $0.isVisible && !$0.className.contains("NSStatusBarWindow")
+        }
     }
 
     /// Opens the panel shortly after launch.
