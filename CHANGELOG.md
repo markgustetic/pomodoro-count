@@ -29,12 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the top of the list.
 - The Settings toggle "Move on when a goal is met" is now "Follow the category
   order". Your existing setting is kept.
-- Clicking the category you're already pinned to hands control back to the
-  category order, instead of holding there for another pomodoro.
 - **Click a category on the Focus tab to send finished pomodoros there.** The
   target dropdown is gone — it listed the same categories as the rows below it,
   without the counts that make one worth picking. The line it occupied still
   says where pomodoros are going.
+- Clicking the category you're already pinned to hands control back to the
+  category order, instead of holding there for another pomodoro.
 - **Adjusting a category's count for today moved to a `±` at the right of each
   row,** so the row itself is free to aim the target instead. A count can come
   down as well as up, so correcting a mis-tap no longer means reaching for
@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   activated at all. A row now reads as "Alpha, 2 of 5 pomodoros, goal met",
   takes a press, and can be focused from the keyboard. Nothing about how the
   rows look has changed.
+- **A long category name no longer pushes the Focus tab off the panel.** The
+  target line under the countdown now truncates with an ellipsis — instead of
+  drawing itself, the timer card and the Start focus button past both edges of
+  the panel. Screen readers still hear the whole name.
 - **Settings' "Add category" and "Remove category" popovers now follow the
   Synthwave theme.** Both drew on the system's light background while the panel
   behind them stayed dark, which left the "New category" caption and the note

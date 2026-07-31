@@ -48,7 +48,7 @@ final class AppModel: ObservableObject {
         set { settings.aim(at: newValue) }
     }
 
-    /// What the panel's "towards …" control says a finished session will credit.
+    /// What the panel's "towards …" line says a finished session will credit.
     ///
     /// Derived from `resolve`, not from the target's shape, so it cannot promise
     /// one destination while the record goes to another — which is exactly what

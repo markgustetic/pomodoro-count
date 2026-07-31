@@ -347,8 +347,10 @@ extension AppModel {
     /// Clears the pin, aims at the highest-ranked category with a goal left, and
     /// stamps today.
     ///
-    /// Shared by the start-of-day reset above and by *Follow the order* in the
-    /// target menu, which want exactly the same thing for different reasons.
+    /// Shared by the start-of-day reset above and by a re-click on the row
+    /// that is already the target — routed here through `selectTarget` and
+    /// `TargetPick`'s `.release` case — which want exactly the same thing for
+    /// different reasons.
     ///
     /// The stamp is written even when there is nothing to aim at — no category
     /// carries a goal, so `topUnmet` is nil. That makes this a start-of-day
@@ -430,7 +432,9 @@ extension AppModel {
         }
     }
 
-    /// Hands control back to the ranking, from the target menu's first entry.
+    /// Hands control back to the ranking, from a re-click on the row that is
+    /// already the target — `selectTarget` routes that click here through
+    /// `TargetPick`'s `.release` case.
     ///
     /// Deliberately not routed through `realignTarget()`, whose advance guards
     /// on the *current* target being met: handing control back has to work from

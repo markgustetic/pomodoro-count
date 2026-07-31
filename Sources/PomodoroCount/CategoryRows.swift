@@ -71,9 +71,10 @@ struct CategoryRow: View {
     @State private var showingCounter = false
 
     /// The `±`'s hit target, and the gap between it and the card's edge. The
-    /// row's content reserves exactly `glyphWidth + 2 * glyphInset` on its
-    /// trailing side, so the count text can never slide underneath the glyph
-    /// that is drawn on top of it.
+    /// row's content reserves `10 + glyphWidth + glyphInset` on its trailing
+    /// side — the same 10pt as its leading padding, plus the glyph's own width
+    /// and the inset it sits at — so the count text can never slide underneath
+    /// the glyph that is drawn on top of it.
     private static let glyphWidth: CGFloat = 22
     private static let glyphInset: CGFloat = 8
 
@@ -182,12 +183,28 @@ struct CategoryRow: View {
         // Not `SoftIconButtonStyle`: that draws a filled, stroked well, and a
         // well inside a card at 22pt reads as a second card sitting on the
         // first rather than as a mark on it. `HoverTextButtonStyle` is this
-        // app's low-chrome control — `textDim` at rest, lit on hover, a neon
-        // glow under Synthwave — and, like every style here, it branches on
-        // `ControlState` and finishes with `.dimmed`.
+        // app's low-chrome control — resting at `textDim` under the classic
+        // palette, at a dimmed `palette.cool` under a neon one (resting at
+        // `textDim` there was the bug that style's own `.action` case was
+        // written to fix — see its doc comment), and lighting up with a glow
+        // only on hover or press, never at rest — and, like every style here,
+        // it branches on `ControlState` and finishes with `.dimmed`.
         .buttonStyle(HoverTextButtonStyle(emphasis: .action))
         .padding(.trailing, Self.glyphInset)
         .help("Adjust today's count for \(progress.name)")
+        // Says what the label doesn't: `.help` also sets the accessibility
+        // hint on macOS (see RootView's stop/reset button), so a hint that
+        // repeats the label would have VoiceOver read it, the value, then the
+        // label again.
+        .accessibilityHint("Opens a counter you can adjust")
+        // The hint above and this adjustable action both stay on the Button
+        // rather than moving inside the label with the rest of the AX setup:
+        // both are additive, so they reach the Button's own element fine from
+        // out here, whereas `.accessibilityElement(children: .ignore)` in the
+        // label REPLACES the element it's applied to and so has to stay inside
+        // it — the seam `CategoryRow.selectButton`'s own comment above walks
+        // through, and the one that has already cost this project a real bug.
+        //
         // Moved here from the row, which now means "select". Its reason is
         // unchanged: routing a count change through a popover would cost
         // VoiceOver three activations, and swipe up/down still does it in one.
