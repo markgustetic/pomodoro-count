@@ -47,13 +47,22 @@ There is no identity secret — the workflow reads it out of the keychain.
 
 Delete the `.p12` and `.p8` from disk afterwards.
 
-## 4. Then
+## 4. Confirm it worked
 
-See the Phase 2 section of
-`docs/superpowers/specs/2026-07-30-developer-id-signing-design.md`: make signing
-mandatory for tag builds, and remove the "unsigned" workaround text from the
-README, the cask caveats, the release notes, and `packaging/homebrew/README.md`
-(its "Checking the cask by hand" section still teaches `--no-quarantine`).
+A tag build now **fails** when `DEVELOPER_ID_P12` is missing, rather than quietly
+publishing an unsigned app — the README and the cask promise a signed one, and a
+release that silently isn't is worse than a release that doesn't happen.
+`workflow_dispatch` stays permissive, so that is the way to rehearse the pipeline
+or cut a deliberately unsigned build.
+
+CI proves Gatekeeper accepts the bundle (`spctl` must report
+`source=Notarized Developer ID`), but the only check that proves the *product*
+works is a human one, because it is the one thing CI cannot stage: download the
+published zip on a Mac that has never seen this app, drag it to `/Applications`,
+and double-click. No right-click, no dialog, no `xattr`.
+
+If that ever regresses, the messaging in README.md, the cask caveats, and the
+release-notes footer all have to come back with it.
 
 ## Signing locally
 

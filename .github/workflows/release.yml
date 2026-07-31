@@ -23,6 +23,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The README and the cask now promise a signed, notarized app, so a tag
+      # build that quietly produces an unsigned one is worse than a release that
+      # doesn't happen: it ships the first-launch warning we told people they
+      # would never see, and it hands every existing install an update whose
+      # code signing identity no longer matches — Sparkle then leans entirely on
+      # the EdDSA strand, with nothing in reserve. An expired certificate, a
+      # revoked key or a deleted secret all land here.
+      #
+      # First step in the job, not next to the signing steps, so the failure
+      # costs seconds rather than arriving after `swift test` — the same
+      # fail-fast reasoning as the already-released check below.
+      #
+      # workflow_dispatch stays permissive: rehearsing the pipeline without a
+      # certificate is exactly what it's for.
+      - name: Require signing for a tag build
+        if: github.ref_type == 'tag' && env.HAS_SIGNING != 'true'
+        run: |
+          echo "DEVELOPER_ID_P12 is not set, so this tag build would publish an unsigned app."
+          echo "Set the five signing secrets — see packaging/signing/README.md."
+          echo "To build unsigned on purpose, dispatch this workflow instead of pushing a tag."
+          exit 1
+
       - name: Resolve version
         id: version
         env:
@@ -178,15 +200,12 @@ jobs:
           done
           echo "Every nested binary carries team $team and the hardened runtime"
 
-      # Inert until a Developer ID exists. Add these repository secrets to turn
-      # it on — see packaging/signing/README.md:
+      # Driven by five repository secrets — see packaging/signing/README.md:
       #   DEVELOPER_ID_P12          base64 of the exported .p12
       #   DEVELOPER_ID_P12_PASSWORD
       #   NOTARY_KEY_ID, NOTARY_ISSUER_ID, NOTARY_KEY_P8
-      # That's all the pipeline needs — but not all the product needs: the
-      # release-notes footer below and the cask still tell downloaders the
-      # app is unsigned. See the Phase 2 list in packaging/signing/README.md
-      # ("## 4. Then") before calling this done.
+      # Required on a tag build (see "Require signing for a tag build" above),
+      # optional on a dispatch.
       - name: Notarize and staple
         if: env.HAS_SIGNING == 'true'
         env:
@@ -330,10 +349,28 @@ jobs:
           ```
 
           Or download the zip below and drag **Pomodoro Count.app** to
-          `/Applications`. This build is **unsigned**, so the first launch needs a
-          one-time confirmation: right-click the app, choose **Open**, then
-          **Open** again. Verify the download with the `.sha256` file attached.
+          `/Applications`.
           FOOTER
+
+          # The closing line describes the bundle that was actually built, not
+          # the one the README promises. A tag build is always signed — the gate
+          # at the top of this job refuses otherwise — but a dispatch without the
+          # secrets still publishes a real release, and telling those downloaders
+          # the app "just opens" when it will not is the exact failure this whole
+          # change set out to remove, only pointed the other way.
+          if [ "$HAS_SIGNING" = "true" ]; then
+            cat >> notes.md <<'SIGNED'
+          It's signed with a Developer ID and notarized by Apple, so it opens
+          like anything else. The attached `.sha256` is there if you'd rather
+          check the download yourself.
+          SIGNED
+          else
+            cat >> notes.md <<'UNSIGNED'
+          This build is **unsigned**, so the first launch needs a one-time
+          confirmation: right-click the app, choose **Open**, then **Open**
+          again. Verify the download with the `.sha256` file attached.
+          UNSIGNED
+          fi
 
       - name: Publish the release
         env:
