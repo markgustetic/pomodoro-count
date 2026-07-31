@@ -1,5 +1,12 @@
 # Developer ID signing and notarization
 
+**Date:** 2026-07-30
+**Status:** shipped in v1.4.0 (`ef11af2`). Phase 1 landed ahead of enrollment;
+Phase 2 — the certificate, the notary key, the five secrets, the mandatory gate
+on tag builds, and the removal of the workaround messaging — landed in `318f22c`
+and `6360358`. The Rollout section below is kept as written, as the record of
+how the work was split around an enrollment that had not happened yet.
+
 A released Pomodoro Count launches with no warning on a machine that has never
 seen it — no "right-click → Open", no `xattr -dr com.apple.quarantine`, no
 caveat in the cask telling people to work around macOS.
