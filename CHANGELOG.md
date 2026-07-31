@@ -35,6 +35,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   up — correcting a mis-tap on one category no longer means reaching for "Undo
   last" and hoping nothing has landed on another category since. VoiceOver keeps
   its one-swipe adjustment on the row itself.
+- Click a category on the Focus tab to send finished pomodoros there. The
+  target dropdown is gone — it listed the same categories as the rows below it,
+  without the counts that make one worth picking. The line it occupied still
+  says where pomodoros are going.
+- Adjusting a category's count for today moved to a `±` at the right of each
+  row, so the row itself is free for the commoner action.
+- The target row now stays outlined while the timer is idle or paused, not only
+  while a session runs, so you can see what you picked before pressing Start.
+- Clicking the category you are pinned to hands control back to the category
+  order — what the dropdown's "Follow the order" entry used to do.
 
 ### Fixed
 
