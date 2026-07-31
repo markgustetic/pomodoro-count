@@ -14,16 +14,15 @@ URL baked into the app never changes.
 
 Sparkle downloads a zip and replaces the running app with it. Anything able to
 intercept that download could replace the app with something else — so Sparkle
-verifies every update against an EdDSA public key compiled into the app, and
-refuses anything that doesn't match.
+refuses an update unless it passes at least one of two checks: the EdDSA public
+key compiled into the app, or the code signing identity of the installed copy.
 
-Releases now also carry a Developer ID signature, and Sparkle accepts an update
-whose EdDSA key matches *or* whose code signing identity does — so the two are
-belt and braces rather than one lone strand. Keep both. Without a key the app
-ships with its updater disabled rather than pretending to check, and the two
-strands are what let the certificate be introduced without stranding existing
-installs. Never rotate this key in a release that also changes the certificate:
-see `packaging/signing/README.md`.
+Releases carry both, deliberately. Without an EdDSA key the app ships with its
+updater disabled rather than pretending to check, and having two strands is what
+let the Developer ID certificate be introduced without stranding existing
+installs — the EdDSA check carried the update across while the identity changed
+underneath it. Never rotate this key in a release that also changes the
+certificate: see `packaging/signing/README.md`.
 
 ## One-time setup
 

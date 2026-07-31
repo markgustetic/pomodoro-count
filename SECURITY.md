@@ -14,10 +14,11 @@ Useful context when judging severity — Pomodoro Count is deliberately small:
   from GitHub to see whether a newer version exists. There is no telemetry and no
   analytics, nothing about your usage is sent, and you can turn the check off in
   Settings. Nothing else in the app touches the network.
-- **Updates are signature-verified.** Every update must carry a valid EdDSA
-  signature matching the public key compiled into the app, or Sparkle refuses to
-  install it. Since the app isn't notarized, that signature is the main integrity
-  guarantee — see [packaging/sparkle/README.md](packaging/sparkle/README.md).
+- **Updates are signature-verified.** Sparkle refuses to install an update
+  unless it passes at least one of two independent checks: an EdDSA signature
+  matching the public key compiled into the app, or a code signing identity
+  matching the installed copy's. Releases carry both — see
+  [packaging/sparkle/README.md](packaging/sparkle/README.md).
 - **One third-party dependency**, [Sparkle](https://sparkle-project.org). Everything
   else is Apple frameworks.
 - **Local data only.** Everything lives in a single plain-text JSON file at
@@ -33,9 +34,17 @@ Useful context when judging severity — Pomodoro Count is deliberately small:
 The latest release is supported. Fixes go into a new release rather than
 patching older tags.
 
-## Unsigned releases
+## Release integrity
 
-Released builds are **not** signed with an Apple Developer ID and are **not**
-notarized, so macOS asks you to confirm the first launch. That also means the
-usual signature check can't tell you the download is untampered — so verify the
-SHA-256 checksum published with each release, or build from source.
+Released builds are signed with an Apple Developer ID and notarized by Apple,
+with the ticket stapled into the bundle, so Gatekeeper accepts them offline and
+macOS does not warn on first launch. Every release also ships a SHA-256 checksum
+if you would rather verify the download yourself:
+
+```bash
+shasum -a 256 -c PomodoroCount-*.zip.sha256
+```
+
+Builds produced locally from source are ad-hoc signed instead, which is enough to
+run on the machine that built them but carries no identity — only the published
+release artifacts are notarized.

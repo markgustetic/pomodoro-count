@@ -96,17 +96,30 @@ break stays owed, so you still get it after the next session. Prefer not to be
 asked, turn on **Auto-start break after focus** in Settings and it just begins.
 
 **History** gives you a Week / Month chart, a Year heatmap, a per-day list, and
-this-week and all-time totals. Today's count resets at midnight; past days stay
-in history.
+this-week and all-time totals. Hover any bar or heatmap square and a card at the
+pointer names that day and its count — the other bars dim, or the square takes a
+ring, so it's clear which day you're reading. Today's count resets at midnight;
+past days stay in history.
 **Export CSV…** writes the lot to a spreadsheet — one row per pomodoro, so you
 can group it however you like.
 
 **Categories** are optional. Turn them on in Settings and the log button becomes
 one row per category, each with its own daily goal — Work 4, AI study 1, Music 1
-— so a tap files the pomodoro and your progress is the first thing you see. Point
-a focus session at one with the **towards…** picker — which also moves on by
-itself to the next unfinished category once its goal is met — and History
-gains a **By category** view. Deleting a category never deletes its history.
+— so the day's progress is the first thing you see.
+
+**Click a row to aim the session at it.** The outlined row is where a finished
+pomodoro goes. The list is also a priority ranking: meet a goal and the target
+falls to the highest row that still has one left, and each new day starts back at
+the top. Aim at a category you have already finished and it stays put, so a
+deliberate overshoot lasts longer than a single pomodoro — clicking that row
+again hands control back to the ranking. Turn the automatic part off entirely
+with **Follow the category order** in Settings, and the target then only ever
+moves when you move it.
+
+**The ± at the right of each row** is how you log by hand once categories are on:
+it files a pomodoro to that category, or takes one back if you counted one too
+many. History gains a **By category** view too, and deleting a category never
+deletes its history.
 
 **Streaks and reminders.** Two or more consecutive days with a pomodoro puts a
 flame and a count in the header — and an empty morning doesn't break
@@ -165,6 +178,7 @@ just build      # build the .app into ./build
 Tests need full Xcode — the Command Line Tools ship no test framework — but
 `just test` finds it for you. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
 details, project layout, and what kinds of changes fit.
+[CHANGELOG.md](CHANGELOG.md) records what changed in every release.
 
 ## License
 

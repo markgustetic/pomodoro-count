@@ -32,8 +32,10 @@ Debug flags on the binary. They do **not** all compose, so the list is by flag
 rather than by bullet:
 
 - `--store <path>` — redirect persistence. Always use a scratch store for
-  experiments. Composes with a normal run and with `--preview`; `--seed-store`
-  and `--reorder-window` ignore it.
+  experiments. Composes with a normal run, with `--preview`, and with
+  `--reorder-window` — the override is set before the harness builds its model,
+  so the harness reads it. Only `--seed-store` ignores it, because that flag
+  writes to its own argument.
 - `--seed-store <path>` — write a store with known categories and exit. Writes
   to its own argument, not to `--store`.
 - `--preview <png> [--hover] [--armed-break] [--theme Synthwave]

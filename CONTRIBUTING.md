@@ -70,8 +70,13 @@ Match the surrounding code. Some conventions worth knowing:
 | Path | Purpose |
 |------|---------|
 | `Sources/PomodoroCount/Model.swift` | Data model, timer engine, persistence |
-| `Sources/PomodoroCount/PomodoroCountApp.swift` | App entry, `MenuBarExtra`, panel dismissal |
-| `Sources/PomodoroCount/RootView.swift` | The panel UI (Focus / History / Settings) |
+| `Sources/PomodoroCount/Store.swift` | The `data.json` read/write, schema versioning, backups |
+| `Sources/PomodoroCount/PomodoroCountApp.swift` | App entry, flag handling, `MenuBarExtra`, panel dismissal |
+| `Sources/PomodoroCount/SingleInstance.swift` | Hands a second copy's launch to the app already running |
+| `Sources/PomodoroCount/RootView.swift` | The panel shell (Focus / History / Settings) |
+| `Sources/PomodoroCount/CategoryRows.swift` | Category rows — aiming the session target, the `±` counter |
+| `Sources/PomodoroCount/HistoryTab.swift`, `Heatmap.swift`, `HoverTooltip.swift` | History charts, Year heatmap, the hover card |
+| `Sources/PomodoroCount/SettingsTab.swift`, `CategoryEditor.swift` | Settings, and adding / removing / reordering categories |
 | `Sources/PomodoroCount/Theme.swift` | `Palette` — every colour in both themes |
 | `Sources/PomodoroCount/Styles.swift` | Shared button and control styles |
 | `Sources/PomodoroCount/StatusIcon.swift` | Menu bar icon + text rendering |
@@ -80,8 +85,14 @@ Match the surrounding code. Some conventions worth knowing:
 | `Sources/PomodoroCount/PreviewRenderer.swift` | `--preview` headless panel render |
 | `Tests/PomodoroCountTests/` | The test suite |
 | `Tools/make-icon.swift` | Draws the app icon (`Resources/AppIcon.icns`) |
-| `build-app.sh` | Compiles and assembles the `.app` bundle |
-| `packaging/homebrew/` | Cask template and tap setup |
+| `build-app.sh` | Compiles, assembles and signs the `.app` bundle |
+| `packaging/homebrew/`, `packaging/sparkle/`, `packaging/signing/` | Cask template, updater keys, Developer ID setup |
+
+Not every file is listed. The pattern worth knowing is that decision logic gets
+pulled out of the SwiftUI views into small pure types — `TargetPick`,
+`CountAdjust`, `CategoryAdvance`, `Reorder`, `HistoryReadout`, `HeatmapLayout` —
+so it can be unit-tested without a view. New behaviour should follow that shape;
+`AGENTS.md` lists the full set.
 
 ## Testing UI behaviour
 
@@ -89,6 +100,21 @@ Logic is covered by the test suite. The panel itself is a `MenuBarExtra`, which
 no test framework drives well — for that, `just preview` renders all three tabs
 to a PNG without needing a menu bar, which catches layout problems quickly. CI
 runs the same render on every PR as a crash check.
+
+Bare `just preview` renders a fixed set of demo categories. To see a state that
+demo data can't reach — an archived category, a pinned session target, a list
+long enough to hit the scroller's height cap — seed a store, edit the JSON, and
+render against it:
+
+```bash
+swift run PomodoroCount --seed-store /tmp/s.json   # known categories, then exit
+just preview /tmp/s.json                           # render it after editing
+```
+
+`just dev` takes no arguments, so the seed step calls `swift run` directly. A
+`--store` path that doesn't exist is an error rather than a silent fall back to
+the demo data — that distinction matters, because three renders against three
+different stores coming back identical looks like an answer.
 
 The renderer hosts the view in an offscreen window and draws the real AppKit
 hierarchy rather than using SwiftUI's `ImageRenderer`, which cannot rasterize
@@ -107,15 +133,13 @@ Maintainers only:
 1. Update `VERSION` and add a `CHANGELOG.md` section for it.
 2. Merge to `main`; CI checks the two agree.
 3. Run `just release`. It re-checks those, runs the tests, tags `vX.Y.Z`, and
-   pushes the tag. The release workflow then builds, zips, checksums, and
-   publishes the GitHub Release, and updates the Homebrew cask.
+   pushes the tag. The release workflow then builds the app, signs it with the
+   project's Developer ID, sends it to Apple for notarization, staples the
+   ticket, zips and checksums the result, publishes the GitHub Release, and
+   updates the Homebrew cask.
 
-> **CI and Release are currently disabled.** GitHub Actions can't run on this
-> account while the repo is private, so both workflows are switched off rather
-> than failing on every push. `just release` refuses to tag while they're off.
-> To turn them back on:
->
-> ```bash
-> gh workflow enable CI
-> gh workflow enable Release
-> ```
+A tag build **fails** if the signing secrets are missing rather than quietly
+publishing an unsigned app — the README promises a signed one, and a release
+that silently isn't is worse than a release that doesn't happen. To build
+without signing on purpose, dispatch the workflow instead of pushing a tag.
+`packaging/signing/README.md` covers the one-time Apple-side setup.
