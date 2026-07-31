@@ -80,18 +80,6 @@ final class AppModel: ObservableObject {
         settings.targetPinned && settings.autoAdvanceTarget ? "pinned to " : "towards "
     }
 
-    /// The same promise, shortened to what the pill can actually draw.
-    ///
-    /// Separate from `sessionTargetDescription` rather than replacing it: this
-    /// one is for the eye, that one is for VoiceOver, and a screen reader has no
-    /// reason to hear a name cut short by a width it cannot perceive. So the
-    /// visible label truncates and the spoken value stays whole — see
-    /// `TargetPill` for why the shortening has to happen here, before the string
-    /// reaches the control.
-    var sessionTargetPillText: String {
-        TargetPill.label(prefix: sessionTargetPromise, name: sessionTargetLabel)
-    }
-
     /// Drives the timer to completion immediately. Used by tests, and by
     /// `PreviewRenderer` under `--preview --armed-break` — both need a
     /// finished session without sitting out the real 50 minutes.
