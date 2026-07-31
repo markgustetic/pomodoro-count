@@ -79,6 +79,32 @@ func findAll(_ el: AXUIElement, depth: Int = 0, into out: inout [AXUIElement], w
     }
 }
 
+/// How long a lookup waits for the panel to show what it is looking for.
+let lookupTimeout: TimeInterval = 3.0
+
+/// Poll for something the panel is expected to be showing, instead of looking
+/// once after a fixed sleep.
+///
+/// A fixed sleep is a guess about how long the panel takes to come up, and it
+/// guesses wrong against an app launched moments earlier — the app needs
+/// several seconds of warm-up before the status item will even open a panel.
+/// The single lookup then failed as "no Settings button", which reads like the
+/// button is missing rather than like the panel is not up yet, and that is a
+/// far more expensive thing to be told. Polling turns the young-app case into a
+/// wait; only a genuine absence still fails, and it now says which it was.
+func waitFor<T>(_ what: String, timeout: TimeInterval = lookupTimeout, _ probe: () -> T?) -> T? {
+    let deadline = Date().addingTimeInterval(timeout)
+    while true {
+        if let hit = probe() { return hit }
+        if Date() >= deadline {
+            print("\(what) never appeared within \(timeout)s — the panel is probably not up yet "
+                + "(a just-launched app needs ~8s of warm-up before the driver can drive it)")
+            return nil
+        }
+        usleep(200_000)
+    }
+}
+
 let source = CGEventSource(stateID: .hidSystemState)
 var lastPoint = CGPoint.zero
 
@@ -531,15 +557,20 @@ case "settingsshot":
         return els.first
     }
 
-    guard let settingsBtn = namedButton("Settings") else { print("no Settings button"); exit(1) }
+    guard let settingsBtn = waitFor("Settings button", { namedButton("Settings") }) else { exit(1) }
     click(CGPoint(x: frame(settingsBtn).midX, y: frame(settingsBtn).midY))
     usleep(1_400_000)
-    guard let target = namedButton(btnName) else { print("no button '\(btnName)'"); exit(1) }
+    guard let target = waitFor("button '\(btnName)'", { namedButton(btnName) }) else { exit(1) }
     click(CGPoint(x: frame(target).midX, y: frame(target).midY))
     usleep(1_500_000)
 
     var shotBox = CGRect.null
     for w in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] { shotBox = shotBox.union(frame(w)) }
+    // An empty window list leaves the box `.null`, whose `minX` is infinity, and
+    // `Int(infinity)` traps — the driver died in a stack dump that said nothing
+    // about the panel having dismissed under it (which is what a click landing
+    // outside the panel, or an app that has only just come up, produces here).
+    guard !shotBox.isNull else { print("no windows — the panel dismissed before the capture"); exit(1) }
     shotBox = shotBox.insetBy(dx: -40, dy: -40)
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
@@ -565,9 +596,13 @@ case "countershot":
     // The row lookup that used to stand here went with it: the union box below
     // is measured from the panel window and the popover's own buttons, so
     // nothing downstream needs the row element.
-    guard let shotGlyph = adjustGlyph(named: rowName) else {
-        print("no ± for row '\(rowName)'"); exit(1)
-    }
+    //
+    // Polled rather than looked up once, for the reason on `waitFor`: against a
+    // just-launched app the panel is not up yet, and a single miss would report
+    // "no ±", which reads like the glyph is missing rather than like the panel
+    // never opened.
+    guard let shotGlyph = waitFor("± for row '\(rowName)'", { adjustGlyph(named: rowName) })
+    else { exit(1) }
     click(CGPoint(x: frame(shotGlyph).midX, y: frame(shotGlyph).midY))
     usleep(1_400_000)
 
@@ -577,17 +612,26 @@ case "countershot":
     for w in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
         box = box.union(frame(w))
     }
-    var stepEls: [AXUIElement] = []
-    for root in roots() {
-        findAll(root, into: &stepEls) { el in
-            // `hasPrefix`, not exact match — see the same note in `stepper` in
-            // the `counter` case: the label now carries the category name too.
-            let combined = str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute)
-            return str(el, kAXRoleAttribute) == kAXButtonRole as String
-                && ["Remove one pomodoro", "Add one pomodoro"].contains { combined.hasPrefix($0) }
+    // See the same guard in `settingsshot`: an empty window list leaves the box
+    // `.null`, and `Int(CGRect.null.minX)` is `Int(infinity)`, which traps.
+    guard !box.isNull else { print("no windows — the panel dismissed before the capture"); exit(1) }
+
+    func steppers() -> [AXUIElement]? {
+        var stepEls: [AXUIElement] = []
+        for root in roots() {
+            findAll(root, into: &stepEls) { el in
+                // `hasPrefix`, not exact match — see the same note in `stepper` in
+                // the `counter` case: the label now carries the category name too.
+                let combined = str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute)
+                return str(el, kAXRoleAttribute) == kAXButtonRole as String
+                    && ["Remove one pomodoro", "Add one pomodoro"].contains { combined.hasPrefix($0) }
+            }
         }
+        return stepEls.isEmpty ? nil : stepEls
     }
-    guard !stepEls.isEmpty else { print("popover never opened — nothing to shoot"); exit(1) }
+    guard let stepEls = waitFor("the count popover's steppers", { steppers() }) else {
+        print("popover never opened — nothing to shoot"); exit(1)
+    }
     for el in stepEls { box = box.union(frame(el)) }
     box = box.insetBy(dx: -24, dy: -24)
     print("capturing \(Int(box.width))x\(Int(box.height)) at (\(Int(box.minX)),\(Int(box.minY)))")
@@ -755,7 +799,13 @@ case "rowsplit":
     // 1. Click a row's BODY first, on a panel with nothing else up. Order
     //    matters: doing this after the ± test let the still-open popover eat the
     //    click, which reads exactly like a row that does not respond.
-    guard let body = rowButton(aimRow) else { print("FAIL: no row button for \(aimRow)"); exit(1) }
+    // Polled, per `waitFor`: a single lookup here fails as "no row button",
+    // which reads like the row is missing when the usual cause is that the
+    // panel is not up yet — either the app is young, or the previous command
+    // left the panel open and this one's status-item click just closed it
+    // (rules 9 and 10).
+    guard let body = waitFor("row button for \(aimRow)", { rowButton(aimRow) })
+    else { exit(1) }
     let bfr = frame(body)
     print("row \(aimRow) frame: (\(Int(bfr.origin.x)),\(Int(bfr.origin.y))) \(Int(bfr.width))x\(Int(bfr.height))")
     // Left of centre, well clear of the ± at the trailing edge.
@@ -770,9 +820,8 @@ case "rowsplit":
 
     // 2. Now the ±. If the row swallowed this click instead, no popover appears
     //    AND the target moves to this row — so one click checks both.
-    guard let plusMinus = adjustButton(adjustRow) else {
-        print("FAIL: no ± button for \(adjustRow)"); exit(1)
-    }
+    guard let plusMinus = waitFor("± button for \(adjustRow)", { adjustButton(adjustRow) })
+    else { exit(1) }
     let pf = frame(plusMinus)
     print("± frame: (\(Int(pf.origin.x)),\(Int(pf.origin.y))) \(Int(pf.width))x\(Int(pf.height))")
     let targetBeforePlus = targetText()
