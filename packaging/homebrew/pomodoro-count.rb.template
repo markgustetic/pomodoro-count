@@ -31,16 +31,10 @@ cask "pomodoro-count" do
     "~/Library/Application Support/PomodoroCount",
   ]
 
+  # Releases are signed with a Developer ID and notarized, so there is no
+  # quarantine workaround to document here any more. What is left is the thing
+  # people genuinely miss: a menu-bar-only app looks like it didn't launch.
   caveats <<~EOS
-    Pomodoro Count is not signed with an Apple Developer ID, so macOS quarantines
-    it and refuses the first launch. Clear the quarantine flag once:
-
-      xattr -dr com.apple.quarantine "/Applications/Pomodoro Count.app"
-
-    Or install without quarantine in the first place:
-
-      brew install --cask --no-quarantine markgustetic/tap/pomodoro-count
-
     The app lives in the menu bar and has no Dock icon — look top-right after
     launching it.
   EOS

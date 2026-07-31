@@ -43,8 +43,9 @@ here — never the generated file in the tap, which is overwritten each release.
 ```bash
 brew tap markgustetic/tap
 brew audit --cask --online markgustetic/tap/pomodoro-count
-brew install --cask --no-quarantine markgustetic/tap/pomodoro-count
+brew install --cask markgustetic/tap/pomodoro-count
 ```
 
-`--no-quarantine` matters: the app is unsigned, so without it macOS blocks the
-first launch. The cask's caveats tell users the same thing.
+Install it the way a user would — with quarantine left on. That is the whole
+point of the check now that releases are signed and notarized: `--no-quarantine`
+would skip the Gatekeeper assessment this is meant to exercise.

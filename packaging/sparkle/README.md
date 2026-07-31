@@ -17,9 +17,13 @@ intercept that download could replace the app with something else — so Sparkle
 verifies every update against an EdDSA public key compiled into the app, and
 refuses anything that doesn't match.
 
-This project is not signed with an Apple Developer ID, so that signature is the
-*only* thing standing between a user and a tampered update. Without a key the
-app ships with its updater disabled rather than pretending to check.
+Releases now also carry a Developer ID signature, and Sparkle accepts an update
+whose EdDSA key matches *or* whose code signing identity does — so the two are
+belt and braces rather than one lone strand. Keep both. Without a key the app
+ships with its updater disabled rather than pretending to check, and the two
+strands are what let the certificate be introduced without stranding existing
+installs. Never rotate this key in a release that also changes the certificate:
+see `packaging/signing/README.md`.
 
 ## One-time setup
 

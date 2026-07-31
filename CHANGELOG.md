@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The app is signed and notarized, so it just opens.** Releases now carry an
+  Apple Developer ID signature and a notarization ticket from Apple. The
+  first-launch warning is gone, and with it the right-click → **Open** dance and
+  the `xattr -dr com.apple.quarantine` workaround. Homebrew no longer needs
+  `--no-quarantine` — plain
+  `brew install --cask markgustetic/tap/pomodoro-count` is now the way.
+  Updating from an earlier version happens as usual; nothing to reinstall.
 - **The category list is now a priority ranking.** When a category meets its
   daily goal the session target falls to the highest-ranked category that still
   has a goal left, rather than to whichever one happens to sit below it. Each new
