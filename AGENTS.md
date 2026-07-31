@@ -205,6 +205,13 @@ stays permissive — that is how to rehearse the pipeline or cut an unsigned bui
 deliberately, and it is why the release-notes footer branches on `HAS_SIGNING`
 rather than asserting.
 
+`build-app.sh` also **refuses to build if anything in `Sources/` imports
+`AppIntents` while the bundle has no `Metadata.appintents`.** Xcode emits that
+file by running `appintentsmetadataprocessor`; this SwiftPM build does not, and
+without it Shortcuts and Spotlight cannot see an intent that otherwise compiles,
+links and signs perfectly — measured, not assumed. Don't delete the check to get
+a build through; the metadata step it is asking for is sketched in Linear MAR-71.
+
 The nested walk is an **explicit list** of Sparkle's four inner binaries, and a
 missing one fails the build. It replaced a `find -maxdepth 3` that never reached
 `Versions/*/XPCServices`, so both XPC services silently kept the ad-hoc signature

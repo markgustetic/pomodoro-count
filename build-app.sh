@@ -92,6 +92,35 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# App Intents, if anyone ever adds them, must not ship invisible.
+#
+# An `AppIntent` in this target compiles, links against AppIntents.framework and
+# signs, and Shortcuts still cannot see it — because Shortcuts and Spotlight read
+# Contents/Resources/Metadata.appintents, which Xcode emits by running
+# `appintentsmetadataprocessor` and this SwiftPM build does not. Measured on
+# 2026-07-31 with a throwaway intent: it built clean and produced no metadata at
+# all. Nothing fails, nothing warns, and the feature is simply absent at runtime.
+#
+# So the trap is closed here rather than left for someone to discover from a
+# Shortcuts window that won't list their action. The check costs nothing until
+# the day someone writes the import, which is exactly the day they need to read
+# this. Deliberately keyed on the import rather than on a file name: it fires on
+# any file that reaches for the framework, wherever it lives.
+#
+# The way out, when that day comes, is in Linear MAR-71 — build with
+# `-Xswiftc -emit-const-values`, then run the toolchain's
+# appintentsmetadataprocessor over the source list and the emitted
+# .swiftconstvalues, and drop its output into Contents/Resources.
+if grep -rql '^import AppIntents' Sources/ 2>/dev/null; then
+    if [ ! -e "$APP/Contents/Resources/Metadata.appintents" ]; then
+        echo "error: Sources import AppIntents, but the bundle has no Metadata.appintents." >&2
+        echo "Shortcuts and Spotlight read that file to discover intents, so this build" >&2
+        echo "would ship an App Intent that compiles, links, and is invisible at runtime." >&2
+        echo "See Linear MAR-71 for the metadata step this build is missing." >&2
+        exit 1
+    fi
+fi
+
 # Signing. CODESIGN_IDENTITY defaults to ad-hoc, which is enough for macOS to
 # treat this as a stable, launchable app on the machine that built it. A release
 # passes a real Developer ID; that path also needs the hardened runtime (the
