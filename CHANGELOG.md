@@ -23,41 +23,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   day starts at the top of the list again.
 - **Re-picking a finished category now holds there.** Pointing the target at a
   category you have already completed keeps it there for as many pomodoros as
-  follow, instead of moving on after one — the pill reads `pinned to …` while it
-  does. Picking a category that still has a goal left holds the same way it
-  always did, and when you finish it, it now hands to the top of the list.
-- **The target menu has a new first entry, "Follow the order",** which hands
-  control back to the ranking.
+  follow, instead of moving on after one — the target line under the countdown
+  reads `pinned to …` while it does. Picking a category that still has a goal
+  left holds the same way it always did, and when you finish it, it now hands to
+  the top of the list.
 - The Settings toggle "Move on when a goal is met" is now "Follow the category
   order". Your existing setting is kept.
-- **Tapping a category now opens a counter instead of logging straight away.**
-  The row opens a small `−`/count/`+` strip, so a count can come down as well as
-  up — correcting a mis-tap on one category no longer means reaching for "Undo
-  last" and hoping nothing has landed on another category since. VoiceOver keeps
-  its one-swipe adjustment on the row itself.
-- Click a category on the Focus tab to send finished pomodoros there. The
+- Clicking the category you're already pinned to hands control back to the
+  category order, instead of holding there for another pomodoro.
+- **Click a category on the Focus tab to send finished pomodoros there.** The
   target dropdown is gone — it listed the same categories as the rows below it,
   without the counts that make one worth picking. The line it occupied still
   says where pomodoros are going.
-- Adjusting a category's count for today moved to a `±` at the right of each
-  row, so the row itself is free for the commoner action.
+- **Adjusting a category's count for today moved to a `±` at the right of each
+  row,** so the row itself is free to aim the target instead. A count can come
+  down as well as up, so correcting a mis-tap no longer means reaching for
+  "Undo last" and hoping nothing has landed on another category since — and
+  VoiceOver's one-swipe adjustment now lives there too, not on the row.
 - The target row now stays outlined while the timer is idle or paused, not only
   while a session runs, so you can see what you picked before pressing Start.
-- Clicking the category you are pinned to hands control back to the category
-  order — what the dropdown's "Follow the order" entry used to do.
 
 ### Fixed
 
 - **VoiceOver now reads a category row properly.** The rows announced their name
   but never their progress, were not announced as buttons, and could not be
-  activated at all — so the counter a row opens was unreachable without a mouse.
-  A row now reads as "Alpha, 2 of 5 pomodoros, goal met", takes a press, and can
-  be focused from the keyboard. Nothing about how the rows look has changed.
-- **A long category name no longer pushes the Focus tab off the panel.** The
-  session-target pill now shortens the name to fit — "pinned to Machine learning
-  coursework and…" — instead of drawing itself, the timer card and the Start
-  focus button past both edges of the panel. Screen readers still hear the whole
-  name.
+  activated at all. A row now reads as "Alpha, 2 of 5 pomodoros, goal met",
+  takes a press, and can be focused from the keyboard. Nothing about how the
+  rows look has changed.
 - **Settings' "Add category" and "Remove category" popovers now follow the
   Synthwave theme.** Both drew on the system's light background while the panel
   behind them stayed dark, which left the "New category" caption and the note

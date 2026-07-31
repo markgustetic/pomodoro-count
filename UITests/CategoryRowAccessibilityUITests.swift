@@ -118,10 +118,27 @@ final class CategoryRowAccessibilityUITests: XCTestCase {
     /// Activating a row must *not* open the counter. That was the old
     /// behaviour, and the whole point of moving counting onto its own control
     /// was to give the row back to the commoner action.
+    ///
+    /// An absence check right after `.click()` proves nothing on its own: the
+    /// popover does not land in the AX tree synchronously with the click —
+    /// `testTheAdjustGlyphIsItsOwnButtonAndOpensTheCounter`, three tests below,
+    /// needs `waitForExistence(timeout:)` to observe that *same* element appear
+    /// after its own click. So `.exists == false` read the instant after this
+    /// click would pass even if the row DID raise the counter a frame later —
+    /// the check would just be running before the regression had a chance to
+    /// show up. This waits for a positive signal that the click actually landed
+    /// — Bravo's `AXValue` gaining the target-mark suffix — before trusting an
+    /// absence at all; only once presence would have been observable does its
+    /// absence mean something. Do not replace this with a fixed `sleep`: the
+    /// predicate expectation waits only as long as it takes, and no longer.
     func testActivatingARowDoesNotOpenTheCounter() {
         let bravo = app.buttons["Bravo"]
         XCTAssertTrue(bravo.waitForExistence(timeout: 10), "no button labelled Bravo")
         bravo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+
+        let becameTarget = NSPredicate(format: "value ENDSWITH %@", ", session target")
+        expectation(for: becameTarget, evaluatedWith: bravo, handler: nil)
+        waitForExpectations(timeout: 10)
 
         XCTAssertFalse(app.buttons["Add one pomodoro to Bravo"].exists,
                        "clicking the row raised the count popover")
