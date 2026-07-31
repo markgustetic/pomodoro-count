@@ -5,15 +5,24 @@
   <em>somewhere else</em>.
 </p>
 
+<!-- The CI badge is deliberately not recoloured: green/red is carrying data
+     there, and styling it to match the app would trade information for
+     decoration. The rest take the app's Classic accent and neutrals. -->
 <p align="center">
   <a href="https://github.com/markgustetic/pomodoro-count/actions/workflows/ci.yml"><img src="https://github.com/markgustetic/pomodoro-count/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/markgustetic/pomodoro-count/releases/latest"><img src="https://img.shields.io/github/v/release/markgustetic/pomodoro-count" alt="Latest release"></a>
-  <img src="https://img.shields.io/badge/macOS-14%2B-black" alt="macOS 14+">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <a href="https://github.com/markgustetic/pomodoro-count/releases/latest"><img src="https://img.shields.io/github/v/release/markgustetic/pomodoro-count?color=E03830" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-555555" alt="macOS 14+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555555" alt="MIT license"></a>
 </p>
 
+<!-- Follows the reader's appearance: Classic on light, Synthwave on dark. A
+     bright panel dropped into a dark page reads as a screenshot of some other
+     app, and the two-theme feature may as well demonstrate itself here. -->
 <p align="center">
-  <img src="docs/panel-classic.png" alt="The Focus, History, and Settings tabs" width="900">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/panel-synthwave.png">
+    <img src="docs/panel-classic.png" alt="The Focus, History, and Settings tabs" width="900">
+  </picture>
 </p>
 
 ## Why
@@ -61,8 +70,7 @@ just setup     # build, install to /Applications, launch
 
 ## Using it
 
-**It lives in the menu bar** and has no Dock icon — after launching, **look at
-the top-right of your screen**, not the Dock.
+### Logging a pomodoro
 
 **Log a pomodoro.** Click the menu bar icon and hit **Log completed pomodoro**.
 The panel closes and the count goes up. Mis-tapped? **Undo last**.
@@ -76,12 +84,19 @@ physical timer can trigger. Add `?category=Deep%20Work` to aim it at a
 category; a name your list doesn't hold falls back to the bucket, and either
 way a notification confirms the count.
 
-**Right-click the menu bar icon** to quit without opening the panel.
+### The menu bar
+
+**It lives in the menu bar** and has no Dock icon — after launching, **look at
+the top-right of your screen**, not the Dock.
 
 **The menu bar shows** today's count when idle, or a live countdown while a
 session runs — with a cup glyph on breaks and a pause glyph when paused. If your
 menu bar is crowded, turn off **Show count in menu bar** and it shrinks to just
 the icon while idle, still showing the timer during a session.
+
+**Right-click the menu bar icon** to quit without opening the panel.
+
+### The built-in timer
 
 **Run a timer** if you want one. 50 / 10 minutes by default, configurable, with
 a completion sound and a notification. Every 4th completed session earns a
@@ -95,11 +110,14 @@ your count until you take it. The stop button skips it — and a skipped long
 break stays owed, so you still get it after the next session. Prefer not to be
 asked, turn on **Auto-start break after focus** in Settings and it just begins.
 
+### History and categories
+
 **History** gives you a Week / Month chart, a Year heatmap, a per-day list, and
 this-week and all-time totals. Hover any bar or heatmap square and a card at the
 pointer names that day and its count — the other bars dim, or the square takes a
 ring, so it's clear which day you're reading. Today's count resets at midnight;
 past days stay in history.
+
 **Export CSV…** writes the lot to a spreadsheet — one row per pomodoro, so you
 can group it however you like.
 
@@ -129,10 +147,15 @@ day's goal isn't met yet, and stays quiet once it is.
 **VoiceOver** works throughout. The menu bar item announces today's count, or
 the phase and time remaining while a session runs.
 
-**Two themes** — Classic and Synthwave.
+**Two themes** — Classic and Synthwave. The screenshot at the top of this page
+follows whichever one your system is set to; here they are together.
 
+<!-- Cropped to the Focus tab by Tools/make-theme-shots.sh. A full three-tab
+     panel at half width is unreadable; one tab is not. Two separate images
+     rather than one composite so they stack, still legible, on a phone. -->
 <p align="center">
-  <img src="docs/panel-synthwave.png" alt="The same three tabs in the Synthwave theme" width="900">
+  <img src="docs/theme-classic.png" alt="The Focus tab in the Classic theme" width="400">
+  <img src="docs/theme-synthwave.png" alt="The Focus tab in the Synthwave theme" width="400">
 </p>
 
 ## Your data
