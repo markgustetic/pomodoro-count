@@ -84,6 +84,28 @@ that one fact:
   `ScrollView`'s ideal is next to nothing — tabs wrapped in one collapsed the
   panel to 255pt. Long tabs sit in `PanelTabScroller` (PanelMetrics.swift),
   which measures content and pins height to `min(content, screen cap)`.
+- **"Is the panel open?" is a question about the window, not the button.**
+  `NSStatusBarButton.state` goes `.on` only when SwiftUI itself handled the
+  click; a panel raised any other way leaves it `.off` while the panel is up,
+  and it has also been observed `.on` with the panel shut. `MenuBarPanel`
+  answers from `NSApp.windows` instead — a *visible* window that isn't the
+  status bar window. Visible, not present: SwiftUI keeps the panel's window
+  around after the first opening and merely hides it, so existence answers
+  "has it ever been opened". Both readings are measured; the button one cost a
+  `presentIfClosed` that closed the panel it was asked to show.
+- **A second copy of the app hands its launch to the first and quits**
+  (`SingleInstance`). Clicking a notification does not talk to the running app
+  — it asks Launch Services to open the *bundle ID*, and with several copies
+  registered (installed, `build/`, DerivedData) it may well start a different
+  one. Two instances share one `data.json` and overwrite each other. The
+  election orders on `(launchDate, pid)`, which is total on purpose: ordering
+  on the date alone lets two copies that start together both stand down, which
+  leaves no app at all. A missing launch date reads as `.distantPast`, never a
+  dropped roster entry — dropping one silently switches the guard off. The
+  newcomer must exit *promptly*, without waiting to confirm anything: while it
+  lives it holds the activation it launched with, and the panel it just asked
+  for loses key status and dismisses. The waiting belongs on the other side,
+  where `showPanelOnceAlone` polls until it is the only copy left.
 - **Synthetic mouse events cannot drive the panel's gestures** (clicks work,
   gestures never fire — XCUITest and raw CGEvent streams alike). The
   `--reorder-window` harness exists for automated gesture work, with one rule,

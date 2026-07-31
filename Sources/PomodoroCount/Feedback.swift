@@ -20,12 +20,30 @@ extension AppModel {
         NSSound(named: sound.rawValue)?.play()
     }
 
+    /// Whether this process may touch the notification centre at all.
+    ///
+    /// `isBundled`: UNUserNotificationCenter needs a real bundle.
+    /// `isRendering`: a `--preview` run drives a real session to completion, and
+    /// taking a screenshot must neither post a banner, raise the authorization
+    /// prompt, nor reach into the real user's Notification Center and clear it.
+    /// `Updater` guards its network call the same way.
+    private var canUseNotificationCenter: Bool {
+        isBundled && !PreviewOverrides.isRendering
+    }
+
+    /// Clears every banner and Notification Center entry this app has posted.
+    ///
+    /// Called when the panel opens, because the panel *is* the answer to
+    /// whatever the banner was announcing — the new count, the armed break, the
+    /// goal still to go. Leaving it up behind the panel only makes the user
+    /// dismiss the same news a second time.
+    func clearNotifications() {
+        guard canUseNotificationCenter else { return }
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    }
+
     func notify(_ title: String, _ body: String) {
-        // `isBundled`: UNUserNotificationCenter needs a real bundle.
-        // `isRendering`: a `--preview` run drives a real session to completion,
-        // and taking a screenshot must not post a banner or raise the
-        // authorization prompt. `Updater` guards its network call the same way.
-        guard isBundled, !PreviewOverrides.isRendering else { return }
+        guard canUseNotificationCenter else { return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             guard granted else { return }
             let content = UNMutableNotificationContent()
