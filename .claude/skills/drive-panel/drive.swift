@@ -9,9 +9,13 @@ import ApplicationServices
 //   drag <from> <to>     — slow-drag row <from>'s grip to row <to>'s centre,
 //                          sampling every row's Y position along the way
 //   rows                 — print each category row's frame
-//   advance <row>        — read the session-target pill, click row <row> to meet
-//                          its goal, read the pill again, without reopening
-//   counter <row>        — open row <row>'s count popover and work its − and +
+//   advance <row>        — read the target line, click row <row> to aim at it,
+//                          read the line again, without reopening
+//   rowsplit <a> <b>     — prove the row and its ± take their own clicks: click
+//                          row <b>'s body (aims the target, no popover), then
+//                          <a>'s ± (opens the popover, target unmoved)
+//   counter <row>        — open row <row>'s count popover from its ± and work
+//                          its − and +
 //   counterkeys <row>    — same popover, short VoiceOver-and-Escape probe only
 //   countershot <row> <path> — open row <row>'s popover and screenshot it in place
 //   settingsshot <button> <path> — open Settings, click <button>, and screenshot
@@ -127,6 +131,41 @@ func categoryRows() -> [(String, CGRect)] {
     return rows.map { el in
         (str(el, kAXTitleAttribute) + str(el, kAXDescriptionAttribute), frame(el))
     }
+}
+
+/// The `±` at a category row's trailing edge — the control that opens the count
+/// popover.
+///
+/// The row itself no longer does. A row click aims the session target now, so
+/// every command below that wants the popover has to come through here; clicking
+/// the row instead silently re-aims the target and reports "no popover", which
+/// reads exactly like a broken popover.
+func adjustGlyph(named name: String) -> AXUIElement? {
+    for root in roots() {
+        if let hit = find(root, where: { el in
+            str(el, kAXRoleAttribute) == kAXButtonRole as String
+                && str(el, kAXDescriptionAttribute) == "Adjust today's count for \(name)"
+        }) { return hit }
+    }
+    return nil
+}
+
+/// What the Focus tab promises a finished session will credit.
+///
+/// Read off an `AXStaticText`, not a Menu: the target used to be picked from a
+/// dropdown, and matching on a "Session target" title or description found it.
+/// It is a plain `Text` now, and for a static text SwiftUI puts the string in
+/// `AXValue` — so match on the promise itself (rule 7).
+func targetPromise() -> String {
+    for root in roots() {
+        if let line = find(root, where: { el in
+            let v = str(el, kAXValueAttribute)
+            return v.hasPrefix("towards ") || v.hasPrefix("pinned to ")
+        }) {
+            return str(line, kAXValueAttribute)
+        }
+    }
+    return "<target line not found>"
 }
 
 switch command {
@@ -263,20 +302,10 @@ case "advance":
     click(CGPoint(x: itemFrame.midX, y: itemFrame.midY))
     usleep(1_500_000)
 
-    // The pill is a Menu carrying accessibilityLabel "Session target"; the
-    // category it names is its accessibilityValue, so this reads the promise
-    // the panel is making rather than pixels (see rule 5).
-    func pillValue() -> String {
-        for root in roots() {
-            if let pill = find(root, where: { el in
-                str(el, kAXTitleAttribute) == "Session target"
-                    || str(el, kAXDescriptionAttribute) == "Session target"
-            }) {
-                return (attr(pill, kAXValueAttribute) as? String) ?? "<no value>"
-            }
-        }
-        return "<pill not found>"
-    }
+    // Reads the promise the panel is making rather than pixels (rule 5). The
+    // lookup lives in `targetPromise()` now: this used to match a Menu by its
+    // "Session target" label, and the Menu is gone.
+    func pillValue() -> String { targetPromise() }
 
     print("pill before: \(pillValue())")
 
@@ -391,13 +420,15 @@ case "counter":
         report(stage)
     }
 
-    report("panel open, before row tap")
-    guard let row = focusRow() else { print("no row '\(rowName)'"); exit(1) }
-    let rf = frame(row)
-    print("row frame: (\(Int(rf.origin.x)),\(Int(rf.origin.y))) \(Int(rf.width))x\(Int(rf.height))")
+    report("panel open, before ± tap")
+    guard let glyph = adjustGlyph(named: rowName) else {
+        print("no ± for row '\(rowName)'"); exit(1)
+    }
+    let rf = frame(glyph)
+    print("± frame: (\(Int(rf.origin.x)),\(Int(rf.origin.y))) \(Int(rf.width))x\(Int(rf.height))")
     click(CGPoint(x: rf.midX, y: rf.midY))
     usleep(1_400_000)
-    report("after row tap")
+    report("after ± tap")
 
     // A popover is its own window, so it should appear here as a second entry.
     let wins = (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? []
@@ -538,7 +569,12 @@ case "countershot":
     }
     guard let shotRow = rowEls.max(by: { frame($0).width < frame($1).width })
     else { print("no row '\(rowName)'"); exit(1) }
-    click(CGPoint(x: frame(shotRow).midX, y: frame(shotRow).midY))
+    _ = shotRow   // kept: the union box below is measured against the row
+    // The ±, not the row — a row click aims the target and raises no popover.
+    guard let shotGlyph = adjustGlyph(named: rowName) else {
+        print("no ± for row '\(rowName)'"); exit(1)
+    }
+    click(CGPoint(x: frame(shotGlyph).midX, y: frame(shotGlyph).midY))
     usleep(1_400_000)
 
     // Union of the panel window and the popover's buttons, so the capture holds
@@ -605,12 +641,16 @@ case "counterkeys":
         return els.isEmpty ? "ABSENT" : "PRESENT (\(els.count))"
     }
 
-    guard let r = row2() else { print("no row '\(rowName)'"); exit(1) }
-    print("steppers before row tap: \(steppersPresent())")
+    _ = row2   // the row is no longer what carries the adjustable action
+    guard let r = adjustGlyph(named: rowName) else {
+        print("no ± for row '\(rowName)'"); exit(1)
+    }
+    print("steppers before ± tap: \(steppersPresent())")
 
-    // AXIncrement with the popover still CLOSED — the adjustable action is on
-    // the row itself, and the point of it is that VoiceOver never needs the
-    // popover at all.
+    // AXIncrement with the popover still CLOSED — the adjustable action lives on
+    // the `±`, and the point of it is that VoiceOver never needs the popover at
+    // all. It sat on the row until the row's click became "aim the target";
+    // counting moved to the `±` and the swipe action moved with it.
     AXUIElementPerformAction(r, "AXIncrement" as CFString)
     usleep(1_000_000)
     print("after AXIncrement (popover never opened): steppers \(steppersPresent())")
@@ -633,6 +673,122 @@ case "counterkeys":
     usleep(1_200_000)
     print("steppers after Escape: \(steppersPresent())")
     print("panel still up? row \(row2() == nil ? "GONE — panel dismissed too" : "still present")")
+
+case "rowsplit":
+    // Does the row's trailing `±` receive its own clicks, or does the row
+    // swallow them?
+    //
+    // The row and the `±` are siblings in a ZStack rather than the `±` being
+    // nested in the row's label, because a Button inside another Button's label
+    // never receives clicks on macOS. That is a claim about hit testing inside a
+    // non-activating NSPanel, and this app's history is a list of SwiftUI
+    // arrangements that should have worked here and didn't — so it has to be
+    // clicked, not reasoned about. Clicks (unlike gestures) do drive the real
+    // panel, so this runs against the panel itself, not the harness.
+    //
+    // Both halves in one process: the panel dismisses between invocations, and a
+    // two-call version could not tell a live update from a fresh render.
+    let adjustRow = CommandLine.arguments[3]
+    let aimRow = CommandLine.arguments[4]
+    guard let extras0 = attr(app, "AXExtrasMenuBar") else { print("no AXExtrasMenuBar"); exit(1) }
+    guard let item0 = children(extras0 as! AXUIElement).first else { print("no status item"); exit(1) }
+    let if0 = frame(item0)
+    click(CGPoint(x: if0.midX, y: if0.midY))
+    usleep(1_500_000)
+
+    func windowCount() -> Int {
+        (attr(app, kAXWindowsAttribute) as? [AXUIElement])?.count ?? 0
+    }
+
+    func firstMatching(_ pred: @escaping (AXUIElement) -> Bool) -> AXUIElement? {
+        for root in roots() { if let hit = find(root, where: pred) { return hit } }
+        return nil
+    }
+
+    /// Rule 7: which attribute a SwiftUI modifier lands in depends on the
+    /// element's role, so dump the list rather than reading AXValue and
+    /// concluding from an empty string.
+    func describe(_ label: String, _ el: AXUIElement?) {
+        guard let el else { print("\(label): NOT FOUND"); return }
+        var names: CFArray?
+        AXUIElementCopyAttributeNames(el, &names)
+        let attrs = (names as? [String]) ?? []
+        let interesting = ["AXRole", "AXDescription", "AXValue", "AXValueDescription", "AXTitle", "AXHelp"]
+        let shown = interesting.filter { attrs.contains($0) }
+            .map { "\($0)='\(str(el, $0))'" }
+            .joined(separator: " ")
+        var actions: CFArray?
+        AXUIElementCopyActionNames(el, &actions)
+        print("\(label): \(shown) actions=\((actions as? [String]) ?? [])")
+    }
+
+    // The target line. It was a Menu and is now a Text, so its role — and
+    // therefore which attribute carries the promise — may have moved.
+    let targetLine = firstMatching { el in
+        str(el, kAXTitleAttribute) == "Session target"
+            || str(el, kAXDescriptionAttribute) == "Session target"
+            || str(el, kAXValueAttribute) == "Session target"
+    }
+    describe("target line", targetLine)
+
+    func targetText() -> String {
+        guard let targetLine else { return "<not found>" }
+        for a in ["AXValue", "AXValueDescription", "AXDescription", "AXTitle"] {
+            let s = str(targetLine, a)
+            if s.contains("towards") || s.contains("pinned to") { return s }
+        }
+        return "<no promise string>"
+    }
+
+    func rowButton(_ name: String) -> AXUIElement? {
+        firstMatching { el in
+            str(el, kAXRoleAttribute) == kAXButtonRole as String
+                && str(el, kAXDescriptionAttribute) == name
+        }
+    }
+    func adjustButton(_ name: String) -> AXUIElement? {
+        firstMatching { el in
+            str(el, kAXRoleAttribute) == kAXButtonRole as String
+                && str(el, kAXDescriptionAttribute) == "Adjust today's count for \(name)"
+        }
+    }
+
+    describe("row \(adjustRow)", rowButton(adjustRow))
+    describe("± \(adjustRow)", adjustButton(adjustRow))
+    print("target before: \(targetText())")
+
+    // 1. Click a row's BODY first, on a panel with nothing else up. Order
+    //    matters: doing this after the ± test let the still-open popover eat the
+    //    click, which reads exactly like a row that does not respond.
+    guard let body = rowButton(aimRow) else { print("FAIL: no row button for \(aimRow)"); exit(1) }
+    let bfr = frame(body)
+    print("row \(aimRow) frame: (\(Int(bfr.origin.x)),\(Int(bfr.origin.y))) \(Int(bfr.width))x\(Int(bfr.height))")
+    // Left of centre, well clear of the ± at the trailing edge.
+    click(CGPoint(x: bfr.minX + bfr.width * 0.25, y: bfr.midY))
+    usleep(1_500_000)
+    print("target after row click: \(targetText())   <- must name \(aimRow)")
+    print("row \(aimRow) value after: '\((attr(rowButton(aimRow) ?? body, kAXValueAttribute) as? String) ?? "")'")
+    let strayPopover = firstMatching { el in
+        str(el, kAXDescriptionAttribute) == "Add one pomodoro to \(aimRow)"
+    }
+    print("popover after row click: \(strayPopover != nil)   <- must be false")
+
+    // 2. Now the ±. If the row swallowed this click instead, no popover appears
+    //    AND the target moves to this row — so one click checks both.
+    guard let plusMinus = adjustButton(adjustRow) else {
+        print("FAIL: no ± button for \(adjustRow)"); exit(1)
+    }
+    let pf = frame(plusMinus)
+    print("± frame: (\(Int(pf.origin.x)),\(Int(pf.origin.y))) \(Int(pf.width))x\(Int(pf.height))")
+    let targetBeforePlus = targetText()
+    click(CGPoint(x: pf.midX, y: pf.midY))
+    usleep(1_500_000)
+
+    let popoverButton = firstMatching { el in
+        str(el, kAXDescriptionAttribute) == "Add one pomodoro to \(adjustRow)"
+    }
+    print("popover '+' present: \(popoverButton != nil)   <- must be true")
+    print("target after ± click: \(targetText())   <- must still be '\(targetBeforePlus)'")
 
 case "window":
     // The app's window frames, from AX and from the window server. Compare

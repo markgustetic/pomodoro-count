@@ -29,10 +29,11 @@ enum PreviewRenderer {
     /// With no `--store`, the hand-seeded demo state below. With one, that
     /// store's own state — which is the only way to preview a panel the demo
     /// model cannot express: a pinned session target, a category name long
-    /// enough to overflow the target pill, an archived category, a category
-    /// list long enough to exercise `PanelTabScroller`'s height cap. The recipe
-    /// is `--seed-store` → hand-edit the JSON → `--preview --store`.
-    /// It found the pill overflow documented in `RootView` on its first use.
+    /// enough to need truncation, an archived category, a category list long
+    /// enough to exercise `PanelTabScroller`'s height cap. The recipe is
+    /// `--seed-store` → hand-edit the JSON → `--preview --store`. It has
+    /// already caught one real overflow bug this way — the reason the recipe
+    /// exists at all.
     ///
     /// The store is read through a **copy**, which is load-bearing rather than
     /// tidy: the render mutates the model it draws — `--armed-break` completes

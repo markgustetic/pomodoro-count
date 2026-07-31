@@ -57,6 +57,22 @@ status item title) plus posted CGEvents for input. The bundled
    screen or to the unit suite. `CategoryRow` carries the fix and the full
    reasoning; `CategoryRowAccessibilityUITests` is the regression gate, and
    XCUITest is the only suite here that can see any of it.
+9. **An open popover eats the next click, so order a multi-step probe with its
+   clean-panel step first.** A sequence that opened the count popover and then
+   clicked a category row reported the row as doing nothing — the click was
+   spent dismissing the popover. Reversing the two steps showed the row working
+   perfectly. Escape does close the popover, but a probe that depends on it is
+   reporting on its own event ordering as much as on the app. Same trap in a
+   different shape: `open` leaves the panel up when the driver exits, so the
+   *next* invocation's status-item click toggles it shut and every element reads
+   as missing.
+10. **A category row aims the session target; its trailing `±` opens the
+   counter.** They are ZStack siblings, so each takes its own clicks — verified
+   with `rowsplit` against the real panel, not the harness. Any command that
+   wants the popover must click the `±` (`adjustGlyph(named:)`); clicking the row
+   silently re-aims the target and then reports "no popover", which reads exactly
+   like a broken popover. The adjustable action (`AXIncrement`/`AXDecrement`)
+   lives on the `±` for the same reason.
 
 ## Recipe
 
@@ -71,9 +87,11 @@ swift drive.swift <pid> tree            # see what's there
 Commands: `tree` (roles/titles/values/frames), `open`, `button <name>`,
 `openclick <name>`, `rows`, `drag <A> <B>` (slow, samples positions),
 `statusitem`, `measuretabs` (per-tab panel heights), `window`, `advance <row>`
-(click a category row, read the session-target pill before and after, in one
-process — proves the pill updates live rather than on reopen), `counter <row>`
-(open its count popover and work its − and + in one process), `counterkeys
+(click a category row, read the target line before and after, in one process —
+proves it updates live rather than on reopen), `rowsplit <a> <b>` (proves the row
+body and its `±` each take their own clicks: clicks `<b>`'s body, then `<a>`'s
+`±`), `counter <row>` (open its count popover **from that row's `±`** and work
+its − and + in one process), `counterkeys
 <row>` (same popover, the short VoiceOver-and-Escape probe), `countershot
 <row> <path>` (screenshot the popover in place, from inside the process),
 `settingsshot <button> <path>` (open Settings, click `<button>`, and

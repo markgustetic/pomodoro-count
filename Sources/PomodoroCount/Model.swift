@@ -48,7 +48,7 @@ final class AppModel: ObservableObject {
         set { settings.aim(at: newValue) }
     }
 
-    /// What the panel's "towards …" control says a finished session will credit.
+    /// What the panel's "towards …" line says a finished session will credit.
     ///
     /// Derived from `resolve`, not from the target's shape, so it cannot promise
     /// one destination while the record goes to another — which is exactly what
@@ -57,7 +57,7 @@ final class AppModel: ObservableObject {
         resolve(sessionTarget) ?? settings.fallbackName
     }
 
-    /// What the target pill says, and what VoiceOver reads.
+    /// What the target text says, and what VoiceOver reads.
     ///
     /// Two different promises rather than a mode indicator: `towards …` means
     /// the ranking is driving and will move on when that category is done,
@@ -69,7 +69,7 @@ final class AppModel: ObservableObject {
     /// With `autoAdvanceTarget` off there is no automatic behaviour for a pin to
     /// hold out against, so the distinction stops being worth showing and
     /// everything reads `towards …`. The flag stays recorded, so turning the
-    /// rule back on restores whatever the pill was already promising.
+    /// rule back on restores whatever was already being promised.
     var sessionTargetDescription: String {
         sessionTargetPromise + sessionTargetLabel
     }
@@ -78,18 +78,6 @@ final class AppModel: ObservableObject {
     /// composes with a name.
     private var sessionTargetPromise: String {
         settings.targetPinned && settings.autoAdvanceTarget ? "pinned to " : "towards "
-    }
-
-    /// The same promise, shortened to what the pill can actually draw.
-    ///
-    /// Separate from `sessionTargetDescription` rather than replacing it: this
-    /// one is for the eye, that one is for VoiceOver, and a screen reader has no
-    /// reason to hear a name cut short by a width it cannot perceive. So the
-    /// visible label truncates and the spoken value stays whole — see
-    /// `TargetPill` for why the shortening has to happen here, before the string
-    /// reaches the control.
-    var sessionTargetPillText: String {
-        TargetPill.label(prefix: sessionTargetPromise, name: sessionTargetLabel)
     }
 
     /// Drives the timer to completion immediately. Used by tests, and by

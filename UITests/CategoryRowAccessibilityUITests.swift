@@ -23,8 +23,10 @@ final class CategoryRowAccessibilityUITests: XCTestCase {
     private var storePath: String!
 
     /// `StoreSeed` gives every category a daily goal of 1 and no records, so
-    /// every row starts at "0 of 1 pomodoros".
-    private let expectedValue = "0 of 1 pomodoros"
+    /// every row starts at "0 of 1 pomodoros". Asserted as a *prefix*: the
+    /// target mark is appended to this string, and which row the app launches
+    /// aimed at is not this test's business.
+    private let expectedProgress = "0 of 1 pomodoros"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -79,7 +81,8 @@ final class CategoryRowAccessibilityUITests: XCTestCase {
     func testACategoryRowSpeaksItsProgress() {
         let row = app.buttons["Alpha"]
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no button labelled Alpha")
-        XCTAssertEqual(row.value as? String, expectedValue)
+        XCTAssertTrue((row.value as? String)?.hasPrefix(expectedProgress) == true,
+                      "wrong value on Alpha: \(String(describing: row.value))")
     }
 
     /// Every row, not just the first: the value is built per row, and a bug that
@@ -88,21 +91,70 @@ final class CategoryRowAccessibilityUITests: XCTestCase {
         for name in ["Alpha", "Bravo", "Charlie", "Delta"] {
             let row = app.buttons[name]
             XCTAssertTrue(row.waitForExistence(timeout: 10), "no button labelled \(name)")
-            XCTAssertEqual(row.value as? String, expectedValue, "wrong value on \(name)")
+            XCTAssertTrue((row.value as? String)?.hasPrefix(expectedProgress) == true,
+                          "wrong value on \(name): \(String(describing: row.value))")
         }
     }
 
-    /// The row can be activated, which is how a VoiceOver user opens the count
-    /// popover. `AXPress` went missing with the button role — the adjustable
-    /// action added by the popover work was, until this fix, the row's *only*
-    /// accessibility action.
-    func testACategoryRowCanBeActivated() {
-        let row = app.buttons["Alpha"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "no button labelled Alpha")
-        XCTAssertTrue(row.isHittable, "the row reports no activation point")
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+    /// Activating a row aims the session target at it — the row's own job now
+    /// that the dropdown is gone. Asserted through `AXValue`, because the
+    /// outline that says the same thing to the eye is invisible to this API.
+    ///
+    /// Bravo rather than Alpha: whichever row the app launches aimed at, it can
+    /// only be the first unmet one or the bucket, never the second category. So
+    /// clicking Bravo is always a real move.
+    func testActivatingARowAimsTheTargetAtIt() {
+        let bravo = app.buttons["Bravo"]
+        XCTAssertTrue(bravo.waitForExistence(timeout: 10), "no button labelled Bravo")
+        XCTAssertTrue(bravo.isHittable, "the row reports no activation point")
+        bravo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+
+        XCTAssertTrue((bravo.value as? String)?.hasSuffix(", session target") == true,
+                      "activating the row did not aim the target at it: \(String(describing: bravo.value))")
+        XCTAssertFalse((app.buttons["Alpha"].value as? String)?.hasSuffix(", session target") == true,
+                       "the mark stayed on Alpha as well")
+    }
+
+    /// Activating a row must *not* open the counter. That was the old
+    /// behaviour, and the whole point of moving counting onto its own control
+    /// was to give the row back to the commoner action.
+    ///
+    /// An absence check right after `.click()` proves nothing on its own: the
+    /// popover does not land in the AX tree synchronously with the click —
+    /// `testTheAdjustGlyphIsItsOwnButtonAndOpensTheCounter`, three tests below,
+    /// needs `waitForExistence(timeout:)` to observe that *same* element appear
+    /// after its own click. So `.exists == false` read the instant after this
+    /// click would pass even if the row DID raise the counter a frame later —
+    /// the check would just be running before the regression had a chance to
+    /// show up. This waits for a positive signal that the click actually landed
+    /// — Bravo's `AXValue` gaining the target-mark suffix — before trusting an
+    /// absence at all; only once presence would have been observable does its
+    /// absence mean something. Do not replace this with a fixed `sleep`: the
+    /// predicate expectation waits only as long as it takes, and no longer.
+    func testActivatingARowDoesNotOpenTheCounter() {
+        let bravo = app.buttons["Bravo"]
+        XCTAssertTrue(bravo.waitForExistence(timeout: 10), "no button labelled Bravo")
+        bravo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+
+        let becameTarget = NSPredicate(format: "value ENDSWITH %@", ", session target")
+        expectation(for: becameTarget, evaluatedWith: bravo, handler: nil)
+        waitForExpectations(timeout: 10)
+
+        XCTAssertFalse(app.buttons["Add one pomodoro to Bravo"].exists,
+                       "clicking the row raised the count popover")
+    }
+
+    /// The ± is its own element with its own role, not decoration inside the
+    /// row — which is what it would be if it were nested in the row button's
+    /// label rather than sitting beside it.
+    func testTheAdjustGlyphIsItsOwnButtonAndOpensTheCounter() {
+        let adjust = app.buttons["Adjust today's count for Alpha"]
+        XCTAssertTrue(adjust.waitForExistence(timeout: 10),
+                      "the row has no separate adjust button")
+        XCTAssertTrue(adjust.isHittable, "the adjust button reports no activation point")
+        adjust.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
 
         XCTAssertTrue(app.buttons["Add one pomodoro to Alpha"].waitForExistence(timeout: 10),
-                      "activating the row did not raise its count popover")
+                      "the adjust button did not raise the count popover")
     }
 }

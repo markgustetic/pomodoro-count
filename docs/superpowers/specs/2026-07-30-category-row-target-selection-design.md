@@ -117,11 +117,12 @@ The row content reserves trailing room so the count text does not slide under
 the `±`.
 
 The `±` uses the existing **`HoverTextButtonStyle(emphasis: .action)`** — no new
-style. It already rests at `textDim`, brightens on hover, glows under
-Synthwave, branches on `ControlState`, and ends in `.dimmed(state, palette)`,
-which is what the button-style rule in AGENTS.md requires. Its glyph is
-`plusminus`, in a 22×22 `contentShape(Rectangle())` so the hit target is bigger
-than the glyph.
+style. It already rests at `textDim` under the classic palette, at a dimmed
+`palette.cool` under a neon one, brightens on hover or press, glows only then
+(never at rest), branches on `ControlState`, and ends in
+`.dimmed(state, palette)`, which is what the button-style rule in AGENTS.md
+requires. Its glyph is `plusminus`, in a 22×22 `contentShape(Rectangle())` so
+the hit target is bigger than the glyph.
 
 The popover moves from the row to the `±`, keeping `arrowEdge: .trailing`, so
 it hangs off the control that opened it.

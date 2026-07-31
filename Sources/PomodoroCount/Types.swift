@@ -89,7 +89,7 @@ struct Settings: Codable {
     var sessionTargetName: String?
     /// When on, a target whose goal is met hands off to the next category that
     /// still has one. Defaults on: it can only ever fire once the user has set
-    /// goals, and the panel's "towards …" pill shows it happen.
+    /// goals, and the panel's "towards …" text shows it happen.
     var autoAdvanceTarget = true
     /// True when the user aimed the target at a category that was *already*
     /// met. The only reading of such a pick is "let me overshoot here", so it

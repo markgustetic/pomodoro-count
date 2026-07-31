@@ -158,10 +158,10 @@ import Foundation
         #expect(m.sessionTarget == .named("Work"))
     }
 
-    /// A paused session is not "actually running" — the same test
-    /// `todayProgress` applies to `isSessionTarget` — so, unlike the running
-    /// case above, a log that meets its goal while paused advances the target
-    /// immediately.
+    /// A paused session is not "actually running" — `realignTarget`'s guard is
+    /// `phase == .work && isRunning`, not just `phase == .work` — so, unlike
+    /// the running case above, a log that meets its goal while paused advances
+    /// the target immediately.
     @Test func aPausedSessionDoesNotBlockTheAdvance() {
         let m = configured()
         m.sessionTarget = .named("Music")        // goal 1
@@ -264,9 +264,9 @@ import Foundation
 
     /// The `suspendSaves()`/`resumeSaves()` bracket around the advance is new
     /// behaviour on this path, and its failure mode is silent: a lost resume
-    /// would leave every other test passing while the pill simply forgot where
-    /// it advanced to on relaunch. Reloading from disk is what proves the
-    /// resume actually flushed the pending write.
+    /// would leave every other test passing while the target simply forgot
+    /// where it advanced to on relaunch. Reloading from disk is what proves
+    /// the resume actually flushed the pending write.
     @Test func anAdvancedTargetSurvivesAReload() {
         let (m, url) = makeModel()
         m.settings.categoriesEnabled = true
@@ -382,7 +382,8 @@ import Foundation
 
     /// With the rule off there is no automatic behaviour for a pin to hold out
     /// against, so the distinction stops being worth showing. The flag is still
-    /// recorded, so turning the rule back on restores what the pill promised.
+    /// recorded, so turning the rule back on restores what
+    /// `sessionTargetDescription` already promised.
     @Test func theDescriptionDropsThePinWhileTheRuleIsOff() {
         let m = configured()
         m.logExternal(to: .named("Music"))
@@ -390,5 +391,70 @@ import Foundation
         m.settings.autoAdvanceTarget = false
         #expect(m.sessionTargetDescription == "towards Music")
         #expect(m.settings.targetPinned)
+    }
+
+    // MARK: selectTarget — what a click on a category row does
+
+    @Test func clickingAnotherRowAimsAtIt() {
+        let m = configured()
+        m.selectTarget(.named("Music"))
+        #expect(m.sessionTargetLabel == "Music")
+    }
+
+    /// `pickTarget`'s pin rule is unchanged and still reached: picking a
+    /// category that is already met reads as "let me overshoot here".
+    @Test func clickingAMetRowPinsIt() {
+        let m = configured()
+        m.logExternal(to: .named("Music"))      // Music's goal is 1, so this meets it
+        m.selectTarget(.named("Music"))
+        #expect(m.sessionTargetLabel == "Music")
+        #expect(m.settings.targetPinned)
+    }
+
+    /// The handback the dropdown's "Follow the order" entry used to carry.
+    /// Work is first in the ranking and unmet, so the release lands there.
+    @Test func clickingThePinnedRowAgainHandsControlBack() {
+        let m = configured()
+        m.logExternal(to: .named("Music"))
+        m.selectTarget(.named("Music"))
+        #expect(m.settings.targetPinned)
+
+        m.selectTarget(.named("Music"))
+        #expect(!m.settings.targetPinned)
+        #expect(m.sessionTargetLabel == "Work")
+    }
+
+    /// The case a naive implementation gets wrong: re-clicking an *unpinned*
+    /// target must not run the handback, which would aim at the top unmet
+    /// category and move the target off the row that was just clicked.
+    @Test func clickingAnUnpinnedTargetRowAgainChangesNothing() {
+        let m = configured()
+        m.selectTarget(.named("Music"))
+        #expect(!m.settings.targetPinned)
+
+        m.selectTarget(.named("Music"))
+        #expect(m.sessionTargetLabel == "Music")
+    }
+
+    /// With the ranking off there is nothing to hand back to, so the pin
+    /// stands and the target stays put.
+    @Test func clickingThePinnedRowAgainDoesNothingWhileTheRuleIsOff() {
+        let m = configured()
+        m.logExternal(to: .named("Music"))
+        m.selectTarget(.named("Music"))
+        m.settings.autoAdvanceTarget = false
+
+        m.selectTarget(.named("Music"))
+        #expect(m.sessionTargetLabel == "Music")
+        #expect(m.settings.targetPinned)
+    }
+
+    /// The bucket is a row like any other, and it is identified by `.fallback`
+    /// rather than by name — its label is whatever the user called it.
+    @Test func clickingTheBucketRowAimsAtIt() {
+        let m = configured()
+        m.selectTarget(.named("Work"))
+        m.selectTarget(.fallback)
+        #expect(m.sessionTargetLabel == m.settings.fallbackName)
     }
 }

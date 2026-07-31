@@ -213,60 +213,32 @@ struct RootView: View {
                 .accessibilityHidden(true)
 
             if model.settings.categoriesEnabled {
-                Menu {
-                    // Only while the rule is running: with it off there is
-                    // nothing to hand control back *to*, and an entry that did
-                    // nothing visible would be worse than no entry.
-                    if model.settings.autoAdvanceTarget {
-                        Button("Follow the order") { model.followTheOrder() }
-                        Divider()
-                    }
-                    Button(model.settings.fallbackName) { model.pickTarget(.fallback) }
-                    ForEach(model.settings.categories) { category in
-                        Button(category.name) { model.pickTarget(.named(category.name)) }
-                    }
-                } label: {
-                    // No decorative dot here, and it isn't an oversight.
-                    // `.menuStyle(.borderlessButton)` draws this label through
-                    // NSPopUpButton, which drops arbitrary Shape content entirely
-                    // (a Circle rendered as nothing) and paints an Image in the
-                    // control's own text colour, ignoring foregroundStyle. So a
-                    // dot can only ever be a black bullet that matches neither
-                    // palette. The text and the chevron carry the meaning —
-                    // including the difference between "towards" and "pinned
-                    // to", which is why those read as two different promises
-                    // rather than as an icon the control would refuse to draw.
-                    HStack(spacing: 4) {
-                        // Already shortened, and it has to be: nothing applied
-                        // here can cap this label's width. NSPopUpButton ignores
-                        // SwiftUI frames on its content the same way it drops
-                        // Shapes and overrides foregroundStyle (above), so
-                        // `.lineLimit`/`.truncationMode` never get a width to
-                        // truncate against — a `.frame(maxWidth: 180)` sat here
-                        // for months doing nothing while a long category name
-                        // drew this pill 336pt wide inside a 244pt card, taking
-                        // the card and the Start button past the panel's edge.
-                        // `TargetPill` measures the string and cuts it first.
-                        // The two modifiers below are inert for the same reason
-                        // and stay anyway: they are what would do this job if
-                        // this label ever stopped going through NSPopUpButton,
-                        // and a reader reaching for them should find them here
-                        // with the reason they don't work attached.
-                        //
-                        // `sessionTargetPillText`, not `sessionTargetDescription`
-                        // — the untruncated one is still what VoiceOver reads,
-                        // on the Menu itself below.
-                        Text(model.sessionTargetPillText)
-                            .font(.caption)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .help("Which category a finished session credits")
-                .accessibilityLabel("Session target")
-                .accessibilityValue(model.sessionTargetDescription)
+                // Plain text, not a control. The category rows below are what
+                // aims the target now, and a second picker listing those same
+                // categories without any of the counts that make one worth
+                // picking is what this stopped being.
+                //
+                // `.lineLimit`/`.truncationMode` do the job here that the
+                // deleted pill-shortening helper had to do by hand:
+                // `NSPopUpButton` ignored SwiftUI frames on its content, so the
+                // string had to be cut to a measured width before it ever
+                // reached the label. A `Text`
+                // truncates at the width it is actually given, and `.tail` cuts
+                // the name while leaving the promise — "towards" versus "pinned
+                // to" — which is the one property that shortening existed to
+                // guarantee.
+                //
+                // `palette.text`, not `textDim`: this replaced a control drawn
+                // at control-text weight, and dropping it to `textDim` would
+                // merge it with the identically-sized subtitle directly above.
+                Text(model.sessionTargetDescription)
+                    .font(.caption)
+                    .foregroundStyle(palette.text)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help("Which category a finished session credits — click a category below to change it")
+                    .accessibilityLabel("Session target")
+                    .accessibilityValue(model.sessionTargetDescription)
             }
 
             HStack(spacing: 8) {

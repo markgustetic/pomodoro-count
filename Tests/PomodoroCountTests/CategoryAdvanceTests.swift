@@ -9,7 +9,7 @@ import Testing
     private func row(_ name: String, done: Int, goal: Int,
                      isFallback: Bool = false) -> CategoryProgress {
         CategoryProgress(id: name, name: name, done: done, goal: goal,
-                         isFallback: isFallback, isSessionTarget: false)
+                         isFallback: isFallback, isTarget: false)
     }
 
     /// Two categories and the bucket, in the order `todayProgress` returns them.

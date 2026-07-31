@@ -49,10 +49,9 @@ extension AppModel {
     var todayProgress: [CategoryProgress] {
         guard settings.categoriesEnabled else { return [] }
 
-        // "Running" means an actual focus session in progress, not idle or
-        // paused — a paused session's target row should not stay outlined.
-        let sessionRunning = phase == .work && isRunning
-        let targetName = sessionRunning ? resolve(sessionTarget) : nil
+        // Not gated on a running session: these rows are how the target gets
+        // chosen, so the mark has to be readable before Start is pressed.
+        let targetName = resolve(sessionTarget)
         let normalizedTarget = targetName.map(Category.normalized)
 
         // One tally pass over the records, not one full scan per category —
@@ -72,7 +71,7 @@ extension AppModel {
                 done: doneToday[Category.normalized(category.name)] ?? 0,
                 goal: category.dailyGoal,
                 isFallback: false,
-                isSessionTarget: sessionRunning && normalizedTarget == Category.normalized(category.name))
+                isTarget: normalizedTarget == Category.normalized(category.name))
         }
 
         // Unconditional: it is the only row that can take a pomodoro belonging
@@ -83,7 +82,7 @@ extension AppModel {
             done: doneToday[""] ?? 0,
             goal: settings.fallbackGoal,
             isFallback: true,
-            isSessionTarget: sessionRunning && targetName == nil))
+            isTarget: targetName == nil))
         return rows
     }
 }
@@ -323,10 +322,12 @@ extension AppModel {
         // session that meets its own goal still credits the right category and
         // only then hands the target on. Nor does it lose a start-of-day reset:
         // the stamp stays stale, and `complete()` is itself one of the points
-        // that re-checks it. `phase == .work && isRunning` is deliberately the
-        // same "actually running, not idle or paused" test `todayProgress` uses
-        // for `isSessionTarget` — a paused session's target row isn't held
-        // still either, so neither trigger should be.
+        // that re-checks it.
+        // `phase == .work && isRunning` is "actually running, not idle or
+        // paused". `todayProgress` used to gate its target mark on this same
+        // test and no longer does — the mark answers "where do pomodoros
+        // land", which is true in every phase, while this guard answers "is a
+        // Start already pointed somewhere", which is only true in one.
         guard !(phase == .work && isRunning) else { return }
 
         // A stamp from an earlier day (or none at all, on a store written
@@ -346,8 +347,10 @@ extension AppModel {
     /// Clears the pin, aims at the highest-ranked category with a goal left, and
     /// stamps today.
     ///
-    /// Shared by the start-of-day reset above and by *Follow the order* in the
-    /// target menu, which want exactly the same thing for different reasons.
+    /// Shared by the start-of-day reset above and by a re-click on the row
+    /// that is already the target — routed here through `selectTarget` and
+    /// `TargetPick`'s `.release` case — which want exactly the same thing for
+    /// different reasons.
     ///
     /// The stamp is written even when there is nothing to aim at — no category
     /// carries a goal, so `topUnmet` is nil. That makes this a start-of-day
@@ -402,7 +405,36 @@ extension AppModel {
         settings = updated
     }
 
-    /// Hands control back to the ranking, from the target menu's first entry.
+    /// What a click on a category row does.
+    ///
+    /// The row list is the target picker now, so one gesture has to carry both
+    /// halves of what the dropdown offered: its category entries, and the
+    /// *Follow the order* entry that handed control back to the ranking. A
+    /// click on a different row aims; a second click on the row already aimed
+    /// at releases a pin, if there is one to release.
+    ///
+    /// The decision itself is in `TargetPick` rather than here because two of
+    /// its cases do nothing, and "does nothing" is the part of a rule that
+    /// rots silently.
+    ///
+    /// `resolve` on both sides, not `==` on the targets: it returns the
+    /// canonical stored spelling, so a row's `.named("work")` and a stored
+    /// `.named("Work")` compare equal, and `.fallback` resolves to nil on both
+    /// sides.
+    func selectTarget(_ target: CategoryTarget) {
+        let isAlreadyTarget = resolve(target) == resolve(sessionTarget)
+        switch TargetPick.action(isAlreadyTarget: isAlreadyTarget,
+                                 pinned: settings.targetPinned,
+                                 autoAdvance: settings.autoAdvanceTarget) {
+        case .aim: pickTarget(target)
+        case .release: followTheOrder()
+        case .ignore: break
+        }
+    }
+
+    /// Hands control back to the ranking, from a re-click on the row that is
+    /// already the target — `selectTarget` routes that click here through
+    /// `TargetPick`'s `.release` case.
     ///
     /// Deliberately not routed through `realignTarget()`, whose advance guards
     /// on the *current* target being met: handing control back has to work from
@@ -410,8 +442,8 @@ extension AppModel {
     /// case that guard would refuse. It also skips `realignTarget()`'s other
     /// guards — `categoriesEnabled`, `autoAdvanceTarget`, and `phase == .work &&
     /// isRunning` — and that is just as deliberate: this is a hand action, the
-    /// same as the pill's category buttons, which have always been free to
-    /// re-aim a session already in flight.
+    /// same as the category rows, which have always been free to re-aim a
+    /// session already in flight.
     func followTheOrder() {
         restartFromTopOfRanking()
     }
