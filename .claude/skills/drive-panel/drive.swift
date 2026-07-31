@@ -561,16 +561,10 @@ case "countershot":
     click(CGPoint(x: frame(item).midX, y: frame(item).midY))
     usleep(1_500_000)
 
-    var rowEls: [AXUIElement] = []
-    for root in roots() {
-        findAll(root, into: &rowEls) { el in
-            str(el, kAXTitleAttribute) == rowName || str(el, kAXDescriptionAttribute) == rowName
-        }
-    }
-    guard let shotRow = rowEls.max(by: { frame($0).width < frame($1).width })
-    else { print("no row '\(rowName)'"); exit(1) }
-    _ = shotRow   // kept: the union box below is measured against the row
     // The ±, not the row — a row click aims the target and raises no popover.
+    // The row lookup that used to stand here went with it: the union box below
+    // is measured from the panel window and the popover's own buttons, so
+    // nothing downstream needs the row element.
     guard let shotGlyph = adjustGlyph(named: rowName) else {
         print("no ± for row '\(rowName)'"); exit(1)
     }
@@ -641,7 +635,8 @@ case "counterkeys":
         return els.isEmpty ? "ABSENT" : "PRESENT (\(els.count))"
     }
 
-    _ = row2   // the row is no longer what carries the adjustable action
+    // `r` is the ±, not the row: the row no longer carries the adjustable
+    // action. `row2()` is still used below, to check the panel survived Escape.
     guard let r = adjustGlyph(named: rowName) else {
         print("no ± for row '\(rowName)'"); exit(1)
     }
@@ -662,7 +657,7 @@ case "counterkeys":
 
     click(CGPoint(x: frame(r).midX, y: frame(r).midY))
     usleep(1_400_000)
-    print("steppers after row tap: \(steppersPresent())")
+    print("steppers after ± tap: \(steppersPresent())")
 
     if let esc = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true) {
         esc.post(tap: .cghidEventTap)

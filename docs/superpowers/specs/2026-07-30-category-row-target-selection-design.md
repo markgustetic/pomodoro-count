@@ -1,7 +1,7 @@
 # Category rows select the target
 
 **Date:** 2026-07-30
-**Status:** approved, not yet implemented
+**Status:** implemented and merged to main in `8aff049`
 
 ## The problem
 
