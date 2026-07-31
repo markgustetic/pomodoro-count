@@ -31,19 +31,18 @@ timer too, if you want one, but that's not the point of it.
 ### Homebrew
 
 ```bash
-brew install --cask --no-quarantine markgustetic/tap/pomodoro-count
+brew install --cask markgustetic/tap/pomodoro-count
 ```
-
-`--no-quarantine` is needed because the app isn't signed with an Apple Developer
-ID — see [below](#about-that-unsigned-warning).
 
 ### Download
 
 Grab the zip from the [latest release](https://github.com/markgustetic/pomodoro-count/releases/latest),
-unzip it, and drag **Pomodoro Count.app** to `/Applications`.
+unzip it, and drag **Pomodoro Count.app** to `/Applications`. Releases are
+signed with an Apple Developer ID and notarized by Apple, so it opens like
+anything else — no right-click, no warning to dismiss.
 
-Each release ships a `.sha256` file. Since the app isn't signed, checking it is
-the way to confirm your download is intact:
+Each release also ships a `.sha256` file, if you'd rather check the download
+yourself:
 
 ```bash
 shasum -a 256 -c PomodoroCount-*.zip.sha256
@@ -60,24 +59,10 @@ cd pomodoro-count
 just setup     # build, install to /Applications, launch
 ```
 
-### About that unsigned warning
-
-Releases are **not** signed with an Apple Developer ID and **not** notarized —
-that needs a paid Apple developer account, which this project doesn't have. So
-macOS refuses the first launch.
-
-Clear it once and macOS stops asking:
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Pomodoro Count.app"
-```
-
-Or right-click the app, choose **Open**, then **Open** again in the dialog.
-
-The app is menu-bar-only and has no Dock icon — after launching, **look at the
-top-right of your screen**, not the Dock.
-
 ## Using it
+
+**It lives in the menu bar** and has no Dock icon — after launching, **look at
+the top-right of your screen**, not the Dock.
 
 **Log a pomodoro.** Click the menu bar icon and hit **Log completed pomodoro**.
 The panel closes and the count goes up. Mis-tapped? **Undo last**.

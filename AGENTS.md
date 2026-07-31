@@ -196,6 +196,13 @@ release workflow imports the certificate, reads the identity back out of the
 keychain, and hands it to the script — it does no signing of its own, and
 `--deep` appears only in `codesign --verify`, never in signing.
 
+Local builds stay ad-hoc; **releases are signed and notarized, and a tag build
+fails outright without the signing secrets** rather than publishing an unsigned
+app that README.md and the cask both promise is signed. `workflow_dispatch`
+stays permissive — that is how to rehearse the pipeline or cut an unsigned build
+deliberately, and it is why the release-notes footer branches on `HAS_SIGNING`
+rather than asserting.
+
 The nested walk is an **explicit list** of Sparkle's four inner binaries, and a
 missing one fails the build. It replaced a `find -maxdepth 3` that never reached
 `Versions/*/XPCServices`, so both XPC services silently kept the ad-hoc signature
