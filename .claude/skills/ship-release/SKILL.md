@@ -46,6 +46,7 @@ the tests first.
 |---|---|
 | Tag must equal `v` + VERSION | Workflow hard-fails on mismatch — never `git tag` by hand |
 | Notes come from the CHANGELOG section | Sloppy CHANGELOG = sloppy public release notes |
-| App is unsigned (no Developer ID secrets set) | Release notes footer explains right-click-Open; don't remove it |
+| A tag build **fails** without the Developer ID secrets | Deliberate: the README promises a signed app, so a silently unsigned release is worse than none. Dispatch, don't tag, to build unsigned |
 | Sparkle key exists only as a GitHub secret + 1Password | Losing it orphans every installed app's updater |
+| Sparkle takes an EdDSA key change **or** a certificate change, never both in one release | Both at once permanently strands every install — no route back but manual reinstall |
 | `workflow_dispatch` run releases whatever VERSION says | Useful for re-publishing a failed run; same checks apply |
