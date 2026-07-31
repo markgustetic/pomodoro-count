@@ -57,7 +57,7 @@ final class AppModel: ObservableObject {
         resolve(sessionTarget) ?? settings.fallbackName
     }
 
-    /// What the target pill says, and what VoiceOver reads.
+    /// What the target text says, and what VoiceOver reads.
     ///
     /// Two different promises rather than a mode indicator: `towards …` means
     /// the ranking is driving and will move on when that category is done,
@@ -69,7 +69,7 @@ final class AppModel: ObservableObject {
     /// With `autoAdvanceTarget` off there is no automatic behaviour for a pin to
     /// hold out against, so the distinction stops being worth showing and
     /// everything reads `towards …`. The flag stays recorded, so turning the
-    /// rule back on restores whatever the pill was already promising.
+    /// rule back on restores whatever was already being promised.
     var sessionTargetDescription: String {
         sessionTargetPromise + sessionTargetLabel
     }

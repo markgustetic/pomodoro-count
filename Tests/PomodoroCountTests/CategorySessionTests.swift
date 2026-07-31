@@ -264,9 +264,9 @@ import Foundation
 
     /// The `suspendSaves()`/`resumeSaves()` bracket around the advance is new
     /// behaviour on this path, and its failure mode is silent: a lost resume
-    /// would leave every other test passing while the pill simply forgot where
-    /// it advanced to on relaunch. Reloading from disk is what proves the
-    /// resume actually flushed the pending write.
+    /// would leave every other test passing while the target simply forgot
+    /// where it advanced to on relaunch. Reloading from disk is what proves
+    /// the resume actually flushed the pending write.
     @Test func anAdvancedTargetSurvivesAReload() {
         let (m, url) = makeModel()
         m.settings.categoriesEnabled = true
@@ -382,7 +382,8 @@ import Foundation
 
     /// With the rule off there is no automatic behaviour for a pin to hold out
     /// against, so the distinction stops being worth showing. The flag is still
-    /// recorded, so turning the rule back on restores what the pill promised.
+    /// recorded, so turning the rule back on restores what
+    /// `sessionTargetDescription` already promised.
     @Test func theDescriptionDropsThePinWhileTheRuleIsOff() {
         let m = configured()
         m.logExternal(to: .named("Music"))

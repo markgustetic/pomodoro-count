@@ -438,8 +438,8 @@ extension AppModel {
     /// case that guard would refuse. It also skips `realignTarget()`'s other
     /// guards — `categoriesEnabled`, `autoAdvanceTarget`, and `phase == .work &&
     /// isRunning` — and that is just as deliberate: this is a hand action, the
-    /// same as the pill's category buttons, which have always been free to
-    /// re-aim a session already in flight.
+    /// same as the category rows, which have always been free to re-aim a
+    /// session already in flight.
     func followTheOrder() {
         restartFromTopOfRanking()
     }
