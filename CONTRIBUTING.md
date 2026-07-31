@@ -54,6 +54,24 @@ precisely the code you do not want to write yourself.
 
 That's the bar for a second one. Please open an issue before adding anything.
 
+### Licensing your contribution
+
+By opening a pull request you agree that your contribution is licensed under
+this project's [MIT licence](LICENSE), and that the maintainer may also release
+it under different terms in future — including as part of a closed-source or
+commercially licensed version of the app.
+
+No paperwork, no CLA to sign; opening the PR is the agreement. Sign your commits
+off with `git commit -s` if you would like that on the record explicitly.
+
+Why ask at all for a menu bar pomodoro counter: relicensing needs the permission
+of everyone who holds copyright in the code. Today that is one person, so it is
+a one-file decision. The moment a contribution lands without this understanding
+it becomes a conversation with every past contributor, or their code coming back
+out. Saying it up front costs nothing and keeps the choice cheap. Nothing here
+takes anything away from you — your contribution stays MIT for everyone,
+permanently, exactly as it would have been.
+
 ## Style
 
 Match the surrounding code. Some conventions worth knowing:

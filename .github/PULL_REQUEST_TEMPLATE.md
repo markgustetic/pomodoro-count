@@ -17,3 +17,6 @@
 - [ ] `just build` produces a working app
 - [ ] Tests added or updated for the behaviour that changed
 - [ ] `CHANGELOG.md` updated under **Unreleased** (skip for internal-only changes)
+- [ ] I agree my contribution is MIT licensed and may also be released under
+      different terms in future — see
+      [Licensing your contribution](https://github.com/markgustetic/pomodoro-count/blob/main/CONTRIBUTING.md#licensing-your-contribution)
