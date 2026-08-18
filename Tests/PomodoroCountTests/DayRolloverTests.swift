@@ -165,4 +165,16 @@ import Foundation
         m.reset()
         #expect(m.breakEnteredOn == nil)
     }
+
+    /// The other way out of a break: it runs to its end rather than being
+    /// stopped. `breakEnteredOn` promises nil off a break, and both exits have
+    /// to keep that promise.
+    @Test func theBreakStampIsClearedWhenABreakCompletes() {
+        let (m, _) = makeModel()
+        m.startBreak()
+        #expect(m.breakEnteredOn != nil)
+        m.forceCompleteForTesting()
+        #expect(m.phase == .idle, "precondition: the break finished")
+        #expect(m.breakEnteredOn == nil)
+    }
 }

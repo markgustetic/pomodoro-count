@@ -476,6 +476,10 @@ final class AppModel: ObservableObject {
             play(.breakOver)
             notify("Break over", "Ready for the next one?")
             phase = .idle
+            // The break is over, so the stamp that said when it began must go
+            // with it — `breakEnteredOn` promises nil off a break, and a stale
+            // value here would outlive the phase that justified it.
+            breakEnteredOn = nil
         }
     }
 
