@@ -95,6 +95,15 @@ final class AppModel: ObservableObject {
     var dayChangeObserver: NSObjectProtocol?
     var screenLockObserver: NSObjectProtocol?
     var clockChangeObserver: NSObjectProtocol?
+    /// The calendar day the model last saw, so a day change can be told apart
+    /// from a wake. `didWakeNotification` fires on every wake — a five-minute
+    /// lid-close in the middle of a break included — and running the rollover
+    /// off that unguarded would eat the break.
+    ///
+    /// In memory, not persisted, matching `focusSessionsThisCycle`: `phase`
+    /// isn't persisted either, so a relaunch already lands on `.idle` with a
+    /// fresh cycle. This only has to be right for a process that stays up.
+    var lastSeenDay = Calendar.current.startOfDay(for: Date())
     let customStoreURL: URL?
     var isLoading = false
 
@@ -375,6 +384,18 @@ final class AppModel: ObservableObject {
         phase = .idle
         endDate = nil
         clock.remaining = 0
+    }
+
+    /// Starts the day's rhythm over: the timer back to idle and the long-break
+    /// cycle back to zero, so a new day doesn't open owing yesterday's long
+    /// break.
+    ///
+    /// Lives here rather than next to `handleDayChange` because
+    /// `focusSessionsThisCycle` is `private(set)`, and Swift scopes that to
+    /// the file.
+    func resetForNewDay() {
+        reset()
+        focusSessionsThisCycle = 0
     }
 
     private func beginCountdown() {

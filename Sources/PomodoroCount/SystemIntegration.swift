@@ -217,19 +217,39 @@ extension AppModel {
 @MainActor
 extension AppModel {
 
+    /// Everything the app does when it notices what day it is: from the two
+    /// notifications below, and once at launch.
+    ///
+    /// Only the phase reset is gated on the day actually advancing.
+    /// `realignTarget()` carries its own `targetAimedOn` stamp, and the
+    /// repaint is the whole point of the wake notification — it is what makes
+    /// a Mac opened after midnight show today's count rather than the one from
+    /// before the lid shut.
+    ///
+    /// `>` rather than `!=` so a system-clock or timezone change that moves
+    /// the date backwards doesn't read as a rollover.
+    ///
+    /// `now` is injectable so tests can advance the day without touching the
+    /// system clock.
+    func handleDayChange(now: Date = Date()) {
+        let day = Calendar.current.startOfDay(for: now)
+        if day > lastSeenDay {
+            lastSeenDay = day
+            if DayRollover.action(phase: phase) == .resetToIdle { resetForNewDay() }
+        }
+        realignTarget()
+        objectWillChange.send()
+    }
+
     /// Today's count is derived from dated records, so it is always 0 at the
     /// start of a new day and older days stay in history. A long-running app,
     /// though, won't recompute on its own — so refresh the UI when the calendar
-    /// day changes or the Mac wakes, rolling the visible count back to 0.
+    /// day changes or the Mac wakes, rolling the visible count back to 0. A new
+    /// day also ends a break that outlived it: see `handleDayChange`.
     func startDayMonitoring() {
         guard dayChangeObserver == nil else { return }
         let refresh: @Sendable (Notification) -> Void = { [weak self] _ in
-            MainActor.assumeIsolated {
-                // The target follows the day as well as the count does: a new
-                // day restarts the plan at the top of the ranking.
-                self?.realignTarget()
-                self?.objectWillChange.send()
-            }
+            MainActor.assumeIsolated { self?.handleDayChange() }
         }
         dayChangeObserver = NotificationCenter.default.addObserver(
             forName: .NSCalendarDayChanged, object: nil, queue: .main, using: refresh)

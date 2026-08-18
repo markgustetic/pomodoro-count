@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly the kind this app is built to count. If you'd rather the timer
   meant time at this Mac, **Pause when the screen locks** in Settings brings
   the old behaviour back.
+- **A new day starts on focus.** Leave the app overnight with a break waiting
+  or running and it used to still be on that break in the morning, counting
+  yesterday's sessions towards the next long one. When the date changes the
+  timer now drops back to a fresh focus session, and the every-fourth-session
+  rhythm starts over. A focus session actually running at midnight is left
+  alone — it's about to become a record.
 
 ## [1.4.0] - 2026-07-31
 
