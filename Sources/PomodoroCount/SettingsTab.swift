@@ -54,6 +54,17 @@ struct SettingsTab: View {
                         .foregroundStyle(palette.textDim)
                 }
                 Toggle("Auto-start break after focus", isOn: $model.settings.autoStartBreak)
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Pause when the screen locks", isOn: $model.settings.pausesOnScreenLock)
+                    if !model.settings.pausesOnScreenLock {
+                        // Caption only in the non-default state, as with
+                        // `showsCountInMenuBar`: it explains what "off" means
+                        // rather than restating the label.
+                        Text("The timer keeps running while the Mac is locked or the displays sleep.")
+                            .font(.caption2)
+                            .foregroundStyle(palette.textDim)
+                    }
+                }
                 Toggle("Sound effects", isOn: $model.settings.soundEnabled)
 
                 VStack(alignment: .leading, spacing: 2) {
