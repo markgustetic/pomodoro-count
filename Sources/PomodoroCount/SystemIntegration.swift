@@ -177,13 +177,19 @@ extension AppModel {
 @MainActor
 extension AppModel {
 
-    /// Pauses a running session. A timer that keeps burning while the Mac is
-    /// locked says 50 minutes of focus happened while the chair was empty;
-    /// pausing keeps the count honest. Deliberately no auto-resume on unlock —
-    /// only the user knows whether the time away should count, and `pause()`
-    /// already preserves what's on the clock.
+    /// Pauses a running session, if the user asked for that.
+    ///
+    /// Off by default — see `Settings.pausesOnScreenLock`. The guard lives here
+    /// rather than in `startScreenLockMonitoring()` so the observers stay
+    /// registered whatever the setting says: flipping the toggle then takes
+    /// effect on the very next lock, with no teardown, and the "a second call
+    /// can never mean a second pause per lock" guard over there is left alone.
+    ///
+    /// Deliberately no auto-resume on unlock — only the user knows whether the
+    /// time away should count, and `pause()` already preserves what's on the
+    /// clock.
     func handleScreenLocked() {
-        guard isRunning else { return }
+        guard settings.pausesOnScreenLock, isRunning else { return }
         pause()
     }
 

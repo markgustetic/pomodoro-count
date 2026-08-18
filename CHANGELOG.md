@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The timer no longer stops when your screen locks.** Locking the Mac or
+  letting the displays sleep used to pause a running session. It doesn't
+  any more — a pomodoro you're running while away from this keyboard is
+  exactly the kind this app is built to count. If you'd rather the timer
+  meant time at this Mac, **Pause when the screen locks** in Settings brings
+  the old behaviour back.
+
 ## [1.4.0] - 2026-07-31
 
 ### Added

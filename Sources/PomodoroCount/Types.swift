@@ -65,6 +65,11 @@ struct Settings: Codable {
     /// the classic pomodoro rhythm.
     var longBreakMinutes = 15
     var autoStartBreak = true
+    /// Whether a running session pauses when the screen locks or the displays
+    /// sleep. Off by default: this app exists to count pomodoros finished
+    /// somewhere else, so an unattended Mac is not evidence that focus stopped.
+    /// On, the timer means time at this keyboard and a lock stops the clock.
+    var pausesOnScreenLock = false
     var soundEnabled = true
     var globalShortcutEnabled = true
     var shortcut = Shortcut.default
@@ -116,6 +121,7 @@ struct Settings: Codable {
         breakMinutes          = try c.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 10
         longBreakMinutes      = try c.decodeIfPresent(Int.self, forKey: .longBreakMinutes) ?? 15
         autoStartBreak        = try c.decodeIfPresent(Bool.self, forKey: .autoStartBreak) ?? true
+        pausesOnScreenLock    = try c.decodeIfPresent(Bool.self, forKey: .pausesOnScreenLock) ?? false
         soundEnabled          = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         globalShortcutEnabled = try c.decodeIfPresent(Bool.self, forKey: .globalShortcutEnabled) ?? true
         shortcut              = try c.decodeIfPresent(Shortcut.self, forKey: .shortcut) ?? .default
