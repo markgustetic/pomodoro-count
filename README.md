@@ -100,8 +100,10 @@ the icon while idle, still showing the timer during a session.
 
 **Run a timer** if you want one. 50 / 10 minutes by default, configurable, with
 a completion sound and a notification. Every 4th completed session earns a
-longer break (15 minutes, adjustable). Locking the screen pauses a running
-session — time away never counts as focus.
+longer break (15 minutes, adjustable). It keeps running while your Mac is locked
+or asleep — a pomodoro you finish away from this keyboard is exactly the kind
+this counts — but turn on **Pause when the screen locks** in Settings if you'd
+rather the timer meant time at this Mac.
 
 **The break waits for you.** When a focus session ends, the Focus tab holds the
 break ready rather than dropping back to idle: the big button becomes **Start
@@ -109,6 +111,10 @@ break**, the panel says how long it will be, and the menu bar shows a cup beside
 your count until you take it. The stop button skips it — and a skipped long
 break stays owed, so you still get it after the next session. Prefer not to be
 asked, turn on **Auto-start break after focus** in Settings and it just begins.
+
+A break doesn't outlive the day that earned it. Leave the app overnight with one
+waiting and you'll find it back on focus in the morning, with the every-4th
+rhythm started over.
 
 ### History and categories
 
