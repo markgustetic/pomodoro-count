@@ -157,7 +157,10 @@ that one fact:
   it — the compiler catches the `switch`es, not the `if phase == .idle` checks.
   Its length reads `nextBreakIsLong` (nothing has started, so that is the only
   truthful source); once the break is *running*, `currentBreakIsLong` is, because
-  `startBreak()` has already zeroed `focusSessionsThisCycle`.
+  `startBreak()` has already zeroed `focusSessionsThisCycle`. A calendar-day
+  change is the third way a break ends: `handleDayChange` clears it and
+  restarts the long-break cycle, exempting only a break armed on the new day
+  itself — `breakEnteredOn` is the stamp that tells the two apart.
 - `suspendSaves()` has three call sites (a drag reorder, and the two
   record-append-plus-realign pairs above) and **counts depth**, because the
   hotkey and the URL scheme fire the latter two mid-drag; only the outermost
@@ -233,7 +236,8 @@ strands every existing install permanently. One-time Apple-side setup is in
   `HeatmapLayout.center(of:)`, `PanelMetrics.tabHeightCap(visibleHeight:)`,
   `CategoryAdvance.next(after:in:pinned:)`, `CountAdjust.newestTodayIndex`,
   `StatusIcon.glyph(phase:running:)`, `HistoryReadout.tooltip`,
-  `TooltipPlacement.origin` and `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`
+  `TooltipPlacement.origin`, `DayRollover.action(phase:breakEnteredOn:newDay:)`
+  and `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`
   are pure and unit-tested; views are thin over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`
   (swift-testing, not XCTest). The glyph is the clearest case for why: it was

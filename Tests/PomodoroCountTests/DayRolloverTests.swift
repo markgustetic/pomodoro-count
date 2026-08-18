@@ -9,22 +9,45 @@ import Foundation
 @MainActor
 @Suite struct DayRolloverDecisionTests {
 
+    /// Start of "today" for these cases, with the break stamped the day before.
+    private var newDay: Date { Calendar.current.startOfDay(for: Date()) }
+    private var yesterday: Date { newDay.addingTimeInterval(-3600) }
+
     @Test func anArmedBreakIsClearedByANewDay() {
-        #expect(DayRollover.action(phase: .breakReady) == .resetToIdle)
+        #expect(DayRollover.action(phase: .breakReady,
+                                   breakEnteredOn: yesterday, newDay: newDay) == .resetToIdle)
     }
 
     @Test func aRunningBreakIsClearedByANewDay() {
-        #expect(DayRollover.action(phase: .breakTime) == .resetToIdle)
+        #expect(DayRollover.action(phase: .breakTime,
+                                   breakEnteredOn: yesterday, newDay: newDay) == .resetToIdle)
     }
 
     @Test func idleIsLeftAlone() {
-        #expect(DayRollover.action(phase: .idle) == .none)
+        #expect(DayRollover.action(phase: .idle,
+                                   breakEnteredOn: nil, newDay: newDay) == .none)
     }
 
     /// A focus session in progress at midnight is real work about to become a
     /// record. Ending it would destroy that.
     @Test func aFocusSessionIsLeftAlone() {
-        #expect(DayRollover.action(phase: .work) == .none)
+        #expect(DayRollover.action(phase: .work,
+                                   breakEnteredOn: nil, newDay: newDay) == .none)
+    }
+
+    /// The wake-time race: a session running across a sleep that crosses
+    /// midnight completes *on the new day*, and the wake that reports the day
+    /// change is the same one that let it complete. A break armed then is not a
+    /// leftover.
+    @Test func aBreakArmedOnTheNewDayItselfSurvives() {
+        #expect(DayRollover.action(phase: .breakReady,
+                                   breakEnteredOn: newDay.addingTimeInterval(60),
+                                   newDay: newDay) == .none)
+    }
+
+    @Test func aBreakWithNoStampIsTreatedAsALeftover() {
+        #expect(DayRollover.action(phase: .breakTime,
+                                   breakEnteredOn: nil, newDay: newDay) == .resetToIdle)
     }
 }
 
@@ -113,5 +136,33 @@ import Foundation
         m.handleDayChange()
 
         #expect(m.todayCount == 0)
+    }
+
+    /// The race, through the model rather than the pure function: the break was
+    /// armed after midnight, so the same wake that reports the new day must not
+    /// wipe it. Written by setting the stamp directly — `complete()` reads the
+    /// real clock, which a test cannot move.
+    @Test func aBreakArmedAfterMidnightSurvivesTheSameRollover() {
+        let (m, _) = makeModel()
+        m.settings.autoStartBreak = false
+        m.startWork()
+        m.forceCompleteForTesting()
+        #expect(m.phase == .breakReady, "precondition: a break is armed")
+
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        m.breakEnteredOn = tomorrow
+        m.handleDayChange(now: tomorrow)
+
+        #expect(m.phase == .breakReady, "a break earned on the new day is not a leftover")
+    }
+
+    /// The stamp is set on the way into a break and cleared on the way out, so
+    /// a stale value can never make a later break look like a leftover.
+    @Test func theBreakStampIsClearedWhenTheTimerStops() {
+        let (m, _) = makeModel()
+        m.startBreak()
+        #expect(m.breakEnteredOn != nil)
+        m.reset()
+        #expect(m.breakEnteredOn == nil)
     }
 }

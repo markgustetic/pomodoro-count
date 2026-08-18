@@ -19,14 +19,30 @@ enum DayRollover {
         case resetToIdle
     }
 
-    static func action(phase: Phase) -> Action {
+    /// - Parameters:
+    ///   - phase: the timer's current phase.
+    ///   - breakEnteredOn: when the current break phase began, or nil when the
+    ///     timer is not on a break.
+    ///   - newDay: the start of the day that has just begun.
+    ///
+    /// A break armed *on the new day itself* is not a leftover, and must
+    /// survive. This is not hypothetical: a focus session running across a
+    /// sleep that crosses midnight completes when the Mac wakes, and the wake
+    /// notification that reports the new day is the same one that lets the
+    /// overdue timer fire. Their order is unspecified, so without this the
+    /// just-earned break survived or was wiped depending on run-loop
+    /// scheduling.
+    ///
+    /// A nil stamp on a break phase reads as a leftover. Every path into
+    /// `.breakReady` and `.breakTime` sets it, so nil is unreachable — and if
+    /// a new path ever forgets, clearing a stale break is the safer failure.
+    static func action(phase: Phase, breakEnteredOn: Date?, newDay: Date) -> Action {
         switch phase {
-        // Armed and running breaks alike: `.breakReady` is a break waiting to
-        // be taken, `.breakTime` one under way or paused. Neither should
-        // survive the night.
-        case .breakReady, .breakTime: return .resetToIdle
-        // `.work` even while running — see the focus-session test.
-        case .idle, .work:            return .none
+        case .breakReady, .breakTime:
+            guard let began = breakEnteredOn else { return .resetToIdle }
+            return began < newDay ? .resetToIdle : .none
+        case .idle, .work:
+            return .none
         }
     }
 }

@@ -335,6 +335,14 @@ final class AppModel: ObservableObject {
     /// True while the running break is the long one, so the UI can say so.
     private(set) var currentBreakIsLong = false
 
+    /// When the current break phase began — armed by `complete()` or started by
+    /// `startBreak()`. nil whenever the timer is not on a break.
+    ///
+    /// Read by `handleDayChange` to tell a break left over from yesterday from
+    /// one earned this morning. See `DayRollover.action` for why the two are
+    /// not distinguishable from the day stamp alone.
+    var breakEnteredOn: Date?
+
     /// The classic rhythm: every fourth completed focus session earns the
     /// long break. `>=` rather than `==` so declining the fourth break (auto-
     /// start off, straight into a fifth session) keeps the long break owed
@@ -357,6 +365,7 @@ final class AppModel: ObservableObject {
         if long { focusSessionsThisCycle = 0 }   // taking it restarts the cycle
         currentBreakIsLong = long
         phase = .breakTime
+        breakEnteredOn = Date()
         clock.remaining = TimeInterval(minutes * 60)
         beginCountdown()
     }
@@ -384,6 +393,7 @@ final class AppModel: ObservableObject {
         phase = .idle
         endDate = nil
         clock.remaining = 0
+        breakEnteredOn = nil
     }
 
     /// Starts the day's rhythm over: the timer back to idle and the long-break
@@ -460,6 +470,7 @@ final class AppModel: ObservableObject {
                 // Not `.idle`: the break is owed, so offer it at the length it
                 // will run for instead of dropping back to previewing focus.
                 phase = .breakReady
+                breakEnteredOn = Date()
             }
         } else {
             play(.breakOver)

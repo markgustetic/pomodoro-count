@@ -235,7 +235,11 @@ extension AppModel {
         let day = Calendar.current.startOfDay(for: now)
         if day > lastSeenDay {
             lastSeenDay = day
-            if DayRollover.action(phase: phase) == .resetToIdle { resetForNewDay() }
+            if DayRollover.action(phase: phase,
+                                  breakEnteredOn: breakEnteredOn,
+                                  newDay: day) == .resetToIdle {
+                resetForNewDay()
+            }
         }
         realignTarget()
         objectWillChange.send()

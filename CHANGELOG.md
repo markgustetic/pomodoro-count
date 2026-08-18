@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Pause when the screen locks**, a new setting on the Settings tab. Off by
+  default — turn it on if you'd rather the timer meant time at this Mac, and a
+  running session will stop when the screen locks or the displays sleep.
+
 ### Changed
 
 - **The timer no longer stops when your screen locks.** Locking the Mac or
