@@ -295,7 +295,7 @@ extension View {
 /// A compact bar strip of recent daily counts. The last bar (today) is
 /// full-strength; earlier days recede.
 struct Sparkline: View {
-    let values: [Int]
+    let days: [DayStat]
     var accent: Color
     var accent2: Color
     var neon: Bool
@@ -304,22 +304,22 @@ struct Sparkline: View {
     /// The bars carry no information a screen reader can get at, so state the
     /// trend as one value instead of exposing seven unlabelled shapes.
     private var spokenValue: String {
-        guard !values.isEmpty else { return "no data" }
-        let total = values.reduce(0, +)
-        return "\(total) in the last \(values.count) days, today \(values.last ?? 0)"
+        guard !days.isEmpty else { return "no data" }
+        let total = days.reduce(0) { $0 + $1.count }
+        return "\(total) in the last \(days.count) days, today \(days.last?.count ?? 0)"
     }
 
     var body: some View {
-        let peak = max(1, values.max() ?? 1)
+        let peak = max(1, days.map(\.count).max() ?? 1)
         return HStack(alignment: .bottom, spacing: 3) {
-            ForEach(Array(values.enumerated()), id: \.offset) { index, value in
-                let isToday = index == values.count - 1
+            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                let isToday = index == days.count - 1
                 Capsule(style: .continuous)
                     .fill(LinearGradient(colors: [accent, accent2],
                                          startPoint: .top, endPoint: .bottom))
                     .opacity(isToday ? 1.0 : 0.40)
                     .frame(maxWidth: .infinity)
-                    .frame(height: max(3, CGFloat(value) / CGFloat(peak) * height))
+                    .frame(height: max(3, CGFloat(day.count) / CGFloat(peak) * height))
             }
         }
         .frame(height: height, alignment: .bottom)

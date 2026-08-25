@@ -84,7 +84,7 @@ struct RootView: View {
 
             VStack(alignment: .trailing, spacing: 4) {
                 statusBadge
-                Sparkline(values: model.dailySeries(days: 7).map(\.count),
+                Sparkline(days: model.dailySeries(days: 7),
                           accent: palette.accent,
                           accent2: palette.accent2,
                           neon: palette.neon)
