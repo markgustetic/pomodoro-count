@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Hover the seven-day graph on the Focus tab** to read a day off it. The bar
+  under the pointer lights up and a card names the day and its count — the
+  same readout the History tab's graphs already give you.
+
 ### Fixed
 
 - **A new day now restarts the long-break rhythm from an idle timer too.**
