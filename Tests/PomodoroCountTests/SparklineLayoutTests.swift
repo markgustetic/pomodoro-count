@@ -70,4 +70,28 @@ import CoreGraphics
         #expect(SparklineLayout.centerX(ofColumn: count, width: width, count: count) == nil)
         #expect(SparklineLayout.centerX(ofColumn: -1, width: width, count: count) == nil)
     }
+
+    /// The property that actually makes equal-column hit-testing safe: every
+    /// drawn capsule's edges fall strictly inside its own equal column, so no
+    /// point genuinely on a capsule is ever attributed to a neighbour. The x
+    /// values here come from the *drawn* layout (60/7pt capsules, 3pt gaps),
+    /// not from `index`'s own width/count formula — deriving them that way
+    /// would make this tautological.
+    ///
+    /// This passes today. It exists to fail if the 78pt strip width or the
+    /// 3pt gap ever change enough that the equal columns and the drawn
+    /// capsules diverge — the one regression the rest of this suite cannot
+    /// see, since every other test here measures `index` against itself.
+    @Test func everyCapsuleEdgeStaysInsideItsOwnColumn() {
+        let capsuleWidth: CGFloat = 60.0 / 7.0
+        let gap: CGFloat = 3
+        let pitch = capsuleWidth + gap
+        let epsilon: CGFloat = 0.01
+        for bar in 0..<count {
+            let left = pitch * CGFloat(bar)
+            let right = left + capsuleWidth
+            #expect(SparklineLayout.index(atX: left + epsilon, width: width, count: count) == bar)
+            #expect(SparklineLayout.index(atX: right - epsilon, width: width, count: count) == bar)
+        }
+    }
 }

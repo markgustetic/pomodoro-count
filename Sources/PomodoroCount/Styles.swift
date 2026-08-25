@@ -449,9 +449,11 @@ struct Sparkline: View {
     ///    is not the lever — which is why both `.zIndex` on the strip and a
     ///    ZStack with the strip declared last changed nothing when they were
     ///    tried. An overlay on the header itself is above every one of the
-    ///    header's children by construction, no ordering to argue with, which
-    ///    is exactly why `HistoryTab` hangs its own card on the graph's
-    ///    container rather than inside the chart.
+    ///    header's children by construction, no ordering to argue with.
+    ///    `HistoryTab` hangs its own card on the graph's container too — same
+    ///    tactic, different reason: there the card's coordinates and the
+    ///    cursor's must share one space, and the Canvas clips, so the card
+    ///    can't live inside it.
     ///
     /// There was a *third* thing wrong, and it is the one that made this look
     /// unfixable: in Classic the card is all but transparent, so neither of
@@ -482,9 +484,13 @@ struct Sparkline: View {
 struct SparklineHoverCard: View {
     let hover: SparklineHover
     @Environment(\.palette) private var palette
-    // Starts .zero and keeps the previous card's size across hovers, so a
-    // newly-shown card lays out once at the wrong width before the preference
-    // below lands. Invisible at 60Hz — not a bug.
+    // Unlike HistoryTab's tooltipSize, which lives on the long-lived tab view
+    // and so keeps its value across hovers, this @State lives on
+    // SparklineHoverCard itself, which `if let hover { … }` tears down
+    // whenever the pointer leaves — so `size` starts .zero on *every* hover
+    // entry, not just the first. Each new card therefore lays out once at
+    // the wrong placement before the preference below lands and corrects it.
+    // Invisible at 60Hz — not a bug.
     @State private var size: CGSize = .zero
 
     /// What the card is opaque *against*.

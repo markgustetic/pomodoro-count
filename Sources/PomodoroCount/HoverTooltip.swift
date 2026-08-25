@@ -33,9 +33,16 @@ enum TooltipPlacement {
 
 /// The hover card: one line, sized by its content.
 ///
-/// Backed by `bgBottom` *under* `cardFill` so it is opaque whatever alpha the
-/// theme gives the fill — a card you can read the graph through defeats the
-/// point of putting it in front of the graph.
+/// Backed by `bgBottom` *under* `cardFill`. The intent is a card that reads
+/// as opaque whatever alpha the theme gives the fill — a card you can read
+/// the graph through defeats the point of putting it in front of the graph —
+/// but the intent is not the reality everywhere: in Classic, `bgBottom` is
+/// `.clear` and `paintsBackground` is false, so the card is just a 5%
+/// `cardFill` tint over nothing, genuinely see-through. It is opaque only in
+/// Synthwave, where `bgBottom` is a real colour. Fixing the transparency
+/// itself is separate, filed work; a caller that needs a card that's
+/// actually opaque supplies its own ground today (see
+/// `SparklineHoverCard.ground` in Styles.swift).
 struct HoverTooltip: View {
     let text: String
     @Environment(\.palette) private var palette

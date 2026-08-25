@@ -119,9 +119,11 @@ struct RootView: View {
         // strip, though unclipped, still paints as part of the strip, so the
         // status badge above it and the streak flame below it paint after it
         // and land on top. An overlay on this card is above every one of this
-        // card's children by construction. HistoryTab does the same thing for
-        // the same reason — its card hangs on the graph's container, not
-        // inside the chart.
+        // card's children by construction. HistoryTab hangs its own card on
+        // the graph's container too, but for a different reason: there the
+        // card's coordinates and the cursor's must share one space, and the
+        // Canvas clips, so the card can't live inside it (see
+        // HistoryTab.swift).
         //
         // No size probe and no @State here on purpose: this overlay's own
         // geometry is the header's, so it clamps against `geo.size` directly,
