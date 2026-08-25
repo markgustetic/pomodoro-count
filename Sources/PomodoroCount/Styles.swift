@@ -295,11 +295,30 @@ extension View {
 /// A compact bar strip of recent daily counts. The last bar (today) is
 /// full-strength; earlier days recede.
 struct Sparkline: View {
+    /// The header card is the container the hover card is placed against —
+    /// see `tooltip`. Named, never `.local`: `.local` here is the 78pt strip,
+    /// and the reorder post-mortem is about measuring in a frame your own
+    /// effects move.
+    static let headerSpace = "focusHeader"
+
     let days: [DayStat]
     var accent: Color
     var accent2: Color
     var neon: Bool
     var height: CGFloat = 22
+    /// Names the hovered day. `AppModel.dayLabel`, so "Today" and "Yesterday"
+    /// read as words here exactly as they do in History.
+    var dayLabel: (Date) -> String
+    /// The header card's size, in which the hover card is placed. The card is
+    /// wider than the strip, so the strip cannot be its own container.
+    var tooltipContainer: CGSize
+
+    @State private var hoveredIndex: Int?
+    @State private var hoverPoint: CGPoint?
+    // Starts .zero and keeps the previous card's size across hovers, so a
+    // newly-shown card lays out once at the wrong width before the preference
+    // below lands. Invisible at 60Hz — not a bug.
+    @State private var tooltipSize: CGSize = .zero
 
     /// The bars carry no information a screen reader can get at, so state the
     /// trend as one value instead of exposing seven unlabelled shapes.
@@ -309,24 +328,124 @@ struct Sparkline: View {
         return "\(total) in the last \(days.count) days, today \(days.last?.count ?? 0)"
     }
 
+    /// The effective hover: a real pointer, or a preview's forced one.
+    ///
+    /// The forced index is range-checked here rather than left to the card.
+    /// `--hover-graph` is shared with the History graphs, where 200 is a
+    /// legitimate index into a year; unchecked, it would dim every bar on
+    /// this seven-day strip with no card on screen to explain why.
+    private var effectiveHover: Int? {
+        if let hoveredIndex { return hoveredIndex }
+        guard let forced = PreviewOverrides.hoveredGraphIndex,
+              days.indices.contains(forced) else { return nil }
+        return forced
+    }
+
     var body: some View {
         let peak = max(1, days.map(\.count).max() ?? 1)
+        let hovered = effectiveHover
         return HStack(alignment: .bottom, spacing: 3) {
             ForEach(Array(days.enumerated()), id: \.offset) { index, day in
-                let isToday = index == days.count - 1
+                // While hovering, only the hovered bar is lit — today gives up
+                // its marker for the duration, the way the History chart's
+                // bars do. Nothing is lost: the card names the day outright,
+                // which is more than the marker was saying.
+                let lit = hovered == nil ? index == days.count - 1 : hovered == index
                 Capsule(style: .continuous)
                     .fill(LinearGradient(colors: [accent, accent2],
                                          startPoint: .top, endPoint: .bottom))
-                    .opacity(isToday ? 1.0 : 0.40)
+                    .opacity(lit ? 1.0 : 0.40)
                     .frame(maxWidth: .infinity)
                     .frame(height: max(3, CGFloat(day.count) / CGFloat(peak) * height))
             }
         }
         .frame(height: height, alignment: .bottom)
         .neonGlow(accent, enabled: neon, radius: 4, opacity: 0.45)
+        // On top, not behind: a bar is hit-testable and would otherwise eat
+        // the hover before the tracker saw it. Nothing here is clickable, so
+        // covering the strip costs nothing.
+        .overlay { hoverTracker }
+        .overlay(alignment: .topLeading) { tooltip }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Recent activity")
         .accessibilityValue(spokenValue)
+    }
+
+    private var hoverTracker: some View {
+        GeometryReader { geo in
+            Rectangle()
+                .fill(.clear)
+                .contentShape(Rectangle())
+                // A tracking area, not a gesture — which is why this works in
+                // the non-activating panel where drag sessions never start.
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let point):
+                        hoveredIndex = SparklineLayout.index(atX: point.x,
+                                                             width: geo.size.width,
+                                                             count: days.count)
+                        hoverPoint = point
+                    case .ended:
+                        hoveredIndex = nil
+                        hoverPoint = nil
+                    }
+                }
+                // A render has no pointer, so a forced hover gets its column's
+                // centre at mid-height. `onAppear` rather than a computed
+                // value: writing state during layout is how SwiftUI gets an
+                // update loop.
+                .onAppear {
+                    guard let forced = PreviewOverrides.hoveredGraphIndex,
+                          let x = SparklineLayout.centerX(ofColumn: forced,
+                                                          width: geo.size.width,
+                                                          count: days.count)
+                    else { return }
+                    hoverPoint = CGPoint(x: x, y: geo.size.height / 2)
+                }
+        }
+    }
+
+    /// The hover card, placed against the header rather than the strip.
+    ///
+    /// `TooltipPlacement.origin` clamps x to
+    /// `min(cursor.x - w/2, max(0, container.width - w))`. The card is around
+    /// 90pt and the strip is 78, so against the strip the second term is 0
+    /// and the result is 0 for all seven bars — the card would sit at the
+    /// leading edge and never move, which is the one thing it must do. (It
+    /// would still be inside the panel, landing flush with the header card's
+    /// trailing edge. The defect is the frozen position, not spill.) Against
+    /// the header's 272pt the clamp is live again: the card runs 142.6–232.6
+    /// under the first bar and 182–272 under the last.
+    @ViewBuilder private var tooltip: some View {
+        if let text = HistoryReadout.tooltip(hoveredIndex: effectiveHover,
+                                             series: days, dayLabel: dayLabel),
+           let cursor = hoverPoint {
+            GeometryReader { geo in
+                let strip = geo.frame(in: .named(Sparkline.headerSpace))
+                let at = TooltipPlacement.origin(
+                    cursor: CGPoint(x: strip.minX + cursor.x,
+                                    y: strip.minY + cursor.y),
+                    tooltip: tooltipSize,
+                    in: tooltipContainer)
+                HoverTooltip(text: text)
+                    .background {
+                        GeometryReader { card in
+                            Color.clear.preference(key: TooltipSizeKey.self,
+                                                   value: card.size)
+                        }
+                    }
+                    // Back out of the header's coordinates into this overlay's,
+                    // whose origin is the strip's top-left. The result is
+                    // negative on both axes for most bars, which is fine — an
+                    // overlay is not clipped, the same fact that lets a
+                    // History card flip below a 40pt heatmap.
+                    .offset(x: at.x - strip.minX, y: at.y - strip.minY)
+            }
+            .onPreferenceChange(TooltipSizeKey.self) { tooltipSize = $0 }
+            // Never intercept the pointer: the card would fight the hover that
+            // summons it.
+            .allowsHitTesting(false)
+        }
     }
 }
 

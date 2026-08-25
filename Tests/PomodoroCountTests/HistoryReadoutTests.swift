@@ -64,4 +64,18 @@ import Foundation
         #expect(HistoryReadout.tooltip(hoveredIndex: 9, series: series([3, 5]),
                                        dayLabel: stub) == nil)
     }
+
+    /// The Focus sparkline formats through this same function, so all three
+    /// graphs phrase a day identically. A seven-day series must read exactly
+    /// as the History chart's does — no shorter form for the smaller strip.
+    @Test func theFocusSparklineSeriesReadsLikeTheHistoryOne() {
+        let day = Date(timeIntervalSince1970: 1_785_000_000)
+        let week = (0..<7).map {
+            DayStat(date: Calendar.current.date(byAdding: .day, value: -$0, to: day)!,
+                    count: $0)
+        }
+        #expect(HistoryReadout.tooltip(hoveredIndex: 3, series: week,
+                                       dayLabel: { _ in "Wed, Jul 29" })
+                == "Wed, Jul 29 · 3")
+    }
 }

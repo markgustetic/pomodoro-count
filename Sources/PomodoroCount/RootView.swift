@@ -4,6 +4,7 @@ import AppKit
 struct RootView: View {
     @EnvironmentObject var model: AppModel
     @State private var tab: Tab
+    @State private var headerSize: CGSize = .zero
 
     enum Tab: String, CaseIterable { case focus = "Focus", history = "History", settings = "Settings" }
 
@@ -87,7 +88,9 @@ struct RootView: View {
                 Sparkline(days: model.dailySeries(days: 7),
                           accent: palette.accent,
                           accent2: palette.accent2,
-                          neon: palette.neon)
+                          neon: palette.neon,
+                          dayLabel: model.dayLabel,
+                          tooltipContainer: headerSize)
                     .frame(width: 78)
                 // A one-day "streak" is just today; the flame appears once
                 // there is actually a run to protect.
@@ -108,6 +111,22 @@ struct RootView: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .cardBackground(cornerRadius: 14)
+        // The sparkline's hover card is wider than the 78pt strip, so it is
+        // placed against this card instead — see Sparkline.tooltip. Measured
+        // rather than derived from the panel's 300pt, so a padding change
+        // can't silently mis-clamp it.
+        //
+        // This is written on layout, never on a pointer move. The hover state
+        // itself lives inside Sparkline precisely so that a 60Hz pointer does
+        // not invalidate this view, which rebuilds dailySeries every pass.
+        .background {
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { headerSize = geo.size }
+                    .onChange(of: geo.size) { headerSize = geo.size }
+            }
+        }
+        .coordinateSpace(name: Sparkline.headerSpace)
     }
 
     @ViewBuilder private var statusBadge: some View {
