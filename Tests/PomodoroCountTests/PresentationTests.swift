@@ -123,6 +123,19 @@ import AppKit
         #expect(!Palette.classic.paintsBackground)
     }
 
+    /// A hover card is drawn *over* the graph it describes, so it has to hide
+    /// what is behind it — a card you can read the bars through defeats the
+    /// point of putting it in front of them. `bgBottom` alone cannot do that
+    /// job: Classic paints no panel background at all, so a card grounded in
+    /// it is a 5% `cardFill` tint over the graph and the bars show straight
+    /// through. `ground` is the colour that always can, and this is the one
+    /// property it exists for.
+    @Test(arguments: ThemeChoice.allCases)
+    func everyPaletteHasAnOpaqueGroundToDrawCardsOn(choice: ThemeChoice) {
+        let ground = NSColor(choice.palette.ground).usingColorSpace(.sRGB)
+        #expect(ground?.alphaComponent == 1)
+    }
+
     @Test func themeChoicePersists() {
         let (m, url) = makeModel()
         #expect(m.settings.theme == .classic)

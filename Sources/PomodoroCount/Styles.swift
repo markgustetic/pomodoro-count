@@ -493,34 +493,6 @@ struct SparklineHoverCard: View {
     // Invisible at 60Hz — not a bug.
     @State private var size: CGSize = .zero
 
-    /// What the card is opaque *against*.
-    ///
-    /// `HoverTooltip` backs itself with `bgBottom` under `cardFill` and calls
-    /// the result opaque. That is true of Synthwave and false of Classic:
-    /// Classic paints no panel background at all — `paintsBackground` is
-    /// false and `bgBottom` is `.clear` — so its card is 5% `cardFill` over
-    /// nothing. Over a sparse chart that still reads. Here the card lands on
-    /// the status badge and the streak flame, and 5% is not a card, it is a
-    /// tint: the badge's text shows straight through the day's name.
-    ///
-    /// This is why the first two attempts on this looked unfixable. There
-    /// *is* a real z-order problem as well (see `Sparkline.hoverReporter`),
-    /// but at 5% opacity fixing it alone changes nothing you can see: the
-    /// badge shows through a card that is in front of it exactly as it shows
-    /// through one that is behind. Every render came back identical, and the
-    /// conclusion drawn was that the renderer could not depict text z-order.
-    /// It can. Measured: in Synthwave, where `bgBottom` is a real colour,
-    /// this same card covers the badge cleanly.
-    ///
-    /// The window's own background is what Classic is sitting on, so that is
-    /// the ground — the same colour `PreviewRenderer` paints behind a
-    /// non-Synthwave panel, and reached for the same way `SegmentedControl`
-    /// reaches for `.controlColor`: it is the system's surface, not a
-    /// hand-picked one that would drift from it in dark mode.
-    private var ground: Color {
-        palette.paintsBackground ? palette.bgBottom : Color(nsColor: .windowBackgroundColor)
-    }
-
     var body: some View {
         GeometryReader { geo in
             // `geo.size` is the header card's, and this overlay's origin is
@@ -528,11 +500,11 @@ struct SparklineHoverCard: View {
             // — so the cursor arrives in these coordinates already and the
             // placement needs no translation back.
             let at = TooltipPlacement.origin(cursor: hover.cursor, tooltip: size, in: geo.size)
+            // No ground of its own: `HoverTooltip` is opaque in every theme
+            // now (it grounds itself in `palette.ground`), and this card
+            // carried a duplicate of that expression only for as long as it
+            // wasn't.
             HoverTooltip(text: hover.text)
-                // Radius 6 to match the card's own corners in HoverTooltip —
-                // a duplicated constant, and cheaper than the alternative of
-                // a squared-off slab peeking out from under the rounding.
-                .background { RoundedRectangle(cornerRadius: 6).fill(ground) }
                 .background {
                     GeometryReader { card in
                         Color.clear.preference(key: TooltipSizeKey.self, value: card.size)

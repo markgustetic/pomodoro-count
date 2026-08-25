@@ -33,16 +33,21 @@ enum TooltipPlacement {
 
 /// The hover card: one line, sized by its content.
 ///
-/// Backed by `bgBottom` *under* `cardFill`. The intent is a card that reads
-/// as opaque whatever alpha the theme gives the fill — a card you can read
-/// the graph through defeats the point of putting it in front of the graph —
-/// but the intent is not the reality everywhere: in Classic, `bgBottom` is
-/// `.clear` and `paintsBackground` is false, so the card is just a 5%
-/// `cardFill` tint over nothing, genuinely see-through. It is opaque only in
-/// Synthwave, where `bgBottom` is a real colour. Fixing the transparency
-/// itself is separate, filed work; a caller that needs a card that's
-/// actually opaque supplies its own ground today (see
-/// `SparklineHoverCard.ground` in Styles.swift).
+/// Backed by `palette.ground` *under* `cardFill`, so it is opaque whatever
+/// alpha the theme gives the fill — a card you can read the graph through
+/// defeats the point of putting it in front of the graph. `ground` and not
+/// `bgBottom`: that was the original backing, and it made this card opaque
+/// in Synthwave and see-through in Classic, where `bgBottom` is `.clear` and
+/// the card was a 5% `cardFill` tint over the bars.
+///
+/// Worth knowing if a hover card ever misbehaves again, because it sent the
+/// Focus sparkline's card two attempts down the wrong road: at 5% opacity a
+/// z-order bug and a transparency bug look identical. The sparkline card
+/// really did paint behind the status badge (`Sparkline.hoverReporter`, fixed
+/// separately), but with a see-through card, moving it in front changed
+/// nothing anyone could see — every render came back the same and the
+/// renderer got the blame. Measured: in Synthwave, where `bgBottom` was a
+/// real colour, the same card covered the badge cleanly the whole time.
 struct HoverTooltip: View {
     let text: String
     @Environment(\.palette) private var palette
@@ -55,7 +60,7 @@ struct HoverTooltip: View {
             .padding(.vertical, 3)
             .background {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(palette.bgBottom)
+                    .fill(palette.ground)
                     .overlay { RoundedRectangle(cornerRadius: 6).fill(palette.cardFill) }
                     .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(palette.cardStroke) }
             }

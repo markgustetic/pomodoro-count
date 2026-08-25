@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 extension Color {
     init(hex: UInt32) {
@@ -190,6 +191,24 @@ struct Palette {
 
     var background: LinearGradient {
         LinearGradient(colors: [bgTop, bgBottom], startPoint: .top, endPoint: .bottom)
+    }
+
+    /// What a surface drawn *over* the panel's own content is opaque against.
+    ///
+    /// Not `bgBottom`, which is the mistake this property exists to stop
+    /// anyone making twice. `bgBottom` is opaque only in a theme that paints
+    /// its own background; Classic paints none — `paintsBackground` is false
+    /// and `bgBottom` is `.clear` — so a card grounded in it is however much
+    /// `cardFill` the theme gives it over nothing, which at Classic's 5% is
+    /// not a card but a tint. The window's own background is what Classic is
+    /// really sitting on, so that is the ground, reached for the same way
+    /// `SegmentedControl` reaches for `.controlColor`: it is the system's
+    /// surface, not a hand-picked one that would drift from it in dark mode.
+    ///
+    /// `PresentationTests` pins the property that makes it worth having —
+    /// every theme's ground resolves opaque.
+    var ground: Color {
+        paintsBackground ? bgBottom : Color(nsColor: .windowBackgroundColor)
     }
 }
 

@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The hover cards on the History graphs are no longer see-through.** In the
+  default theme the card that names a day drew as a faint tint, so the bars
+  behind it — and, on the Year heatmap, the squares it was overhanging — read
+  straight through the text. It's a solid card now, in both themes.
+
 - **A new day now restarts the long-break rhythm from an idle timer too.**
   The every-fourth-session count was only reset when the app was left overnight
   on a break — the far commoner case, sitting idle after the last break was
