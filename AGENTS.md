@@ -160,7 +160,12 @@ that one fact:
   `startBreak()` has already zeroed `focusSessionsThisCycle`. A calendar-day
   change is the third way a break ends: `handleDayChange` clears it and
   restarts the long-break cycle, exempting only a break armed on the new day
-  itself — `breakEnteredOn` is the stamp that tells the two apart.
+  itself — `breakEnteredOn` is the stamp that tells the two apart. The cycle
+  also restarts on a day change found at `.idle`
+  (`DayRollover.Action.restartCycle`: no timer to stop, just the counter), but
+  deliberately not at `.work` — the wake that reports the new day is the same
+  one that lets an overdue session fire, and leaving the counter alone is what
+  makes both orderings land the session on the same nth of the cycle.
 - `suspendSaves()` has three call sites (a drag reorder, and the two
   record-append-plus-realign pairs above) and **counts depth**, because the
   hotkey and the URL scheme fire the latter two mid-drag; only the outermost

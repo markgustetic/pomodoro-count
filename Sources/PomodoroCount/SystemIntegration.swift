@@ -235,10 +235,12 @@ extension AppModel {
         let day = Calendar.current.startOfDay(for: now)
         if day > lastSeenDay {
             lastSeenDay = day
-            if DayRollover.action(phase: phase,
-                                  breakEnteredOn: breakEnteredOn,
-                                  newDay: day) == .resetToIdle {
-                resetForNewDay()
+            switch DayRollover.action(phase: phase,
+                                      breakEnteredOn: breakEnteredOn,
+                                      newDay: day) {
+            case .resetToIdle: resetForNewDay()
+            case .restartCycle: restartLongBreakCycle()
+            case .none: break
             }
         }
         realignTarget()

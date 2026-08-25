@@ -405,6 +405,13 @@ final class AppModel: ObservableObject {
     /// the file.
     func resetForNewDay() {
         reset()
+        restartLongBreakCycle()
+    }
+
+    /// The cycle alone, for the day change that finds nothing to stop: an idle
+    /// timer has no state to reset, but the counter behind it is still holding
+    /// yesterday's sessions.
+    func restartLongBreakCycle() {
         focusSessionsThisCycle = 0
     }
 

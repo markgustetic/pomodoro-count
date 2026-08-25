@@ -15,6 +15,8 @@ enum DayRollover {
     enum Action: Equatable {
         /// Leave the timer as it is.
         case none
+        /// Restart the long-break cycle, leaving the timer alone.
+        case restartCycle
         /// Stop the timer, drop to `.idle`, and restart the long-break cycle.
         case resetToIdle
     }
@@ -41,7 +43,20 @@ enum DayRollover {
         case .breakReady, .breakTime:
             guard let began = breakEnteredOn else { return .resetToIdle }
             return began < newDay ? .resetToIdle : .none
-        case .idle, .work:
+        case .idle:
+            // The commonest overnight state, and the one the cycle counter is
+            // actually lost in: the last break was taken or skipped hours ago,
+            // so there is no timer to stop — only yesterday's session count
+            // still standing between this morning and a long break earned on
+            // the first pomodoro of the day.
+            return .restartCycle
+        case .work:
+            // Deliberately *not* `.restartCycle`. A session running across a
+            // sleep that crosses midnight completes on wake, and the order of
+            // the wake notification against the overdue timer is unspecified
+            // (see `breakEnteredOn`). Leaving the counter alone here is what
+            // makes both orders agree: the session lands as the same nth of
+            // the cycle whether it completes before or after this runs.
             return .none
         }
     }

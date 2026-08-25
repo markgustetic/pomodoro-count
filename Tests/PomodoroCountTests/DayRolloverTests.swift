@@ -23,13 +23,16 @@ import Foundation
                                    breakEnteredOn: yesterday, newDay: newDay) == .resetToIdle)
     }
 
-    @Test func idleIsLeftAlone() {
+    /// Nothing to stop, but the cycle counter behind an idle timer is still
+    /// yesterday's.
+    @Test func idleRestartsTheCycle() {
         #expect(DayRollover.action(phase: .idle,
-                                   breakEnteredOn: nil, newDay: newDay) == .none)
+                                   breakEnteredOn: nil, newDay: newDay) == .restartCycle)
     }
 
     /// A focus session in progress at midnight is real work about to become a
-    /// record. Ending it would destroy that.
+    /// record. Ending it would destroy that — and its cycle counter is left
+    /// alone too, so the wake-time race resolves the same way in either order.
     @Test func aFocusSessionIsLeftAlone() {
         #expect(DayRollover.action(phase: .work,
                                    breakEnteredOn: nil, newDay: newDay) == .none)
@@ -113,6 +116,53 @@ import Foundation
         m.handleDayChange(now: tomorrow())
 
         #expect(!m.nextBreakIsLong)
+    }
+
+    /// The commonest overnight state is not an armed break but plain idle:
+    /// yesterday's last break was taken or skipped, so the timer is at rest
+    /// while the cycle counter still holds yesterday's sessions. Zeroing it
+    /// only on the break phases left the first pomodoro of the morning earning
+    /// a long break.
+    @Test func aNewDayRestartsTheLongBreakCycleFromIdle() {
+        let (m, _) = makeModel()
+        m.settings.autoStartBreak = false
+        for _ in 0..<3 {
+            m.startWork()
+            m.forceCompleteForTesting()
+            m.reset()                       // break taken or skipped: back to idle
+        }
+        #expect(m.phase == .idle, "precondition: at rest overnight")
+
+        m.handleDayChange(now: tomorrow())
+
+        m.startWork()
+        m.forceCompleteForTesting()
+        #expect(!m.nextBreakIsLong,
+                "the first pomodoro of a new day cannot earn the long break")
+    }
+
+    /// The other half of the same rule: restarting the cycle must not reach a
+    /// break that survived the rollover. A long break armed just after midnight
+    /// is owed at its full length, and zeroing the counter under it would
+    /// silently shorten the break the panel is already promising.
+    @Test func aLongBreakArmedOnTheNewDayKeepsItsLength() {
+        let (m, _) = makeModel()
+        m.settings.autoStartBreak = false
+        m.settings.longBreakMinutes = 30
+        for _ in 0..<4 {
+            m.startWork()
+            m.forceCompleteForTesting()
+            if m.phase == .breakReady && !m.nextBreakIsLong { m.reset() }
+        }
+        #expect(m.phase == .breakReady && m.nextBreakIsLong,
+                "precondition: a long break is armed")
+
+        let tomorrow = tomorrow()
+        m.breakEnteredOn = tomorrow
+        m.handleDayChange(now: tomorrow)
+
+        #expect(m.nextBreakIsLong)
+        #expect(m.armedBreakMinutes == 30)
     }
 
     /// The wake-from-a-nap case, and the reason the stamp exists at all.

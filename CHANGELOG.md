@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A new day now restarts the long-break rhythm from an idle timer too.**
+  The every-fourth-session count was only reset when the app was left overnight
+  on a break — the far commoner case, sitting idle after the last break was
+  taken or skipped, carried yesterday's tally into the morning, so the first
+  pomodoro of the day could earn a long break. A session actually running at
+  midnight still keeps its place in the cycle.
+
 ## [1.5.0] - 2026-08-18
 
 ### Added
