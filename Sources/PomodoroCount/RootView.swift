@@ -85,50 +85,26 @@ struct RootView: View {
 
             VStack(alignment: .trailing, spacing: 4) {
                 statusBadge
-                // Sparkline's hover card is an overlay that can extend below
-                // its own frame (see Sparkline.tooltip), landing on the
-                // streak row's space when it flips down. `.zIndex` does NOT
-                // fix that here — measured: it only takes effect inside a
-                // container built to expect overlap, and a plain VStack
-                // (this one) paints its children in strict declaration order
-                // regardless of it — `.zIndex(1)` and `.zIndex(1000)` on
-                // Sparkline produced byte-identical, still-illegible renders.
-                // `.overlay` alone measured no better here either — its
-                // content did not reliably draw above every child of the
-                // view it was attached to.
-                //
-                // A literal ZStack is the one construct measured to keep its
-                // declared order — later wins — so the streak row (plus a
-                // same-size stand-in for Sparkline, which keeps this
-                // VStack's own automatic spacing/sizing exactly as before)
-                // sits in an ordinary VStack for layout, and the real
-                // Sparkline is declared second in a ZStack wrapping that
-                // whole thing, so it always paints on top.
-                //
-                // `--preview`'s offscreen bitmap (`PreviewRenderer.rasterize`,
-                // via `NSHostingView.displayIgnoringOpacity` on a window that
-                // is never actually shown) cannot be trusted to *depict* that
-                // ordering for Text-on-Text specifically — measured with a
-                // same-position, same-size `Rectangle` standing in for the
-                // streak row (correctly covered by the card every time) against
-                // the real `Text`/`Image(systemName:)` content (still drawn on
-                // top of the card in the same renders, `.drawingGroup()`
-                // included). The shape case is what confirms the z-order above
-                // is genuinely correct; a render showing the streak digit
-                // through the card is this renderer's limitation, not a sign
-                // the fix regressed — check by eye in the running app instead.
-                ZStack(alignment: .top) {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Color.clear.frame(width: 78, height: 22)  // Sparkline's own default `height`
-                        streakRow
+                Sparkline(days: model.dailySeries(days: 7),
+                          accent: palette.accent,
+                          accent2: palette.accent2,
+                          neon: palette.neon,
+                          dayLabel: model.dayLabel,
+                          tooltipContainer: headerSize)
+                    .frame(width: 78)
+                // A one-day "streak" is just today; the flame appears once
+                // there is actually a run to protect.
+                if model.streakDays >= 2 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 9))
+                        Text("\(model.streakDays)")
+                            .font(.caption2.monospacedDigit().weight(.semibold))
                     }
-                    Sparkline(days: model.dailySeries(days: 7),
-                              accent: palette.accent,
-                              accent2: palette.accent2,
-                              neon: palette.neon,
-                              dayLabel: model.dayLabel,
-                              tooltipContainer: headerSize)
-                        .frame(width: 78)
+                    .foregroundStyle(palette.accent)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(model.streakDays) day streak")
+                    .help("\(model.streakDays) days in a row")
                 }
             }
         }
@@ -163,24 +139,6 @@ struct RootView: View {
             badge(model.isRunning ? "Focus" : "Paused", palette.focusColor)
         case .breakTime:
             badge(model.isRunning ? "Break" : "Paused", palette.breakColor)
-        }
-    }
-
-    // A one-day "streak" is just today; the flame appears once there is
-    // actually a run to protect. Factored out of `header` only because that
-    // VStack got a layer deeper there — see the WHY comment at its call site.
-    @ViewBuilder private var streakRow: some View {
-        if model.streakDays >= 2 {
-            HStack(spacing: 3) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 9))
-                Text("\(model.streakDays)")
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-            }
-            .foregroundStyle(palette.accent)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(model.streakDays) day streak")
-            .help("\(model.streakDays) days in a row")
         }
     }
 
