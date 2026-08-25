@@ -292,13 +292,43 @@ extension View {
 
 // MARK: - Sparkline
 
+/// What the pointer is over, reported up to the card that draws it.
+///
+/// The strip reports; it does not draw. `cursor` is already in the header
+/// card's coordinate space, so the header places the card with its own
+/// geometry and nothing has to be translated back down again.
+struct SparklineHover: Equatable {
+    /// The card's line, e.g. "Yesterday · 1". Phrased at this end rather than
+    /// up in the header because `HistoryReadout.tooltip` wants the series and
+    /// the day labeller, and both already live here.
+    let text: String
+    /// The pointer, in `Sparkline.headerSpace`.
+    let cursor: CGPoint
+}
+
+/// Carries the hover up from the strip to the header card.
+///
+/// A preference rather than a binding: a binding would park the pointer's
+/// position in `RootView`'s `@State`, and writing that on every mouse move
+/// would invalidate the whole Focus tab — which rebuilds `dailySeries` on
+/// every pass. Same reasoning that split `SessionClock` out of `AppModel`.
+struct SparklineHoverKey: PreferenceKey {
+    static let defaultValue: SparklineHover? = nil
+    static func reduce(value: inout SparklineHover?, nextValue: () -> SparklineHover?) {
+        // Last non-nil wins. One strip exists in the panel, so this never
+        // arbitrates between two reports — it only keeps a silent sibling
+        // from erasing the one report there is.
+        value = nextValue() ?? value
+    }
+}
+
 /// A compact bar strip of recent daily counts. The last bar (today) is
 /// full-strength; earlier days recede.
 struct Sparkline: View {
-    /// The header card is the container the hover card is placed against —
-    /// see `tooltip`. Named, never `.local`: `.local` here is the 78pt strip,
-    /// and the reorder post-mortem is about measuring in a frame your own
-    /// effects move.
+    /// The header card is the space the hover is reported in — see
+    /// `SparklineHoverCard`. Named, never `.local`: `.local` here is the 78pt
+    /// strip, and the reorder post-mortem is about measuring in a frame your
+    /// own effects move.
     static let headerSpace = "focusHeader"
 
     let days: [DayStat]
@@ -309,16 +339,9 @@ struct Sparkline: View {
     /// Names the hovered day. `AppModel.dayLabel`, so "Today" and "Yesterday"
     /// read as words here exactly as they do in History.
     var dayLabel: (Date) -> String
-    /// The header card's size, in which the hover card is placed. The card is
-    /// wider than the strip, so the strip cannot be its own container.
-    var tooltipContainer: CGSize
 
     @State private var hoveredIndex: Int?
     @State private var hoverPoint: CGPoint?
-    // Starts .zero and keeps the previous card's size across hovers, so a
-    // newly-shown card lays out once at the wrong width before the preference
-    // below lands. Invisible at 60Hz — not a bug.
-    @State private var tooltipSize: CGSize = .zero
 
     /// The bars carry no information a screen reader can get at, so state the
     /// trend as one value instead of exposing seven unlabelled shapes.
@@ -365,7 +388,7 @@ struct Sparkline: View {
         // the hover before the tracker saw it. Nothing here is clickable, so
         // covering the strip costs nothing.
         .overlay { hoverTracker }
-        .overlay(alignment: .topLeading) { tooltip }
+        .background { hoverReporter }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Recent activity")
         .accessibilityValue(spokenValue)
@@ -405,47 +428,116 @@ struct Sparkline: View {
         }
     }
 
-    /// The hover card, placed against the header rather than the strip.
+    /// Reports the hover in the header's coordinates. Draws nothing.
     ///
-    /// `TooltipPlacement.origin` clamps x to
-    /// `min(cursor.x - w/2, max(0, container.width - w))`. The card is around
-    /// 90pt and the strip is 78, so against the strip the second term is 0
-    /// and the result is 0 for all seven bars — the card would sit at the
-    /// leading edge and never move, which is the one thing it must do. (It
-    /// would still be inside the panel, landing flush with the header card's
-    /// trailing edge. The defect is the frozen position, not spill.) Against
-    /// the header's 272pt the clamp is live again: the card runs 142.6–232.6
-    /// under the first bar and 182–272 under the last.
-    @ViewBuilder private var tooltip: some View {
-        if let text = HistoryReadout.tooltip(hoveredIndex: effectiveHover,
-                                             series: days, dayLabel: dayLabel),
-           let cursor = hoverPoint {
-            GeometryReader { geo in
-                let strip = geo.frame(in: .named(Sparkline.headerSpace))
-                let at = TooltipPlacement.origin(
-                    cursor: CGPoint(x: strip.minX + cursor.x,
-                                    y: strip.minY + cursor.y),
-                    tooltip: tooltipSize,
-                    in: tooltipContainer)
-                HoverTooltip(text: text)
-                    .background {
-                        GeometryReader { card in
-                            Color.clear.preference(key: TooltipSizeKey.self,
-                                                   value: card.size)
-                        }
-                    }
-                    // Back out of the header's coordinates into this overlay's,
-                    // whose origin is the strip's top-left. The result is
-                    // negative on both axes for most bars, which is fine — an
-                    // overlay is not clipped, the same fact that lets a
-                    // History card flip below a 40pt heatmap.
-                    .offset(x: at.x - strip.minX, y: at.y - strip.minY)
-            }
-            .onPreferenceChange(TooltipSizeKey.self) { tooltipSize = $0 }
-            // Never intercept the pointer: the card would fight the hover that
-            // summons it.
-            .allowsHitTesting(false)
+    /// Two separate reasons the card belongs to the header rather than to this
+    /// strip, and only the first was understood the first time round:
+    ///
+    /// 1. **Placement.** `TooltipPlacement.origin` clamps x to
+    ///    `min(cursor.x - w/2, max(0, container.width - w))`. The card is
+    ///    around 90pt and this strip is 78, so against the strip the second
+    ///    term is 0 and the result is 0 for all seven bars — the card would
+    ///    sit at the leading edge and never move, which is the one thing it
+    ///    must do. Against the header's 272pt the clamp is live again.
+    ///
+    /// 2. **Paint order.** An overlay on *this* strip is not clipped, so it
+    ///    does reach across the header — but it still paints as part of the
+    ///    strip, and the strip's siblings in the header's VStack paint over
+    ///    it. Measured, with an opaque probe card drawn from the strip's own
+    ///    overlay: the status badge covers it. Note the badge is declared
+    ///    *before* the strip and paints over it anyway, so declaration order
+    ///    is not the lever — which is why both `.zIndex` on the strip and a
+    ///    ZStack with the strip declared last changed nothing when they were
+    ///    tried. An overlay on the header itself is above every one of the
+    ///    header's children by construction, no ordering to argue with, which
+    ///    is exactly why `HistoryTab` hangs its own card on the graph's
+    ///    container rather than inside the chart.
+    ///
+    /// There was a *third* thing wrong, and it is the one that made this look
+    /// unfixable: in Classic the card is all but transparent, so neither of
+    /// the fixes above visibly changed a render. See `SparklineHoverCard`.
+    private var hoverReporter: some View {
+        GeometryReader { geo in
+            Color.clear.preference(key: SparklineHoverKey.self,
+                                   value: report(in: geo.frame(in: .named(Sparkline.headerSpace))))
         }
+    }
+
+    /// The hover, moved from this strip's coordinates into the header's.
+    private func report(in strip: CGRect) -> SparklineHover? {
+        guard let text = HistoryReadout.tooltip(hoveredIndex: effectiveHover,
+                                                series: days, dayLabel: dayLabel),
+              let cursor = hoverPoint else { return nil }
+        return SparklineHover(text: text,
+                              cursor: CGPoint(x: strip.minX + cursor.x,
+                                              y: strip.minY + cursor.y))
+    }
+}
+
+/// The sparkline's hover card, drawn by the header card it is placed against.
+///
+/// Its own `@State` for the measured size rather than `RootView`'s: the card
+/// changes width when the hovered day's label does ("Today" to "Wed, Jul 29"),
+/// and that must no more invalidate the Focus tab than the pointer does.
+struct SparklineHoverCard: View {
+    let hover: SparklineHover
+    @Environment(\.palette) private var palette
+    // Starts .zero and keeps the previous card's size across hovers, so a
+    // newly-shown card lays out once at the wrong width before the preference
+    // below lands. Invisible at 60Hz — not a bug.
+    @State private var size: CGSize = .zero
+
+    /// What the card is opaque *against*.
+    ///
+    /// `HoverTooltip` backs itself with `bgBottom` under `cardFill` and calls
+    /// the result opaque. That is true of Synthwave and false of Classic:
+    /// Classic paints no panel background at all — `paintsBackground` is
+    /// false and `bgBottom` is `.clear` — so its card is 5% `cardFill` over
+    /// nothing. Over a sparse chart that still reads. Here the card lands on
+    /// the status badge and the streak flame, and 5% is not a card, it is a
+    /// tint: the badge's text shows straight through the day's name.
+    ///
+    /// This is why the first two attempts on this looked unfixable. There
+    /// *is* a real z-order problem as well (see `Sparkline.hoverReporter`),
+    /// but at 5% opacity fixing it alone changes nothing you can see: the
+    /// badge shows through a card that is in front of it exactly as it shows
+    /// through one that is behind. Every render came back identical, and the
+    /// conclusion drawn was that the renderer could not depict text z-order.
+    /// It can. Measured: in Synthwave, where `bgBottom` is a real colour,
+    /// this same card covers the badge cleanly.
+    ///
+    /// The window's own background is what Classic is sitting on, so that is
+    /// the ground — the same colour `PreviewRenderer` paints behind a
+    /// non-Synthwave panel, and reached for the same way `SegmentedControl`
+    /// reaches for `.controlColor`: it is the system's surface, not a
+    /// hand-picked one that would drift from it in dark mode.
+    private var ground: Color {
+        palette.paintsBackground ? palette.bgBottom : Color(nsColor: .windowBackgroundColor)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            // `geo.size` is the header card's, and this overlay's origin is
+            // the header's own — the very frame `Sparkline.headerSpace` names
+            // — so the cursor arrives in these coordinates already and the
+            // placement needs no translation back.
+            let at = TooltipPlacement.origin(cursor: hover.cursor, tooltip: size, in: geo.size)
+            HoverTooltip(text: hover.text)
+                // Radius 6 to match the card's own corners in HoverTooltip —
+                // a duplicated constant, and cheaper than the alternative of
+                // a squared-off slab peeking out from under the rounding.
+                .background { RoundedRectangle(cornerRadius: 6).fill(ground) }
+                .background {
+                    GeometryReader { card in
+                        Color.clear.preference(key: TooltipSizeKey.self, value: card.size)
+                    }
+                }
+                .offset(x: at.x, y: at.y)
+        }
+        .onPreferenceChange(TooltipSizeKey.self) { size = $0 }
+        // Never intercept the pointer: the card would fight the hover that
+        // summons it.
+        .allowsHitTesting(false)
     }
 }
 

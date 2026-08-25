@@ -4,7 +4,6 @@ import AppKit
 struct RootView: View {
     @EnvironmentObject var model: AppModel
     @State private var tab: Tab
-    @State private var headerSize: CGSize = .zero
 
     enum Tab: String, CaseIterable { case focus = "Focus", history = "History", settings = "Settings" }
 
@@ -89,8 +88,7 @@ struct RootView: View {
                           accent: palette.accent,
                           accent2: palette.accent2,
                           neon: palette.neon,
-                          dayLabel: model.dayLabel,
-                          tooltipContainer: headerSize)
+                          dayLabel: model.dayLabel)
                     .frame(width: 78)
                 // A one-day "streak" is just today; the flame appears once
                 // there is actually a run to protect.
@@ -111,22 +109,28 @@ struct RootView: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .cardBackground(cornerRadius: 14)
-        // The sparkline's hover card is wider than the 78pt strip, so it is
-        // placed against this card instead — see Sparkline.tooltip. Measured
-        // rather than derived from the panel's 300pt, so a padding change
-        // can't silently mis-clamp it.
-        //
-        // This is written on layout, never on a pointer move. The hover state
-        // itself lives inside Sparkline precisely so that a 60Hz pointer does
-        // not invalidate this view, which rebuilds dailySeries every pass.
-        .background {
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { headerSize = geo.size }
-                    .onChange(of: geo.size) { headerSize = geo.size }
-            }
-        }
         .coordinateSpace(name: Sparkline.headerSpace)
+        // The sparkline's hover card is drawn *here*, not by the 78pt strip
+        // that summons it, and for two separate reasons — see
+        // Sparkline.hoverReporter, which has both in full.
+        //
+        // The short of it: the card is wider than the strip, so the strip
+        // cannot be the frame it is clamped inside; and an overlay on the
+        // strip, though unclipped, still paints as part of the strip, so the
+        // status badge above it and the streak flame below it paint after it
+        // and land on top. An overlay on this card is above every one of this
+        // card's children by construction. HistoryTab does the same thing for
+        // the same reason — its card hangs on the graph's container, not
+        // inside the chart.
+        //
+        // No size probe and no @State here on purpose: this overlay's own
+        // geometry is the header's, so it clamps against `geo.size` directly,
+        // and the hover arrives as a preference from below. A pointer move
+        // therefore never invalidates this view, which rebuilds dailySeries
+        // on every pass.
+        .overlayPreferenceValue(SparklineHoverKey.self) { hover in
+            if let hover { SparklineHoverCard(hover: hover) }
+        }
     }
 
     @ViewBuilder private var statusBadge: some View {
