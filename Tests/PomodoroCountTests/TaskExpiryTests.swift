@@ -8,6 +8,7 @@ import Foundation
     private var today: Date { cal.startOfDay(for: Date()) }
     private var yesterday: Date { cal.date(byAdding: .day, value: -1, to: today)! }
 
+    // Module-qualified: under @testable import, Foundation's Category typedef makes the bare name ambiguous as a return type.
     private func standing(_ name: String) -> PomodoroCount.Category {
         Category(name: name, dailyGoal: 1)
     }
@@ -40,10 +41,23 @@ import Foundation
     /// "Today" is the day it was added, right up to midnight — a task added at
     /// 23:59 is stamped with that day's start, and 00:00 of the next is later.
     @Test func aTaskAddedLateLastNightIsGoneAtMidnight() {
-        let lateLastNight = yesterday.addingTimeInterval(23 * 3600 + 59 * 60)
+        let lateLastNight = cal.date(bySettingHour: 23, minute: 59, second: 0, of: yesterday)!
         let stamped = cal.startOfDay(for: lateLastNight)
         let list = [task("Report", addedOn: stamped)]
         #expect(TaskExpiry.surviving(list, today: today).isEmpty)
+    }
+
+    /// Reachable through a hand-edited store or a clock set back; a future day is not over.
+    @Test func aTaskDatedTomorrowSurvivesToday() {
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: today)!
+        let list = [task("Report", addedOn: tomorrow)]
+        #expect(TaskExpiry.surviving(list, today: today).map(\.name) == ["Report"])
+    }
+
+    @Test func onlyTheStaleTaskIsDroppedFromAMixedList() {
+        let list = [task("A", addedOn: today), task("B", addedOn: yesterday),
+                    standing("Work"), task("C", addedOn: today)]
+        #expect(TaskExpiry.surviving(list, today: today).map(\.name) == ["A", "Work", "C"])
     }
 
     @Test func orderIsPreservedAndNothingExpiringReturnsTheInput() {

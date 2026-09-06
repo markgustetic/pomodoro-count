@@ -12,11 +12,12 @@ struct Category: Codable, Identifiable, Equatable {
     /// shows a bare count and no dots.
     var dailyGoal: Int
 
-    /// The calendar day this category disappears at the start of, or nil for a
-    /// standing category. Stored as the *start of the day it was added* — not
-    /// the day after — so the test is "is today later than that day", which
-    /// keeps a task visible for the rest of the day it was created on and not
-    /// a moment of the next, including one added at 23:59.
+    /// Set for a one-time task: the start of the day it was added, which is
+    /// the last day it lives. nil for a standing category. Stored as the
+    /// *start of the day it was added* — not the day after — so the test is
+    /// "is today later than that day", which keeps a task visible for the
+    /// rest of the day it was created on and not a moment of the next,
+    /// including one added at 23:59.
     ///
     /// Optional so the synthesized decoder treats it as `decodeIfPresent` and
     /// every existing data.json loads with its categories standing.
