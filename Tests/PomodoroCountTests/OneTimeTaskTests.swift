@@ -55,4 +55,45 @@ import Foundation
                                         isFallback: false, isTarget: false)
         #expect(standing.accessibilityValue == "0 pomodoros")
     }
+
+    // MARK: Adding
+
+    @Test func addingATaskPutsItOnTopAndAimsAtIt() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Work", dailyGoal: 4)]
+        m.settings.sessionTargetName = "Work"
+
+        #expect(m.addTask(name: "  Report ", goal: 2))
+        #expect(m.settings.categories.map(\.name) == ["Report", "Work"])
+        #expect(m.settings.categories[0].expiresOn == today)
+        #expect(m.settings.categories[0].dailyGoal == 2)
+        #expect(m.sessionTarget == .named("Report"))
+        #expect(!m.settings.targetPinned)
+        #expect(cal.isDateInToday(m.settings.targetAimedOn!))
+    }
+
+    @Test func aTaskCannotShadowACategoryOrTheBucket() {
+        let (m, _) = makeMixedModel()
+        #expect(!m.addTask(name: "work", goal: 1))
+        #expect(!m.addTask(name: "General", goal: 1))
+        #expect(!m.addTask(name: "report", goal: 1))
+        #expect(m.settings.categories.count == 4)
+    }
+
+    @Test func aTaskNeedsAGoal() {
+        let (m, _) = makeMixedModel()
+        #expect(!m.addTask(name: "Nothing", goal: 0))
+        #expect(m.addTask(name: "Lots", goal: 99))
+        #expect(m.settings.categories[0].dailyGoal == 20)
+    }
+
+    @Test func addedTasksSurviveReload() {
+        let (m, url) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.addTask(name: "Report", goal: 2)
+        let reloaded = AppModel(storeURL: url)
+        #expect(reloaded.settings.categories.map(\.name) == ["Report"])
+        #expect(reloaded.settings.categories[0].isTask)
+    }
 }
