@@ -465,6 +465,13 @@ final class AppModel: ObservableObject {
             suspendSaves()
             records.append(Record(at: Date(), source: "timer",
                                   category: resolve(sessionTarget)))
+            // After the append, before the realign: a session that ran across
+            // midnight kept its task through the day change (the sweep skips
+            // a running session so this record could credit it), and on an
+            // always-on Mac nothing else would sweep it until the next wake —
+            // the realign below would restart the day on yesterday's task.
+            // `isRunning` is already false here, so the sweep runs.
+            expireTasks()
             realignTarget()
             resumeSaves()
             play(.sessionDone)

@@ -195,6 +195,28 @@ import Foundation
                "the record that finishes the session lands on what Start was pressed against")
     }
 
+    /// The morning-after shape of the case above, as it looks to a Mac that
+    /// never sleeps: both tasks are yesterday's, the target was aimed
+    /// yesterday, and the day change found the session running. Nothing
+    /// else fires until the next wake, so the completion itself has to
+    /// sweep — after crediting the task, before the realign.
+    @Test func completingASessionThatOutlivedItsTaskSweepsAndReaims() {
+        let (m, _) = makeMixedModel()
+        m.settings.categories[0].expiresOn = yesterday
+        m.settings.categories[1].expiresOn = yesterday
+        m.settings.sessionTargetName = "Report"
+        m.settings.targetAimedOn = .daysAgo(1)
+        m.toggle()
+
+        m.handleDayChange(now: tomorrow())
+        #expect(m.settings.categories.map(\.name).first == "Report")
+
+        m.forceCompleteForTesting()
+        #expect(m.records.last?.category == "Report")
+        #expect(m.settings.categories.map(\.name) == ["Work", "Music"])
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
     @Test func withAutoAdvanceOffAnExpiredTargetFallsToTheBucket() {
         let (m, _) = makeMixedModel()
         m.settings.autoAdvanceTarget = false
