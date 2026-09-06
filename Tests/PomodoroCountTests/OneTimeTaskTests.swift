@@ -97,6 +97,33 @@ import Foundation
         #expect(reloaded.settings.categories[0].isTask)
     }
 
+    @Test func addingATaskDuringARunningSessionLeavesTheTargetAlone() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Work", dailyGoal: 4)]
+        m.settings.sessionTargetName = "Work"
+        m.toggle()
+        #expect(m.isRunning)
+
+        #expect(m.addTask(name: "Report", goal: 1))
+        #expect(m.settings.categories.map(\.name) == ["Report", "Work"])
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
+    @Test func aReaddedNameThatIsAlreadyMetPins() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.settings.categories = [Category(name: "Work", dailyGoal: 4)]
+        // "Report" is archived, not a current category — its two records are
+        // history a re-added task should reunite with.
+        m.records = [
+            Record(at: Date(), source: "manual", category: "Report"),
+            Record(at: Date(), source: "manual", category: "Report"),
+        ]
+        #expect(m.addTask(name: "Report", goal: 2))
+        #expect(m.settings.targetPinned)
+    }
+
     // MARK: Expiry
 
     @Test func expireTasksDropsYesterdaysAndKeepsTodays() {
@@ -150,6 +177,30 @@ import Foundation
         m.records = [Record(at: Date(), source: "manual", category: "Report")]
         m.removeCategory(id: m.settings.categories[0].id)
         #expect(m.categoryTotals(days: 7).contains { $0.name == "Report" && $0.count == 1 })
+    }
+
+    @Test func aSessionRunningAcrossMidnightKeepsItsTask() {
+        let (m, _) = makeMixedModel()
+        m.settings.sessionTargetName = "Report"
+        m.settings.targetAimedOn = Date()
+        m.toggle()
+        #expect(m.isRunning)
+
+        m.handleDayChange(now: tomorrow())
+        #expect(m.settings.categories.map(\.name).first == "Report",
+               "the task survives a day change while its session is running")
+
+        m.forceCompleteForTesting()
+        #expect(m.records.last?.category == "Report",
+               "the record that finishes the session lands on what Start was pressed against")
+    }
+
+    @Test func withAutoAdvanceOffAnExpiredTargetFallsToTheBucket() {
+        let (m, _) = makeMixedModel()
+        m.settings.autoAdvanceTarget = false
+        m.settings.sessionTargetName = "Report"
+        m.handleDayChange(now: tomorrow())
+        #expect(m.sessionTarget == .fallback)
     }
 
     @Test func aFileWithoutExpiresOnLoadsStandingCategories() throws {

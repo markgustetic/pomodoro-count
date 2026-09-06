@@ -146,61 +146,6 @@ extension AppModel {
         return true
     }
 
-    /// Adds a one-time task at the top of the ranking and aims the target at
-    /// it. Returns false and changes nothing when the name is empty or taken —
-    /// the same rule as `addCategory`, so a task cannot shadow a category, the
-    /// bucket, or another task — or when the goal is zero: a task with nothing
-    /// to count is not a task.
-    ///
-    /// One assignment to `settings`, not an insert followed by `pickTarget`.
-    /// Each mutation of `settings` is its own write to disk, and the
-    /// alternative — a `suspendSaves()` pair — would add a call site to a
-    /// mechanism whose comment in Store.swift enumerates the existing ones by
-    /// name. The pin is cleared outright rather than computed: a task with no
-    /// pomodoros yet cannot be met, so `pickTarget` would have said the same.
-    @discardableResult
-    func addTask(name: String, goal: Int, now: Date = Date()) -> Bool {
-        guard isCategoryNameAvailable(name), goal > 0 else { return false }
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        var updated = settings
-        updated.categories.insert(
-            Category(name: trimmed, dailyGoal: min(goal, 20),
-                     expiresOn: Calendar.current.startOfDay(for: now)),
-            at: 0)
-        updated.aim(at: .named(trimmed))
-        updated.targetPinned = false
-        updated.targetAimedOn = now
-        settings = updated
-        return true
-    }
-
-    /// Drops every one-time task whose day is over. Records are untouched:
-    /// the name stays on them, which is how History keeps a finished task —
-    /// the same archiving `removeCategory` does. If the session target was
-    /// one of the leavers its pin goes with it, again as `removeCategory`
-    /// does; the target *name* is left for `realignTarget()` to re-aim, since
-    /// an unknown name already resolves to the bucket and the earlier-day
-    /// stamp already restarts the plan at the top of the ranking.
-    ///
-    /// Idempotent and cheap, so it is called on every `handleDayChange` and
-    /// from `load()` — the latter for models built without a launch (tests,
-    /// `--preview`, the reorder harness), which never see a day change.
-    /// Writes nothing when nothing expires: this runs on every wake.
-    func expireTasks(now: Date = Date()) {
-        let today = Calendar.current.startOfDay(for: now)
-        let surviving = TaskExpiry.surviving(settings.categories, today: today)
-        guard surviving.count != settings.categories.count else { return }
-        let leaving = Set(settings.categories.map { Category.normalized($0.name) })
-            .subtracting(surviving.map { Category.normalized($0.name) })
-        var updated = settings
-        updated.categories = surviving
-        if let target = updated.sessionTargetName.map(Category.normalized),
-           leaving.contains(target) {
-            updated.targetPinned = false
-        }
-        settings = updated
-    }
-
     /// Rewrites every record that referenced the old name, in one pass, so no
     /// history is orphaned. Returns false and changes nothing when the new
     /// name is empty, taken by a different category, or already has archived
