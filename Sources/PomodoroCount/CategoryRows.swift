@@ -40,7 +40,11 @@ struct CategoryRows: View {
                                         onSubtract: { model.unlogToday(from: target) },
                                         // `row.id` is the category's UUID string
                                         // for every row but the bucket, and the
-                                        // bucket is never a task.
+                                        // bucket is never a task. Removing the
+                                        // current target lets it fall to the
+                                        // bucket, as removing a category from
+                                        // Settings does — `expireTasks` says why
+                                        // that is left alone.
                                         onRemove: row.isTask
                                             ? { UUID(uuidString: row.id).map { model.removeCategory(id: $0) } }
                                             : nil)
