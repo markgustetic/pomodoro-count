@@ -1,0 +1,56 @@
+import Testing
+import Foundation
+@testable import PomodoroCount
+
+@Suite struct TaskExpiryTests {
+
+    private let cal = Calendar.current
+    private var today: Date { cal.startOfDay(for: Date()) }
+    private var yesterday: Date { cal.date(byAdding: .day, value: -1, to: today)! }
+
+    private func standing(_ name: String) -> PomodoroCount.Category {
+        Category(name: name, dailyGoal: 1)
+    }
+
+    private func task(_ name: String, addedOn day: Date) -> PomodoroCount.Category {
+        Category(name: name, dailyGoal: 1, expiresOn: day)
+    }
+
+    @Test func aStandingCategoryIsNeverATask() {
+        #expect(!standing("Work").isTask)
+        #expect(task("Report", addedOn: today).isTask)
+    }
+
+    @Test func aStandingCategorySurvivesAnyDay() {
+        let list = [standing("Work")]
+        let farFuture = cal.date(byAdding: .year, value: 10, to: today)!
+        #expect(TaskExpiry.surviving(list, today: farFuture).map(\.name) == ["Work"])
+    }
+
+    @Test func aTaskAddedTodaySurvivesToday() {
+        let list = [task("Report", addedOn: today)]
+        #expect(TaskExpiry.surviving(list, today: today).map(\.name) == ["Report"])
+    }
+
+    @Test func aTaskAddedYesterdayIsGoneToday() {
+        let list = [task("Report", addedOn: yesterday), standing("Work")]
+        #expect(TaskExpiry.surviving(list, today: today).map(\.name) == ["Work"])
+    }
+
+    /// "Today" is the day it was added, right up to midnight — a task added at
+    /// 23:59 is stamped with that day's start, and 00:00 of the next is later.
+    @Test func aTaskAddedLateLastNightIsGoneAtMidnight() {
+        let lateLastNight = yesterday.addingTimeInterval(23 * 3600 + 59 * 60)
+        let stamped = cal.startOfDay(for: lateLastNight)
+        let list = [task("Report", addedOn: stamped)]
+        #expect(TaskExpiry.surviving(list, today: today).isEmpty)
+    }
+
+    @Test func orderIsPreservedAndNothingExpiringReturnsTheInput() {
+        let list = [task("A", addedOn: today), task("B", addedOn: today),
+                    standing("Work"), standing("Music")]
+        let kept = TaskExpiry.surviving(list, today: today)
+        #expect(kept.map(\.name) == ["A", "B", "Work", "Music"])
+        #expect(kept.map(\.id) == list.map(\.id))
+    }
+}
