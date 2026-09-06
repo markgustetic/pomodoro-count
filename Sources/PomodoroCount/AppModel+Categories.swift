@@ -71,7 +71,8 @@ extension AppModel {
                 done: doneToday[Category.normalized(category.name)] ?? 0,
                 goal: category.dailyGoal,
                 isFallback: false,
-                isTarget: normalizedTarget == Category.normalized(category.name))
+                isTarget: normalizedTarget == Category.normalized(category.name),
+                isTask: category.isTask)
         }
 
         // Unconditional: it is the only row that can take a pomodoro belonging

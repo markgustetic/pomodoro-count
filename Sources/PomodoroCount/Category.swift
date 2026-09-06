@@ -67,6 +67,11 @@ struct CategoryProgress: Identifiable {
     /// *running* is answered by the countdown directly above the list.
     let isTarget: Bool
 
+    /// True for a one-time task. A `var` with a default rather than a `let`,
+    /// so the memberwise initialiser the six existing call sites use keeps
+    /// working without the argument.
+    var isTask: Bool = false
+
     /// A goal of 0 means "no target", so it can never be met.
     var isMet: Bool { goal > 0 && done >= goal }
 
@@ -87,10 +92,14 @@ struct CategoryProgress: Identifiable {
     /// says it to the eye, this says it on the row itself.
     var accessibilityValue: String {
         let target = isTarget ? ", session target" : ""
+        // Said here, not left to the sun glyph — the glyph is hidden from
+        // VoiceOver, so this is the only place it can hear that the row leaves
+        // tomorrow.
+        let task = isTask ? ", today only" : ""
         guard goal > 0 else {
-            return "\(done) \(done == 1 ? "pomodoro" : "pomodoros")" + target
+            return "\(done) \(done == 1 ? "pomodoro" : "pomodoros")" + target + task
         }
-        return "\(done) of \(goal) pomodoros" + (isMet ? ", goal met" : "") + target
+        return "\(done) of \(goal) pomodoros" + (isMet ? ", goal met" : "") + target + task
     }
 }
 

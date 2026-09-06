@@ -38,4 +38,21 @@ import Foundation
         m.moveCategory(from: 0, to: 1)
         #expect(m.settings.categories.map(\.name) == ["Bug", "Report", "Work", "Music"])
     }
+
+    // MARK: Progress rows
+
+    @Test func todayProgressMarksTasks() {
+        let (m, _) = makeMixedModel()
+        let rows = m.todayProgress
+        #expect(rows.map(\.isTask) == [true, true, false, false, false])
+    }
+
+    @Test func aTaskRowSaysTodayOnlyToVoiceOver() {
+        let row = CategoryProgress(id: "x", name: "Report", done: 1, goal: 2,
+                                   isFallback: false, isTarget: true, isTask: true)
+        #expect(row.accessibilityValue == "1 of 2 pomodoros, session target, today only")
+        let standing = CategoryProgress(id: "y", name: "Work", done: 0, goal: 0,
+                                        isFallback: false, isTarget: false)
+        #expect(standing.accessibilityValue == "0 pomodoros")
+    }
 }
