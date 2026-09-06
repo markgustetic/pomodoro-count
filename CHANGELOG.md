@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **One-time tasks.** Give today a goal that isn't a category: "+ Task" on the
+  Focus tab adds a named target with a pomodoro count that sits above your
+  categories and disappears tomorrow. Its pomodoros stay in History under the
+  task's name.
 - **Hover the seven-day graph on the Focus tab** to read a day off it. The bar
   under the pointer lights up and a card names the day and its count — the
   same readout the History tab's graphs already give you.

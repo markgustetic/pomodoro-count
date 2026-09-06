@@ -151,6 +151,16 @@ that one fact:
   Record-*removing* paths (`undoLast`, `unlogToday`) deliberately do not
   realign: the advance is forward-only, and a correction must not move the
   target out from under a Start already pressed.
+- A one-time task is a `Category` with `expiresOn` set — the start of the day
+  it was added — kept in the same `settings.categories` array, inserted at
+  index 0 (`AppModel+Tasks.swift`). There is no second list on purpose:
+  everything that walks categories treats a task as one. `expireTasks()` runs
+  on every `handleDayChange` *before* `realignTarget()`, so a target left on a
+  gone task is re-aimed by the existing start-of-day rule, and from `load()`
+  for models built without a launch. Both it and `addTask`'s aim skip a focus
+  session that is actually running, for the same reason `realignTarget()`
+  does. `moveCategory` refuses any move that would put a task below a
+  standing category or a category above a task.
 - `Phase` has **four** cases, and `.breakReady` is a state of its own, not a
   flavour of idle: a finished session's break is armed at its configured length
   waiting to be started or skipped. Anything that switches on phase must handle
@@ -242,7 +252,8 @@ strands every existing install permanently. One-time Apple-side setup is in
   `CategoryAdvance.next(after:in:pinned:)`, `CountAdjust.newestTodayIndex`,
   `StatusIcon.glyph(phase:running:)`, `HistoryReadout.tooltip`,
   `TooltipPlacement.origin`, `DayRollover.action(phase:breakEnteredOn:newDay:)`
-  and `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`
+  `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`,
+  `TaskExpiry.surviving(_:today:)` and `TaskExpiry.moveKeepsTasksOnTop(_:from:to:)`
   are pure and unit-tested; views are thin over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`
   (swift-testing, not XCTest). The glyph is the clearest case for why: it was
