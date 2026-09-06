@@ -16,10 +16,20 @@ import AppKit
 /// historically been inconsistent about propagating `@EnvironmentObject` into
 /// popover content, and the failure mode is a crash rather than a glitch.
 struct AddCategoryForm: View {
+    /// What the form adds. Task mode differs in the caption, a goal stepper,
+    /// and which model method Add calls; everything else — name field,
+    /// availability check, the "taken" message, Cancel/Add, the Synthwave
+    /// background fix — is identical, and should not exist twice.
+    enum Kind { case category, task }
+
     @ObservedObject var model: AppModel
     @Binding var isPresented: Bool
+    var kind: Kind = .category
 
     @State private var name = ""
+    /// Task mode only. Defaults to 1 rather than 0: a task with no goal is not
+    /// a task, and the model refuses one.
+    @State private var goal = 1
     @FocusState private var nameFocused: Bool
     @Environment(\.palette) private var palette
 
@@ -34,7 +44,7 @@ struct AddCategoryForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("New category")
+            Text(kind == .task ? "Today's task" : "New category")
                 .font(.caption)
                 .foregroundStyle(palette.textDim)
 
@@ -42,7 +52,7 @@ struct AddCategoryForm: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($nameFocused)
                 .onSubmit(add)
-                .accessibilityLabel("New category name")
+                .accessibilityLabel(kind == .task ? "Task name" : "New category name")
 
             // Say why Add is disabled rather than leaving a dead button. Stays
             // quiet while the field is still empty — that isn't a mistake yet.
@@ -50,6 +60,14 @@ struct AddCategoryForm: View {
                 Text("That name is already taken.")
                     .font(.caption2)
                     .foregroundStyle(palette.error)
+            }
+
+            if kind == .task {
+                Stepper(value: $goal, in: 1...20) {
+                    Text("\(goal) \(goal == 1 ? "pomodoro" : "pomodoros")")
+                        .font(.caption.monospacedDigit())
+                }
+                .accessibilityLabel("Pomodoros for this task")
             }
 
             HStack(spacing: 8) {
@@ -81,8 +99,14 @@ struct AddCategoryForm: View {
     }
 
     private func add() {
-        guard model.addCategory(name: name, dailyGoal: 1) else { return }
+        let added: Bool
+        switch kind {
+        case .category: added = model.addCategory(name: name, dailyGoal: 1)
+        case .task: added = model.addTask(name: name, goal: goal)
+        }
+        guard added else { return }
         name = ""
+        goal = 1
         isPresented = false
     }
 }

@@ -4,6 +4,7 @@ import AppKit
 struct RootView: View {
     @EnvironmentObject var model: AppModel
     @State private var tab: Tab
+    @State private var addingTask = false
 
     enum Tab: String, CaseIterable { case focus = "Focus", history = "History", settings = "Settings" }
 
@@ -175,11 +176,32 @@ struct RootView: View {
                 .help("Record a pomodoro you finished on external hardware")
             }
 
-            if model.todayCount > 0 {
-                Button("Undo last", action: model.undoLast)
-                    .buttonStyle(HoverTextButtonStyle())
-                    .font(.caption)
-                    .help("Take back the most recent pomodoro")
+            HStack(spacing: 14) {
+                if model.settings.categoriesEnabled {
+                    // Here, under the rows it adds to, rather than in Settings:
+                    // a task is a decision about today, not about how the app
+                    // is set up. Shown even while the list is empty, so the
+                    // empty caption's "Add a category in Settings" is not the
+                    // only way forward.
+                    Button("+ Task") { addingTask = true }
+                        .buttonStyle(HoverTextButtonStyle())
+                        .font(.caption)
+                        .help("Add a goal for today only — it disappears tomorrow")
+                        .accessibilityLabel("Add a task for today")
+                        .popover(isPresented: $addingTask, arrowEdge: .bottom) {
+                            // A popover is its own window: the model goes in as
+                            // a parameter and the theme is applied again here.
+                            AddCategoryForm(model: model, isPresented: $addingTask, kind: .task)
+                                .themed(palette)
+                        }
+                }
+
+                if model.todayCount > 0 {
+                    Button("Undo last", action: model.undoLast)
+                        .buttonStyle(HoverTextButtonStyle())
+                        .font(.caption)
+                        .help("Take back the most recent pomodoro")
+                }
             }
         }
     }
