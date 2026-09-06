@@ -37,7 +37,13 @@ struct CategoryRows: View {
                                         clickReleasesPin: releases,
                                         onSelect: { model.selectTarget(target) },
                                         onAdd: { model.logExternal(to: target) },
-                                        onSubtract: { model.unlogToday(from: target) })
+                                        onSubtract: { model.unlogToday(from: target) },
+                                        // `row.id` is the category's UUID string
+                                        // for every row but the bucket, and the
+                                        // bucket is never a task.
+                                        onRemove: row.isTask
+                                            ? { UUID(uuidString: row.id).map { model.removeCategory(id: $0) } }
+                                            : nil)
                         }
                     }
                 }
@@ -65,6 +71,10 @@ struct CategoryRow: View {
     let onSelect: () -> Void
     let onAdd: () -> Void
     let onSubtract: () -> Void
+    /// Present for a one-time task only. Closures rather than the model,
+    /// because it ends up inside the count popover — its own window, where
+    /// `@EnvironmentObject` does not reliably reach.
+    var onRemove: (() -> Void)? = nil
 
     @Environment(\.palette) private var palette
     @State private var hover = false
@@ -88,6 +98,16 @@ struct CategoryRow: View {
     private var selectButton: some View {
         Button(action: onSelect) {
             HStack(spacing: 8) {
+                if progress.isTask {
+                    // A sun for "today": the row leaves tomorrow, and nothing
+                    // else about it says so. Hidden from VoiceOver, which hears
+                    // "today only" in the row's value instead.
+                    Image(systemName: "sun.max")
+                        .font(.caption)
+                        .foregroundStyle(palette.textDim)
+                        .accessibilityHidden(true)
+                }
+
                 Text(progress.name)
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .lineLimit(1)
@@ -158,13 +178,14 @@ struct CategoryRow: View {
     /// other row, and a control that does nothing needs to say so rather than
     /// look broken.
     private var selectHelp: String {
+        let suffix = progress.isTask ? " · Today only" : ""
         if clickReleasesPin {
-            return "Pinned to \(progress.name) — click to follow the category order again"
+            return "Pinned to \(progress.name) — click to follow the category order again" + suffix
         }
         if progress.isTarget {
-            return "Finished pomodoros already land in \(progress.name)"
+            return "Finished pomodoros already land in \(progress.name)" + suffix
         }
-        return "Send finished pomodoros to \(progress.name)"
+        return "Send finished pomodoros to \(progress.name)" + suffix
     }
 
     private var adjustButton: some View {
@@ -223,7 +244,10 @@ struct CategoryRow: View {
         .popover(isPresented: $showingCounter, arrowEdge: .trailing) {
             // A popover is its own window: it inherits the environment but not
             // the appearance, so the theme has to be applied again here.
-            CategoryCountPopover(progress: progress, onAdd: onAdd, onSubtract: onSubtract)
+            CategoryCountPopover(progress: progress, onAdd: onAdd, onSubtract: onSubtract,
+                                 // Close first: the row this popover hangs off
+                                 // is about to be removed from under it.
+                                 onRemove: onRemove.map { remove in { showingCounter = false; remove() } })
                 .themed(palette)
         }
     }
@@ -274,6 +298,10 @@ struct CategoryCountPopover: View {
     let progress: CategoryProgress
     let onAdd: () -> Void
     let onSubtract: () -> Void
+    /// A one-time task's way out before the day ends. nil for a category,
+    /// which is removed from Settings behind a confirmation — a task is
+    /// today's scratch note, and a mis-click costs a two-field form.
+    var onRemove: (() -> Void)? = nil
 
     @Environment(\.palette) private var palette
 
@@ -312,6 +340,16 @@ struct CategoryCountPopover: View {
             .buttonStyle(SoftIconButtonStyle(width: 34, height: 30))
             .help("Log one pomodoro to \(progress.name)")
             .accessibilityLabel("Add one pomodoro to \(progress.name)")
+
+            if let onRemove {
+                Button("Remove task", action: onRemove)
+                    // The editor's remove control uses the same emphasis:
+                    // quiet until hovered, then warns.
+                    .buttonStyle(HoverTextButtonStyle(emphasis: .destructive))
+                    .font(.caption)
+                    .help("Remove — its pomodoros stay in your history")
+                    .accessibilityLabel("Remove task \(progress.name)")
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
