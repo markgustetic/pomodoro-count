@@ -174,6 +174,33 @@ extension AppModel {
         return true
     }
 
+    /// Drops every one-time task whose day is over. Records are untouched:
+    /// the name stays on them, which is how History keeps a finished task —
+    /// the same archiving `removeCategory` does. If the session target was
+    /// one of the leavers its pin goes with it, again as `removeCategory`
+    /// does; the target *name* is left for `realignTarget()` to re-aim, since
+    /// an unknown name already resolves to the bucket and the earlier-day
+    /// stamp already restarts the plan at the top of the ranking.
+    ///
+    /// Idempotent and cheap, so it is called on every `handleDayChange` and
+    /// from `load()` — the latter for models built without a launch (tests,
+    /// `--preview`, the reorder harness), which never see a day change.
+    /// Writes nothing when nothing expires: this runs on every wake.
+    func expireTasks(now: Date = Date()) {
+        let today = Calendar.current.startOfDay(for: now)
+        let surviving = TaskExpiry.surviving(settings.categories, today: today)
+        guard surviving.count != settings.categories.count else { return }
+        let leaving = Set(settings.categories.map { Category.normalized($0.name) })
+            .subtracting(surviving.map { Category.normalized($0.name) })
+        var updated = settings
+        updated.categories = surviving
+        if let target = updated.sessionTargetName.map(Category.normalized),
+           leaving.contains(target) {
+            updated.targetPinned = false
+        }
+        settings = updated
+    }
+
     /// Rewrites every record that referenced the old name, in one pass, so no
     /// history is orphaned. Returns false and changes nothing when the new
     /// name is empty, taken by a different category, or already has archived

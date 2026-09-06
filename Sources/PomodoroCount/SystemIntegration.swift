@@ -243,6 +243,11 @@ extension AppModel {
             case .none: break
             }
         }
+        // Before the realign, so a target left pointing at a task that just
+        // left is re-aimed by the rule below. Every call, not only on a new
+        // day: the sweep is idempotent, and the wake that reports the new day
+        // is the one that must find the task gone.
+        expireTasks(now: now)
         realignTarget()
         objectWillChange.send()
     }

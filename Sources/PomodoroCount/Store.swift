@@ -78,6 +78,12 @@ extension AppModel {
 
         records = persisted.records
         settings = persisted.settings
+
+        // A task added yesterday must not show today, and launch is not the
+        // only way a model is built — tests, `--preview` and the reorder
+        // harness never see a day change. `isLoading` is still true here, so
+        // this triggers no save; the next real change writes the swept list.
+        expireTasks()
     }
 
     /// Holds off the store write that each change to `records` or `settings`

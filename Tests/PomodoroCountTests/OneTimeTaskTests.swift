@@ -96,4 +96,68 @@ import Foundation
         #expect(reloaded.settings.categories.map(\.name) == ["Report"])
         #expect(reloaded.settings.categories[0].isTask)
     }
+
+    // MARK: Expiry
+
+    @Test func expireTasksDropsYesterdaysAndKeepsTodays() {
+        let (m, _) = makeMixedModel()
+        m.settings.categories[0].expiresOn = yesterday
+        m.records = [Record(at: .daysAgo(1), source: "manual", category: "Report")]
+        m.expireTasks()
+        #expect(m.settings.categories.map(\.name) == ["Bug", "Work", "Music"])
+        #expect(m.records.map(\.category) == ["Report"], "records keep the name")
+    }
+
+    @Test func expiringThePinnedTargetClearsThePin() {
+        let (m, _) = makeMixedModel()
+        m.settings.categories[0].expiresOn = yesterday
+        m.settings.sessionTargetName = "Report"
+        m.settings.targetPinned = true
+        m.expireTasks()
+        #expect(!m.settings.targetPinned)
+    }
+
+    @Test func expiringSomethingElseLeavesThePinAlone() {
+        let (m, _) = makeMixedModel()
+        m.settings.categories[0].expiresOn = yesterday
+        m.settings.sessionTargetName = "Work"
+        m.settings.targetPinned = true
+        m.expireTasks()
+        #expect(m.settings.targetPinned)
+    }
+
+    @Test func aNewDayDropsTheTaskAndReaimsAtTheFirstStandingCategory() {
+        let (m, _) = makeMixedModel()
+        m.settings.sessionTargetName = "Report"
+        // Aimed yesterday, as it will have been the morning after: the
+        // earlier-day stamp is what makes `realignTarget()` restart at the
+        // top of the ranking rather than leave an unknown name in place.
+        m.settings.targetAimedOn = .daysAgo(1)
+        m.handleDayChange(now: tomorrow())
+        #expect(m.settings.categories.map(\.name) == ["Work", "Music"])
+        #expect(m.sessionTarget == .named("Work"))
+    }
+
+    @Test func aStoreWithAnExpiredTaskLoadsWithoutIt() {
+        let (m, url) = makeMixedModel()
+        m.settings.categories[0].expiresOn = yesterday
+        let reloaded = AppModel(storeURL: url)
+        #expect(reloaded.settings.categories.map(\.name) == ["Bug", "Work", "Music"])
+    }
+
+    @Test func aRemovedTaskStillCountsInHistory() {
+        let (m, _) = makeMixedModel()
+        m.records = [Record(at: Date(), source: "manual", category: "Report")]
+        m.removeCategory(id: m.settings.categories[0].id)
+        #expect(m.categoryTotals(days: 7).contains { $0.name == "Report" && $0.count == 1 })
+    }
+
+    @Test func aFileWithoutExpiresOnLoadsStandingCategories() throws {
+        let url = try storeURL(containing: #"""
+        {"records":[],"settings":{"categoriesEnabled":true,
+         "categories":[{"id":"1E1C0D2B-0000-4000-8000-000000000001","name":"Work","dailyGoal":2}]}}
+        """#)
+        let m = AppModel(storeURL: url)
+        #expect(m.settings.categories.map(\.isTask) == [false])
+    }
 }
