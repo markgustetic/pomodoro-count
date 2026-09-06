@@ -210,7 +210,13 @@ extension AppModel {
     func moveCategory(from source: Int, to destination: Int) {
         let indices = settings.categories.indices
         guard indices.contains(source), indices.contains(destination),
-              source != destination
+              source != destination,
+              // A one-time task ranks above every standing category — "today's
+              // work first" is what its position means — so a drag may not carry
+              // one below a category or a category above one. A refused move
+              // changes nothing, which the drag already treats as "ended where it
+              // began", and `nudgeCategory` inherits the refusal.
+              TaskExpiry.moveKeepsTasksOnTop(settings.categories, from: source, to: destination)
         else { return }
         settings.categories.move(
             fromOffsets: IndexSet(integer: source),

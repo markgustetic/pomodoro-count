@@ -53,4 +53,33 @@ import Foundation
         #expect(kept.map(\.name) == ["A", "B", "Work", "Music"])
         #expect(kept.map(\.id) == list.map(\.id))
     }
+
+    // MARK: Reorder guard
+
+    private var mixed: [PomodoroCount.Category] {
+        [task("A", addedOn: today), task("B", addedOn: today),
+         standing("Work"), standing("Music")]
+    }
+
+    @Test func taskToTaskAndCategoryToCategoryMovesAreAllowed() {
+        #expect(TaskExpiry.moveKeepsTasksOnTop(mixed, from: 0, to: 1))
+        #expect(TaskExpiry.moveKeepsTasksOnTop(mixed, from: 3, to: 2))
+    }
+
+    @Test func crossingTheBoundaryEitherWayIsRefused() {
+        #expect(!TaskExpiry.moveKeepsTasksOnTop(mixed, from: 1, to: 2))
+        #expect(!TaskExpiry.moveKeepsTasksOnTop(mixed, from: 2, to: 0))
+    }
+
+    @Test func aListOfOneKindAllowsAnyMove() {
+        let onlyCategories = [standing("Work"), standing("Music"), standing("Art")]
+        #expect(TaskExpiry.moveKeepsTasksOnTop(onlyCategories, from: 0, to: 2))
+        let onlyTasks = [task("A", addedOn: today), task("B", addedOn: today)]
+        #expect(TaskExpiry.moveKeepsTasksOnTop(onlyTasks, from: 1, to: 0))
+    }
+
+    @Test func anIndexOffTheEndIsRefused() {
+        #expect(!TaskExpiry.moveKeepsTasksOnTop(mixed, from: 0, to: 4))
+        #expect(!TaskExpiry.moveKeepsTasksOnTop(mixed, from: -1, to: 0))
+    }
 }
