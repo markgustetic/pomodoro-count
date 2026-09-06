@@ -230,6 +230,18 @@ struct CategorySettingsRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
+            if category.isTask {
+                // Tasks are listed here rather than hidden: this is the one
+                // place that shows every category, and a hidden row that still
+                // takes the target would be a mystery. The mark says why it
+                // will be gone tomorrow.
+                Image(systemName: "sun.max")
+                    .font(.caption)
+                    .foregroundStyle(palette.textDim)
+                    .help("Today only — disappears tomorrow")
+                    .accessibilityLabel("Today only")
+            }
+
             CommittableNameField(
                 accessibilityLabel: "Category name",
                 current: { category.name },
