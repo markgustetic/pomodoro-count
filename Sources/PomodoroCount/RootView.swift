@@ -5,6 +5,8 @@ struct RootView: View {
     @EnvironmentObject var model: AppModel
     @State private var tab: Tab
     @State private var addingTask = false
+    @State private var confirmingStop = false
+    @State private var confirmingRestNow = false
 
     enum Tab: String, CaseIterable { case focus = "Focus", history = "History", settings = "Settings" }
 
@@ -301,7 +303,12 @@ struct RootView: View {
                     .buttonStyle(GradientButtonStyle(tint: timerTint, cornerRadius: 12, vPadding: 9, elevation: 5))
                     .help(primaryHelp)
 
-                Button { model.reset() } label: {
+                // Asks first: every phase this button is live in throws
+                // something away (a session, a break, or an armed one), and a
+                // stray click on a 24pt icon next to the primary button was
+                // costing whole sessions. The wording is `StopConfirmation`'s,
+                // per phase; the model's `reset()` is untouched.
+                Button { confirmingStop = true } label: {
                     Image(systemName: "stop.fill")
                 }
                 .buttonStyle(SoftIconButtonStyle())
@@ -312,14 +319,37 @@ struct RootView: View {
                 // behind it — see `AppModel.resetHelp`.
                 .help(model.resetHelp)
                 .accessibilityLabel("Stop and reset")
+                .popover(isPresented: $confirmingStop, arrowEdge: .bottom) {
+                    StopConfirmationView(prompt: StopConfirmation.prompt(phase: model.phase),
+                                         isPresented: $confirmingStop) {
+                        model.reset()
+                    }
+                    .themed(palette)
+                }
 
                 if model.offersManualBreak {
-                    Button { model.startBreak() } label: {
+                    // Only a running focus session has anything to lose to
+                    // this button, so only then does it ask — see
+                    // `StopConfirmation.restNowAsks`.
+                    Button {
+                        if StopConfirmation.restNowAsks(phase: model.phase) {
+                            confirmingRestNow = true
+                        } else {
+                            model.startBreak()
+                        }
+                    } label: {
                         Image(systemName: "cup.and.saucer.fill")
                     }
                     .buttonStyle(SoftIconButtonStyle())
                     .help("Rest now — an unfinished focus session isn't logged")
                     .accessibilityLabel("Start a break now")
+                    .popover(isPresented: $confirmingRestNow, arrowEdge: .bottom) {
+                        StopConfirmationView(prompt: StopConfirmation.restNowPrompt,
+                                             isPresented: $confirmingRestNow) {
+                            model.startBreak()
+                        }
+                        .themed(palette)
+                    }
                 }
             }
         }

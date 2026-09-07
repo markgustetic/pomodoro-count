@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The stop and cup buttons ask before throwing anything away.** Stopping a
+  focus session, cutting a break short, skipping an armed break, and resting
+  now mid-session each open a small confirmation next to the button, worded
+  for what that press costs. Esc backs out; the cup from an idle timer still
+  acts at once, since nothing is lost there.
 - **One-time tasks.** Give today a goal that isn't a category: "+ Task" on the
   Focus tab adds a named target with a pomodoro count that sits above your
   categories and disappears tomorrow. Its pomodoros stay in History under the
