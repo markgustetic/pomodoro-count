@@ -40,15 +40,17 @@ enum StopConfirmation {
         }
     }
 
-    /// What the cup button asks when it would abandon a focus session.
-    static let restNowPrompt = Prompt(title: "Rest now?",
-                                      note: "The unfinished session isn't logged.",
-                                      verb: "Start break")
+    /// What the cup button asks mid-session, where it logs the session as done
+    /// before starting the break — so the thing to think twice about is a
+    /// pomodoro on the count that wasn't finished, not one lost.
+    static let restNowPrompt = Prompt(title: "End the session early?",
+                                      note: "It counts as done, and the break starts.",
+                                      verb: "Log and rest")
 
-    /// Whether the cup press needs confirming. Only a running focus session has
-    /// anything to lose; from idle the cup just starts a break, and a prompt
-    /// there would be friction guarding nothing. (`offersManualBreak` already
-    /// hides the cup in the two break phases.)
+    /// Whether the cup press needs confirming. Only a mid-session press changes
+    /// the count; from idle the cup just starts a break, and a prompt there
+    /// would be friction guarding nothing. (`offersManualBreak` already hides
+    /// the cup in the two break phases.)
     static func restNowAsks(phase: Phase) -> Bool {
         phase == .work
     }

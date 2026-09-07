@@ -328,25 +328,25 @@ struct RootView: View {
                 }
 
                 if model.offersManualBreak {
-                    // Only a running focus session has anything to lose to
-                    // this button, so only then does it ask — see
-                    // `StopConfirmation.restNowAsks`.
+                    // Mid-session the cup logs the session as done, which is
+                    // a count change worth a second look, so only then does
+                    // it ask — see `StopConfirmation.restNowAsks`.
                     Button {
                         if StopConfirmation.restNowAsks(phase: model.phase) {
                             confirmingRestNow = true
                         } else {
-                            model.startBreak()
+                            model.restNow()
                         }
                     } label: {
                         Image(systemName: "cup.and.saucer.fill")
                     }
                     .buttonStyle(SoftIconButtonStyle())
-                    .help("Rest now — an unfinished focus session isn't logged")
+                    .help("Rest now — mid-session, the session counts as done")
                     .accessibilityLabel("Start a break now")
                     .popover(isPresented: $confirmingRestNow, arrowEdge: .bottom) {
                         StopConfirmationView(prompt: StopConfirmation.restNowPrompt,
                                              isPresented: $confirmingRestNow) {
-                            model.startBreak()
+                            model.restNow()
                         }
                         .themed(palette)
                     }

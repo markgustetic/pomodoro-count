@@ -457,23 +457,7 @@ final class AppModel: ObservableObject {
         endDate = nil
 
         if finished == .work {
-            focusSessionsThisCycle += 1
-            // The record and the target it may have just moved are one change
-            // as far as the store is concerned, so they cost one write rather
-            // than two. The append comes first: this session credits the target
-            // it actually ran against, and only the next one moves.
-            suspendSaves()
-            records.append(Record(at: Date(), source: "timer",
-                                  category: resolve(sessionTarget)))
-            // After the append, before the realign: a session that ran across
-            // midnight kept its task through the day change (the sweep skips
-            // a running session so this record could credit it), and on an
-            // always-on Mac nothing else would sweep it until the next wake —
-            // the realign below would restart the day on yesterday's task.
-            // `isRunning` is already false here, so the sweep runs.
-            expireTasks()
-            realignTarget()
-            resumeSaves()
+            logFinishedFocusSession()
             play(.sessionDone)
             notify("Pomodoro complete",
                    Self.completionBody(count: todayCount,
@@ -494,6 +478,60 @@ final class AppModel: ObservableObject {
             // with it — `breakEnteredOn` promises nil off a break, and a stale
             // value here would outlive the phase that justified it.
             breakEnteredOn = nil
+        }
+    }
+
+    /// The bookkeeping a finished focus session earns: one record against the
+    /// session target, one step along the long-break cycle, and the realign
+    /// that may move the target for the next one. Shared by the countdown
+    /// reaching zero and by `restNow()`, which ends the session early.
+    ///
+    /// Expects the countdown already stopped (`isRunning == false`): the task
+    /// sweep skips a running session, and the realign is suppressed by one.
+    private func logFinishedFocusSession() {
+        focusSessionsThisCycle += 1
+        // The record and the target it may have just moved are one change
+        // as far as the store is concerned, so they cost one write rather
+        // than two. The append comes first: this session credits the target
+        // it actually ran against, and only the next one moves.
+        suspendSaves()
+        records.append(Record(at: Date(), source: "timer",
+                              category: resolve(sessionTarget)))
+        // After the append, before the realign: a session that ran across
+        // midnight kept its task through the day change (the sweep skips
+        // a running session so this record could credit it), and on an
+        // always-on Mac nothing else would sweep it until the next wake —
+        // the realign below would restart the day on yesterday's task.
+        expireTasks()
+        realignTarget()
+        resumeSaves()
+    }
+
+    /// The cup button. Mid-session — running or paused — the session counts
+    /// as done and the break starts; from idle it just starts a break. It
+    /// used to abandon the session, which made the cup a stop button with a
+    /// break attached, and nobody who reached for it wanted that.
+    ///
+    /// Always `startBreak()`, never an armed one, whatever `autoStartBreak`
+    /// says: the press was a request for the break itself. The break phases
+    /// are a no-op — the panel hides the cup there, and a stray call must not
+    /// log a second session or restart the running break.
+    func restNow() {
+        switch phase {
+        case .work:
+            stopTimer()
+            isRunning = false
+            endDate = nil
+            logFinishedFocusSession()
+            // `.countUp`, not `.sessionDone`, and no banner: the user is in
+            // the panel watching the count change, so the quiet log sound is
+            // the honest one.
+            play(.countUp)
+            startBreak()
+        case .idle:
+            startBreak()
+        case .breakTime, .breakReady:
+            return
         }
     }
 

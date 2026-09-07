@@ -12,10 +12,12 @@ that was pressed:
 | Stop    | `.breakReady`| Skip the break?       | The session is already logged.                 | Skip        |
 | Stop    | `.work`      | Abandon this session? | Nothing is logged.                             | Abandon     |
 | Stop    | `.breakTime` | Cut the break short?  | Back to idle; the session stays logged.        | Stop        |
-| Cup     | `.work`      | Rest now?             | The unfinished session isn't logged.           | Start break |
+| Cup     | `.work`      | End the session early?| It counts as done, and the break starts.        | Log and rest |
 
-The cup while idle acts immediately: nothing is lost there. The stop button is
-disabled while idle already. No Settings switch.
+The cup mid-session (running or paused) logs the session as done and starts
+the break (`AppModel.restNow()`); the confirmation guards a count change, not
+a loss. The cup while idle acts immediately: nothing changes there. The stop
+button is disabled while idle already. No Settings switch.
 
 ## Why a popover
 
@@ -31,5 +33,7 @@ and gives Return nothing to do so the destructive verb takes a click.
   compile rather than showing the wrong words.
 - `StopConfirmationView` takes closures, not the model (`@EnvironmentObject`
   crashes in popover content).
-- `RootView`'s focus tab holds one `@State` flag per button. `AppModel` is
-  untouched: hotkeys and the URL scheme never called `reset()` and still don't.
+- `RootView`'s focus tab holds one `@State` flag per button. `reset()` is
+  untouched: hotkeys and the URL scheme never called it and still don't.
+- `AppModel.restNow()` shares `logFinishedFocusSession()` with `complete()`,
+  so an early end earns exactly what a timed-out one does.

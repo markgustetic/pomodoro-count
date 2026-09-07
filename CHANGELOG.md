@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **The stop and cup buttons ask before throwing anything away.** Stopping a
-  focus session, cutting a break short, skipping an armed break, and resting
-  now mid-session each open a small confirmation next to the button, worded
-  for what that press costs. Esc backs out; the cup from an idle timer still
-  acts at once, since nothing is lost there.
+- **The stop and cup buttons ask before acting.** Stopping a focus session,
+  cutting a break short, skipping an armed break, and resting now mid-session
+  each open a small confirmation next to the button, worded for what that
+  press does. Esc backs out; the cup from an idle timer still acts at once,
+  since nothing changes there.
 - **One-time tasks.** Give today a goal that isn't a category: "+ Task" on the
   Focus tab adds a named target with a pomodoro count that sits above your
   categories and disappears tomorrow. Its pomodoros stay in History under the
@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hover the seven-day graph on the Focus tab** to read a day off it. The bar
   under the pointer lights up and a card names the day and its count — the
   same readout the History tab's graphs already give you.
+
+### Changed
+
+- **The cup button mid-session now counts the session as done.** Resting
+  early from a running or paused pomodoro logs it against the session target
+  and starts the break, instead of throwing the session away. It advances the
+  long-break rhythm like any finished session.
 
 ### Fixed
 

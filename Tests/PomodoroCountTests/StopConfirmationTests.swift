@@ -35,14 +35,14 @@ import Testing
         #expect(!p.verb.isEmpty)
     }
 
-    @Test func restingNowWarnsAboutTheUnfinishedSession() {
+    @Test func restingNowSaysTheSessionCountsAsDone() {
         let p = StopConfirmation.restNowPrompt
-        #expect(p.title == "Rest now?")
-        #expect(p.note == "The unfinished session isn't logged.")
-        #expect(p.verb == "Start break")
+        #expect(p.title == "End the session early?")
+        #expect(p.note == "It counts as done, and the break starts.")
+        #expect(p.verb == "Log and rest")
     }
 
-    /// Only a running focus session has anything to lose to the cup button.
+    /// Only a mid-session press changes the count, so only that one asks.
     @Test(arguments: [(Phase.idle, false), (.work, true), (.breakTime, false), (.breakReady, false)])
     func restNowAsksOnlyDuringAFocusSession(phase: Phase, asks: Bool) {
         #expect(StopConfirmation.restNowAsks(phase: phase) == asks)
