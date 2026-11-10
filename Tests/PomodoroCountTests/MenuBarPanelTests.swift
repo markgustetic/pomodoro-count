@@ -56,4 +56,32 @@ import AppKit
         #expect(MenuBarPanel.isPanelWindow(className: "SwiftUI.MenuBarExtraWindow"))
         #expect(MenuBarPanel.isPanelWindow(className: "SomeFutureNameForThePanel"))
     }
+
+    // MARK: How the panel is opened and closed from code
+
+    /// macOS 27: SwiftUI drives the panel through the status item's expanded
+    /// interface session, so that is what code has to ask for.
+    @Test func aSessionDrivenItemOpensByRequestingASession() {
+        #expect(MenuBarPanel.openRoute(sessionDriven: true, canRequestSession: true) == .requestSession)
+    }
+
+    @Test func aSessionDrivenItemClosesByCancellingItsSession() {
+        #expect(MenuBarPanel.closeRoute(sessionDriven: true, hasSession: true) == .cancelSession)
+    }
+
+    /// The click is not a fallback there. Measured: it opens nothing, closes
+    /// nothing, and leaves the button's state stuck on — so with no session
+    /// call to make, the right move is none at all.
+    @Test func aSessionDrivenItemIsNeverClicked() {
+        #expect(MenuBarPanel.openRoute(sessionDriven: true, canRequestSession: false) == .nothing)
+        #expect(MenuBarPanel.closeRoute(sessionDriven: true, hasSession: false) == .nothing)
+    }
+
+    /// Before macOS 27 the button's own action is SwiftUI's toggle, and
+    /// clicking it is still the only way in or out.
+    @Test func anItemWithoutSessionsIsStillClicked() {
+        #expect(MenuBarPanel.openRoute(sessionDriven: false, canRequestSession: false) == .clickButton)
+        #expect(MenuBarPanel.openRoute(sessionDriven: false, canRequestSession: true) == .clickButton)
+        #expect(MenuBarPanel.closeRoute(sessionDriven: false, hasSession: false) == .clickButton)
+    }
 }

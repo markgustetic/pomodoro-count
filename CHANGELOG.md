@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Opening the panel takes a notification banner down again.** On macOS 27
   this only worked the first time the panel was opened after launch; from then
   on a banner stayed up behind the panel until it was dismissed by hand.
+- **Clicking a notification opens the panel again on macOS 27,** and so do the
+  first-launch welcome and a second copy handing its launch over. With
+  categories off, the Log button closes the panel after logging again. macOS 27
+  changed how a menu bar item's panel is shown, and the app's own way of
+  opening and closing it had silently stopped doing anything.
 
 ## [1.5.0] - 2026-08-18
 

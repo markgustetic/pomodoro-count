@@ -191,17 +191,90 @@ private struct StatusItemLabel: View {
 /// no-ops.) So dismiss the way the user would: find the status item's own button
 /// and click it. That runs SwiftUI's real toggle, and the panel reopens on the
 /// very next click.
+///
+/// That is the whole story up to macOS 26. On macOS 27 the click is dead:
+/// SwiftUI no longer hangs its toggle on the button (its action and target are
+/// nil) and instead answers AppKit's new *expanded interface session* on the
+/// status item — see `Route`, which picks between the two.
 @MainActor
 enum MenuBarPanel {
     static func dismiss() {
-        statusItemButton?.performClick(nil)
+        switch closeRoute(sessionDriven: isSessionDriven, hasSession: hasSession) {
+        case .cancelSession:
+            if #available(macOS 27.0, *) { statusItem?.expandedInterfaceSession?.cancel() }
+        case .clickButton:
+            statusItemButton?.performClick(nil)
+        case .requestSession, .nothing:
+            break
+        }
+    }
+
+    // MARK: Routes
+
+    /// How code opens or closes the panel on the system it finds itself on.
+    ///
+    /// macOS 27 gave status items an expanded interface session: the menu bar
+    /// tells the item's delegate when to show and hide whatever it drops down,
+    /// and SwiftUI's `MenuBarExtra` moved onto it. Measured on 27.0.1 in a
+    /// scratch copy, not assumed:
+    ///
+    /// - `performClick`, a mouse-down/up pair posted to the app, one sent
+    ///   straight to the status bar window, and `accessibilityPerformPress`
+    ///   all flip the button's `state` and open nothing. With the panel up,
+    ///   `performClick` does not close it either, and leaves `state` stuck on.
+    /// - `expandedInterfaceSession.cancel()` — public — closes it.
+    /// - Nothing public *begins* a session; the header only describes the
+    ///   system doing so. `-[NSStatusItem _requestExpandedInterfaceSession]`
+    ///   does, opens the panel, activates the app on its own, and is a no-op
+    ///   on a panel already up. It is private, so it is looked up by name and
+    ///   its absence is a route of its own rather than a crash.
+    enum Route: Equatable {
+        case requestSession, cancelSession, clickButton, nothing
+    }
+
+    /// The route to an open panel. `sessionDriven` is "the status item has an
+    /// expanded interface delegate", which is SwiftUI saying which mechanism it
+    /// is on — truer than an OS version check, and it keeps the click for any
+    /// system where the click is still the toggle.
+    nonisolated static func openRoute(sessionDriven: Bool, canRequestSession: Bool) -> Route {
+        guard sessionDriven else { return .clickButton }
+        // Never the click as a fallback: here it only sticks the button on.
+        return canRequestSession ? .requestSession : .nothing
+    }
+
+    /// The route to a closed panel.
+    nonisolated static func closeRoute(sessionDriven: Bool, hasSession: Bool) -> Route {
+        guard sessionDriven else { return .clickButton }
+        return hasSession ? .cancelSession : .nothing
+    }
+
+    private static let requestSession = Selector(("_requestExpandedInterfaceSession"))
+
+    private static var isSessionDriven: Bool {
+        if #available(macOS 27.0, *) { return statusItem?.expandedInterfaceDelegate != nil }
+        return false
+    }
+
+    private static var hasSession: Bool {
+        if #available(macOS 27.0, *) { return statusItem?.expandedInterfaceSession != nil }
+        return false
+    }
+
+    /// The `NSStatusItem` SwiftUI keeps private, read off the status bar window
+    /// that hosts it. Of the four `NSStatusBarWindow`s the app has on macOS 27,
+    /// only the one holding the button is the real item's — the others are
+    /// off-screen and empty — so go through the button's window.
+    private static var statusItem: NSStatusItem? {
+        guard let window = statusItemButton?.window,
+              window.responds(to: Selector(("statusItem"))) else { return nil }
+        return window.value(forKey: "statusItem") as? NSStatusItem
     }
 
     /// Opens the panel unless it is already open.
     ///
-    /// `present()` gets there by clicking the status item, and a click
-    /// *toggles*: aimed at a panel that is already up it would close the very
-    /// thing it was asked to show.
+    /// Before macOS 27 `present()` gets there by clicking the status item, and
+    /// a click *toggles*: aimed at a panel that is already up it would close
+    /// the very thing it was asked to show.
     static func presentIfClosed() {
         guard !isPanelOpen else { return }
         present()
@@ -286,7 +359,15 @@ enum MenuBarPanel {
             // was frontmost, because the panel dismisses when the app stops
             // being active. Measured, not assumed.
             NSApp.activate(ignoringOtherApps: true)
-            button.performClick(nil)
+            switch openRoute(sessionDriven: isSessionDriven,
+                             canRequestSession: statusItem?.responds(to: requestSession) ?? false) {
+            case .requestSession:
+                _ = statusItem?.perform(requestSession)
+            case .clickButton:
+                button.performClick(nil)
+            case .cancelSession, .nothing:
+                break
+            }
             return
         }
         guard retries > 0 else { return }

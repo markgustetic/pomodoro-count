@@ -101,6 +101,14 @@ that one fact:
   per opening hangs off `MenuBarPanel.onEveryOpening`, which watches the panel
   become key. Clearing delivered banners is the one caller, and it silently ran
   once per launch while it lived in `onAppear`.
+- **Opening and closing the panel from code goes through `MenuBarPanel.Route`.**
+  Up to macOS 26 that means clicking the status item's button, which runs
+  SwiftUI's own toggle. On macOS 27 the button has no action: SwiftUI answers
+  AppKit's *expanded interface session* instead, and a programmatic click only
+  sticks the button's state on. Closing is the public
+  `expandedInterfaceSession.cancel()`; opening has no public call, so it uses
+  the private `_requestExpandedInterfaceSession`, looked up by name. If an OS
+  update makes `present()` go quiet, that selector is the first thing to check.
 - **A second copy of the app hands its launch to the first and quits**
   (`SingleInstance`). Clicking a notification does not talk to the running app
   — it asks Launch Services to open the *bundle ID*, and with several copies
