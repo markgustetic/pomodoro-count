@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-10
+
 ### Added
 
 - **The stop and cup buttons ask before acting.** Stopping a focus session,
@@ -260,7 +262,8 @@ First public release.
 - Releases are unsigned. macOS Gatekeeper asks for a one-time confirmation on
   first launch — see [Installing](README.md#install) for the two-second step.
 
-[Unreleased]: https://github.com/markgustetic/pomodoro-count/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/markgustetic/pomodoro-count/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/markgustetic/pomodoro-count/compare/v1.2.0...v1.3.0
