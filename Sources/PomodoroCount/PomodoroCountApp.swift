@@ -201,7 +201,7 @@ enum MenuBarPanel {
     static func dismiss() {
         switch closeRoute(sessionDriven: isSessionDriven, hasSession: hasSession) {
         case .cancelSession:
-            if #available(macOS 27.0, *) { statusItem?.expandedInterfaceSession?.cancel() }
+            _ = session?.perform(Selector(("cancel")))
         case .clickButton:
             statusItemButton?.performClick(nil)
         case .requestSession, .nothing:
@@ -250,15 +250,29 @@ enum MenuBarPanel {
 
     private static let requestSession = Selector(("_requestExpandedInterfaceSession"))
 
+    /// Whether SwiftUI drives this item through sessions: it has installed
+    /// itself as the item's `expandedInterfaceDelegate`.
+    ///
+    /// Read by name, like `session` below, although both are public API on
+    /// macOS 27. GitHub's runners build with an SDK that predates them, and a
+    /// direct reference there is a compile error that `#available` cannot
+    /// excuse — it failed three CI jobs, and would have failed the release
+    /// build the same way. `responds(to:)` first, so a system without the
+    /// property answers "no" instead of raising from `value(forKey:)`.
     private static var isSessionDriven: Bool {
-        if #available(macOS 27.0, *) { return statusItem?.expandedInterfaceDelegate != nil }
-        return false
+        guard let item = statusItem,
+              item.responds(to: Selector(("expandedInterfaceDelegate"))) else { return false }
+        return item.value(forKey: "expandedInterfaceDelegate") != nil
     }
 
-    private static var hasSession: Bool {
-        if #available(macOS 27.0, *) { return statusItem?.expandedInterfaceSession != nil }
-        return false
+    /// The `NSStatusItemExpandedInterfaceSession` of a panel that is up, or nil.
+    private static var session: NSObject? {
+        guard let item = statusItem,
+              item.responds(to: Selector(("expandedInterfaceSession"))) else { return nil }
+        return item.value(forKey: "expandedInterfaceSession") as? NSObject
     }
+
+    private static var hasSession: Bool { session != nil }
 
     /// The `NSStatusItem` SwiftUI keeps private, read off the status bar window
     /// that hosts it. Of the four `NSStatusBarWindow`s the app has on macOS 27,
