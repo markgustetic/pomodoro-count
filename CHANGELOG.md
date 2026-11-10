@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   taken or skipped, carried yesterday's tally into the morning, so the first
   pomodoro of the day could earn a long break. A session actually running at
   midnight still keeps its place in the cycle.
+- **Opening the panel takes a notification banner down again.** On macOS 27
+  this only worked the first time the panel was opened after launch; from then
+  on a banner stayed up behind the panel until it was dismissed by hand.
 
 ## [1.5.0] - 2026-08-18
 

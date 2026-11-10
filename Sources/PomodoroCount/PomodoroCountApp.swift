@@ -45,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = Updater.shared
         // Right-click the menu bar item to quit without opening the panel.
         MenuBarPanel.installContextMenu()
+        // Opening the panel answers whatever a banner was announcing — the new
+        // count, the armed break, the goal still to go — so take the banner
+        // down rather than leaving the user the same news to dismiss twice.
+        MenuBarPanel.onEveryOpening { AppModel.shared.clearNotifications() }
 
         // A menu-bar-only app launches to no window, no Dock icon, and no sign
         // it did anything. Open the panel once so a new user sees where it went.
@@ -222,7 +226,49 @@ enum MenuBarPanel {
     /// whether it exists answers "has the panel ever been opened".
     private static var isPanelOpen: Bool {
         NSApp.windows.contains {
-            $0.isVisible && !$0.className.contains("NSStatusBarWindow")
+            $0.isVisible && isPanelWindow(className: $0.className)
+        }
+    }
+
+    /// Whether a window of this class is the panel rather than the status bar
+    /// window that hosts the menu bar item. Pure, and on the class name alone,
+    /// so the one rule both `isPanelOpen` and `onEveryOpening` lean on is
+    /// unit-tested without a status bar.
+    nonisolated static func isPanelWindow(className: String) -> Bool {
+        !className.contains("NSStatusBarWindow")
+    }
+
+    // MARK: Openings
+
+    private static var openingObserver: Any?
+
+    /// Runs `action` each time the panel opens.
+    ///
+    /// Watches the window, not the view. `RootView.onAppear` used to do this
+    /// job and was measured firing on every opening — on macOS 26. On macOS 27
+    /// SwiftUI keeps the panel's content alive along with its window, and
+    /// `onAppear` fires on the first opening and never again: the unified log
+    /// of an app that had been up for a day showed one "Removing all delivered
+    /// notifications", six minutes after launch, and none after any of the
+    /// status item clicks that followed; a scratch copy clicked open three
+    /// times logged `onAppear` once and this three times. Becoming key is what
+    /// an opening *is* for this panel — it dismisses the moment it loses key
+    /// status — so it cannot quietly stop meaning that the way a view
+    /// lifecycle did.
+    ///
+    /// A popover closing hands key back to the panel and fires this again.
+    /// That is harmless for the one caller there is, which clears banners; a
+    /// caller that must run once per opening would need to track the popover.
+    static func onEveryOpening(_ action: @escaping @MainActor () -> Void) {
+        guard openingObserver == nil else { return }
+        openingObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
+        ) { note in
+            // The class name is read out here because a Notification may not
+            // cross into `assumeIsolated`; a String may.
+            guard let name = (note.object as? NSObject)?.className,
+                  isPanelWindow(className: name) else { return }
+            MainActor.assumeIsolated { action() }
         }
     }
 

@@ -39,4 +39,21 @@ import AppKit
     @Test func eachCallReturnsAFreshMenu() {
         #expect(MenuBarPanel.contextMenu() !== MenuBarPanel.contextMenu())
     }
+
+    // MARK: Which window is the panel
+
+    /// The window that hosts the menu bar item is always there and always
+    /// visible. Mistaking it for the panel would make "is the panel open"
+    /// permanently true.
+    @Test func theStatusBarWindowIsNotThePanel() {
+        #expect(!MenuBarPanel.isPanelWindow(className: "NSStatusBarWindow"))
+    }
+
+    /// The panel is recognised as "not the status bar window" rather than by
+    /// SwiftUI's private class name, so a rename on Apple's side cannot switch
+    /// off the banner clearing that hangs on this answer.
+    @Test func anyOtherWindowCountsAsThePanel() {
+        #expect(MenuBarPanel.isPanelWindow(className: "SwiftUI.MenuBarExtraWindow"))
+        #expect(MenuBarPanel.isPanelWindow(className: "SomeFutureNameForThePanel"))
+    }
 }

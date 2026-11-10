@@ -95,6 +95,12 @@ that one fact:
   around after the first opening and merely hides it, so existence answers
   "has it ever been opened". Both readings are measured; the button one cost a
   `presentIfClosed` that closed the panel it was asked to show.
+- **"The panel just opened" is a question about the window too.** `onAppear`
+  on the panel's root fires for the first opening only on macOS 27 — SwiftUI
+  keeps the content alive along with the window — so anything that must happen
+  per opening hangs off `MenuBarPanel.onEveryOpening`, which watches the panel
+  become key. Clearing delivered banners is the one caller, and it silently ran
+  once per launch while it lived in `onAppear`.
 - **A second copy of the app hands its launch to the first and quits**
   (`SingleInstance`). Clicking a notification does not talk to the running app
   — it asks Launch Services to open the *bundle ID*, and with several copies
