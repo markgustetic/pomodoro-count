@@ -163,6 +163,12 @@ that one fact:
   clearing it and stamps the record with that, clamped to now; the cup stamps
   the press. Anything that reports on a just-finished session must not assume
   it counts toward today — the completion banner branches on exactly that.
+- **A timer firing is not evidence its hour has arrived** — the same sleeping
+  Mac again. The end-of-day reminder keeps its fire date in `nudgeDue` and
+  `settleNudge(now:)` compares it with the clock, from the timer *and* from
+  every wake: due earlier today delivers late, due on an earlier day is
+  dropped (`NudgeDue`). Anything else scheduled by wall-clock hour should take
+  the same shape rather than trusting the callback.
 - Every record-appending path also calls `realignTarget()` — append first, so
   the record credits the target it ran against, then realign. It holds two
   automatic triggers: a met target hands off to the **highest-ranked** category
@@ -293,7 +299,8 @@ strands every existing install permanently. One-time Apple-side setup is in
   `TooltipPlacement.origin`, `DayRollover.action(phase:breakEnteredOn:newDay:countingDown:)`,
   `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`,
   `TaskExpiry.surviving(_:today:)`, `TaskExpiry.moveKeepsTasksOnTop(_:from:to:)`
-  `TaskExpiry.reachableDestination(_:from:towards:)` and
+  `TaskExpiry.reachableDestination(_:from:towards:)`,
+  `NudgeDue.action(due:now:)` and
   `Shortcut.canBeGlobal(keyCode:carbonModifiers:)`
   are pure and unit-tested; views are thin over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`

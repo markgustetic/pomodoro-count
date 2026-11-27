@@ -77,6 +77,85 @@ import Foundation
         #expect(cal.component(.hour, from: next) == 18)
     }
 
+    // MARK: A reminder that came due while nobody was looking
+
+    /// The timer cannot be trusted to fire at the hour: a sleeping Mac runs no
+    /// timers, and one armed for 18:00 fires whenever the machine next gets
+    /// round to it. So the decision is taken from the clock, not from the fact
+    /// of firing. All of these sit two days out so the real timer the model
+    /// arms along the way is never due during a test run.
+    private let day = Calendar.current.date(
+        byAdding: .day, value: 2, to: Calendar.current.startOfDay(for: Date()))!
+    private func at(_ hour: Int, daysLater: Int = 0) -> Date {
+        let base = Calendar.current.date(byAdding: .day, value: daysLater, to: day)!
+        return Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: base)!
+    }
+
+    @Test func withNothingArmedThereIsNothingToDo() {
+        #expect(NudgeDue.action(due: nil, now: at(19)) == .wait)
+    }
+
+    @Test func aReminderStillAheadWaits() {
+        #expect(NudgeDue.action(due: at(18), now: at(10)) == .wait)
+    }
+
+    @Test func aReminderIsDeliveredOnTheHour() {
+        #expect(NudgeDue.action(due: at(18), now: at(18)) == .deliver)
+    }
+
+    /// Lid shut at 17:00, opened at 19:00. Late, but still about today.
+    @Test func aReminderMissedEarlierTheSameDayIsDeliveredLate() {
+        #expect(NudgeDue.action(due: at(18), now: at(19)) == .deliver)
+    }
+
+    /// Lid shut at 17:00, opened at 08:00. "3 to go to hit today's goal" would
+    /// now be counting a day that has barely started.
+    @Test func aReminderFromAnEarlierDayIsDropped() {
+        #expect(NudgeDue.action(due: at(18), now: at(8, daysLater: 1)) == .skip)
+    }
+
+    @Test func wakingTheSameEveningDeliversTheMissedReminderOnce() {
+        let (m, _) = makeModel()
+        defer { m.nudgeTimer?.invalidate() }
+        m.settings.nudgeHour = 18
+        m.scheduleNudge(now: at(10))
+
+        #expect(m.settleNudge(now: at(19)) == "No pomodoros logged today.")
+        #expect(m.nudgeDue == at(18, daysLater: 1), "and tomorrow's is armed")
+        #expect(m.settleNudge(now: at(19)) == nil, "the timer and the wake must not both deliver it")
+    }
+
+    @Test func wakingTheNextMorningStaysQuietAndArmsThatEvening() {
+        let (m, _) = makeModel()
+        defer { m.nudgeTimer?.invalidate() }
+        m.settings.nudgeHour = 18
+        m.scheduleNudge(now: at(10))
+
+        #expect(m.settleNudge(now: at(8, daysLater: 1)) == nil)
+        #expect(m.nudgeDue == at(18, daysLater: 1))
+    }
+
+    @Test func wakingBeforeTheHourOnlyRearms() {
+        let (m, _) = makeModel()
+        defer { m.nudgeTimer?.invalidate() }
+        m.settings.nudgeHour = 18
+        m.scheduleNudge(now: at(10))
+
+        #expect(m.settleNudge(now: at(12)) == nil)
+        #expect(m.nudgeDue == at(18))
+    }
+
+    @Test func turningTheReminderOffLeavesNothingDue() {
+        let (m, _) = makeModel()
+        defer { m.nudgeTimer?.invalidate() }
+        m.settings.nudgeHour = 18
+        m.scheduleNudge(now: at(10))
+
+        m.setNudgeHour(nil)
+        #expect(m.nudgeDue == nil)
+        #expect(m.settleNudge(now: at(19)) == nil)
+    }
+
     // MARK: Persistence
 
     @Test func offByDefaultAndSurvivesReload() {

@@ -103,6 +103,32 @@ extension AppModel {
 
 // MARK: - End-of-day nudge
 
+/// What to do about the armed reminder, given what time it actually is.
+///
+/// The reminder is a one-shot `Timer`, and a timer firing is not evidence that
+/// its hour has just arrived: a sleeping Mac runs none, so one armed for 18:00
+/// with the lid shut at 17:00 fires whenever the machine next gets round to it
+/// — that evening, or at 08:00 the next day, announcing "3 to go to hit
+/// today's goal" about a day that has barely begun. So the fire date is kept
+/// (`AppModel.nudgeDue`) and compared with the clock, both when the timer
+/// fires and on every wake, and whichever of the two gets there first settles
+/// it.
+///
+/// Late on the same day still delivers: the reminder exists to save the day's
+/// goal, and at 19:00 there is still a day to save. Once the date has moved on
+/// it is dropped, because the count it would quote belongs to the new day.
+///
+/// Pure, and out of `AppModel`, so the rule is tested without a timer or a
+/// sleeping machine.
+enum NudgeDue {
+    enum Action: Equatable { case wait, deliver, skip }
+
+    static func action(due: Date?, now: Date, calendar: Calendar = .current) -> Action {
+        guard let due, due <= now else { return .wait }
+        return calendar.isDate(due, inSameDayAs: now) ? .deliver : .skip
+    }
+}
+
 @MainActor
 extension AppModel {
 
@@ -129,6 +155,25 @@ extension AppModel {
         return calendar.date(byAdding: .day, value: 1, to: todayAt)!
     }
 
+    /// Delivers the reminder if it has come due, then arms the next one.
+    /// Returns what was said, for the tests — `notify` is silent unbundled.
+    ///
+    /// Called from the timer and from every wake, and safe from both: once a
+    /// reminder is settled the next is armed for a later date, so the second
+    /// caller finds nothing due. Re-arming even when nothing was due is the
+    /// point on a wake, not a side effect — it re-derives the timer from the
+    /// wall clock after a sleep the timer did not count.
+    @discardableResult
+    func settleNudge(now: Date = Date()) -> String? {
+        var said: String?
+        if NudgeDue.action(due: nudgeDue, now: now) == .deliver, let message = nudgeMessage() {
+            notify("Pomodoro Count", message)
+            said = message
+        }
+        scheduleNudge(now: now)
+        return said
+    }
+
     func setNudgeHour(_ hour: Int?) {
         settings.nudgeHour = hour
         scheduleNudge()
@@ -147,28 +192,36 @@ extension AppModel {
             forName: .NSSystemClockDidChange, object: nil, queue: .main, using: rearm)
         NotificationCenter.default.addObserver(
             forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main, using: rearm)
+        // A wake is the third way the clock gets ahead of the timer, and the
+        // only one that can leave a reminder already overdue — see `NudgeDue`.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { _ = self?.settleNudge() }
+        }
     }
 
     /// (Re)arms the one-shot timer for the next nudge. The app runs for weeks,
     /// so each firing checks the goal *at that moment* and then arms the next
     /// day's — scheduling the message text in advance would bake in a count
     /// that the evening's pomodoros should have changed.
-    func scheduleNudge() {
+    ///
+    /// The firing itself decides nothing: it hands over to `settleNudge`,
+    /// which asks the clock whether the reminder is really due.
+    ///
+    /// `now` is injectable so tests can arm it for a day of their choosing.
+    func scheduleNudge(now: Date = Date()) {
         nudgeTimer?.invalidate()
         nudgeTimer = nil
+        nudgeDue = nil
         guard let hour = settings.nudgeHour else { return }
-        let t = Timer(fire: Self.nextNudgeDate(hour: hour, after: Date()),
-                      interval: 0, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                if let message = self.nudgeMessage() {
-                    self.notify("Pomodoro Count", message)
-                }
-                self.scheduleNudge()
-            }
+        let due = Self.nextNudgeDate(hour: hour, after: now)
+        let t = Timer(fire: due, interval: 0, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.settleNudge() }
         }
         RunLoop.main.add(t, forMode: .common)
         nudgeTimer = t
+        nudgeDue = due
     }
 }
 

@@ -40,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   started empty and the first thing you logged wrote a fresh file over it. The
   original is now moved aside as `data-unreadable-…-backup.json` first, the
   same as a file that won't parse, and nothing is saved until it has been.
+- **The end-of-day reminder no longer turns up the next morning.** A sleeping
+  Mac runs no timers, so a reminder set for 18:00 with the lid shut fired
+  whenever the Mac next woke — at 08:00 the following day, counting what was
+  left of a day that had just started. Open the Mac later the same day and you
+  still get it, late; once the date has changed it is dropped and that
+  evening's is set instead.
 
 ## [1.6.0] - 2026-11-10
 

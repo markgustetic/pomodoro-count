@@ -97,6 +97,8 @@ final class AppModel: ObservableObject {
     private var endDate: Date?
     private var timer: Timer?
     var nudgeTimer: Timer?
+    /// When the armed reminder is meant to fire — see `settleNudge(now:)`.
+    var nudgeDue: Date?
     var hotKey: HotKeyManager?
     var dayChangeObserver: NSObjectProtocol?
     var screenLockObserver: NSObjectProtocol?
