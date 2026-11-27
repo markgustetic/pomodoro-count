@@ -174,7 +174,12 @@ that one fact:
   for models built without a launch. Both it and `addTask`'s aim skip a focus
   session that is actually running, for the same reason `realignTarget()`
   does. `moveCategory` refuses any move that would put a task below a
-  standing category or a category above a task.
+  standing category or a category above a task. The drag goes through
+  `dragCategory(from:towards:)` instead, which stops the row at that line and
+  **returns the index the row actually ended on** — the gesture must take its
+  `currentIndex` from that, never from the slot it asked for. Assuming the
+  request succeeded is how a refused move once left the gesture steering a
+  different row and reordering it.
 - `Phase` has **four** cases, and `.breakReady` is a state of its own, not a
   flavour of idle: a finished session's break is armed at its configured length
   waiting to be started or skipped. Anything that switches on phase must handle
@@ -267,7 +272,8 @@ strands every existing install permanently. One-time Apple-side setup is in
   `StatusIcon.glyph(phase:running:)`, `HistoryReadout.tooltip`,
   `TooltipPlacement.origin`, `DayRollover.action(phase:breakEnteredOn:newDay:)`
   `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`,
-  `TaskExpiry.surviving(_:today:)` and `TaskExpiry.moveKeepsTasksOnTop(_:from:to:)`
+  `TaskExpiry.surviving(_:today:)`, `TaskExpiry.moveKeepsTasksOnTop(_:from:to:)`
+  and `TaskExpiry.reachableDestination(_:from:towards:)`
   are pure and unit-tested; views are thin over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`
   (swift-testing, not XCTest). The glyph is the clearest case for why: it was

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dragging a row past the line between tasks and categories no longer
+  reorders its neighbours.** A one-time task can't be dragged below a category,
+  nor a category above a task — but the drag used to carry on as if it had
+  been, and went on to move whichever row was sitting where it thought it was.
+  Dragging a task down past two categories swapped the two categories. The row
+  now stops at the line and everything else stays put.
+
 ## [1.6.0] - 2026-11-10
 
 ### Added

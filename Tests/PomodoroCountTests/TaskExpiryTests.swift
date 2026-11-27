@@ -96,4 +96,111 @@ import Foundation
         #expect(!TaskExpiry.moveKeepsTasksOnTop(mixed, from: 0, to: 4))
         #expect(!TaskExpiry.moveKeepsTasksOnTop(mixed, from: -1, to: 0))
     }
+
+    // MARK: How far a drag may carry a row
+
+    @Test func aMoveInsideTheRowsOwnBlockReachesItsDestination() {
+        #expect(TaskExpiry.reachableDestination(mixed, from: 0, towards: 1) == 1)
+        #expect(TaskExpiry.reachableDestination(mixed, from: 3, towards: 2) == 2)
+    }
+
+    /// The row goes as far as its own kind extends and no further — it stops
+    /// at the boundary rather than refusing to move at all, so a fast drag
+    /// that overshoots still lands on the last legal slot.
+    @Test func aMoveAcrossTheBoundaryStopsAtIt() {
+        #expect(TaskExpiry.reachableDestination(mixed, from: 0, towards: 3) == 1)
+        #expect(TaskExpiry.reachableDestination(mixed, from: 3, towards: 0) == 2)
+    }
+
+    @Test func aRowAlreadyAtTheBoundaryStaysPut() {
+        #expect(TaskExpiry.reachableDestination(mixed, from: 1, towards: 2) == 1)
+        #expect(TaskExpiry.reachableDestination(mixed, from: 2, towards: 0) == 2)
+    }
+
+    @Test func aDestinationOffTheEndIsClampedAndABadSourceIsReturnedUnchanged() {
+        #expect(TaskExpiry.reachableDestination(mixed, from: 2, towards: 9) == 3)
+        #expect(TaskExpiry.reachableDestination(mixed, from: 1, towards: -4) == 0)
+        #expect(TaskExpiry.reachableDestination(mixed, from: 7, towards: 0) == 7)
+        #expect(TaskExpiry.reachableDestination([], from: 0, towards: 1) == 0)
+    }
+}
+
+/// The drag, replayed against the model the way `CategoryList`'s gesture runs
+/// it: one `Reorder.destination` and one `dragCategory` per pointer event.
+///
+/// These exist because the gesture used to advance its own idea of where the
+/// row was even when the model refused the move. From then on it was steering
+/// a different row: dragging a task down past two categories swapped the two
+/// categories, and the store kept the swap.
+@MainActor
+@Suite struct TaskBoundaryDragTests {
+
+    /// Thirty points a row; the pointer moves two points an event.
+    private func drag(_ m: AppModel, from start: Int, by distance: CGFloat) {
+        var current = start
+        let step: CGFloat = distance < 0 ? -2 : 2
+        for translation in stride(from: CGFloat(0), through: distance, by: step) {
+            let wanted = Reorder.destination(from: start, current: current,
+                                             translation: translation, pitch: 30,
+                                             count: m.settings.categories.count)
+            if wanted != current {
+                current = m.dragCategory(from: current, towards: wanted)
+            }
+        }
+    }
+
+    private func names(_ m: AppModel) -> [String] { m.settings.categories.map(\.name) }
+
+    @Test func draggingATaskDownPastTheCategoriesMovesNothing() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.addCategory(name: "A", dailyGoal: 1)
+        m.addCategory(name: "B", dailyGoal: 1)
+        m.addTask(name: "T", goal: 1)
+        #expect(names(m) == ["T", "A", "B"], "precondition")
+
+        drag(m, from: 0, by: 62)
+
+        #expect(names(m) == ["T", "A", "B"])
+    }
+
+    @Test func draggingACategoryUpIntoTheTasksLeavesTheTasksInOrder() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.addCategory(name: "A", dailyGoal: 1)
+        m.addCategory(name: "B", dailyGoal: 1)
+        m.addTask(name: "T1", goal: 1)
+        m.addTask(name: "T2", goal: 1)
+        #expect(names(m) == ["T2", "T1", "A", "B"], "precondition")
+
+        drag(m, from: 2, by: -62)
+
+        #expect(names(m) == ["T2", "T1", "A", "B"])
+    }
+
+    /// The boundary stops the row; it does not pin it. A category dragged from
+    /// the bottom to above the tasks still rises to the top of the categories.
+    @Test func aCategoryDraggedPastTheBoundaryStopsAtTheTopOfItsBlock() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.addCategory(name: "A", dailyGoal: 1)
+        m.addCategory(name: "B", dailyGoal: 1)
+        m.addTask(name: "T", goal: 1)
+
+        drag(m, from: 2, by: -62)
+
+        #expect(names(m) == ["T", "B", "A"])
+    }
+
+    @Test func dragCategoryReportsWhereTheRowActuallyIs() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        m.addCategory(name: "A", dailyGoal: 1)
+        m.addCategory(name: "B", dailyGoal: 1)
+        m.addTask(name: "T", goal: 1)
+
+        #expect(m.dragCategory(from: 0, towards: 2) == 0, "a task cannot leave the task block")
+        #expect(m.dragCategory(from: 1, towards: 2) == 2)
+        #expect(m.dragCategory(from: 9, towards: 0) == 9, "a bad index moves nothing")
+    }
 }

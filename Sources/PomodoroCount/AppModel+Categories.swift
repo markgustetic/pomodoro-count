@@ -213,15 +213,39 @@ extension AppModel {
         guard indices.contains(source), indices.contains(destination),
               source != destination,
               // A one-time task ranks above every standing category — "today's
-              // work first" is what its position means — so a drag may not carry
+              // work first" is what its position means — so a move may not carry
               // one below a category or a category above one. A refused move
-              // changes nothing, which the drag already treats as "ended where it
-              // began", and `nudgeCategory` inherits the refusal.
+              // changes nothing, and `nudgeCategory` inherits the refusal. The
+              // drag does not rely on it: it goes through `dragCategory`, which
+              // asks for a slot the row can reach in the first place.
               TaskExpiry.moveKeepsTasksOnTop(settings.categories, from: source, to: destination)
         else { return }
         settings.categories.move(
             fromOffsets: IndexSet(integer: source),
             toOffset: destination > source ? destination + 1 : destination)
+    }
+
+    /// One step of a drag: carries the row at `current` as far towards `wanted`
+    /// as the task rule allows, and returns the index the row occupies
+    /// afterwards.
+    ///
+    /// The return value is the point. The gesture keeps its own record of where
+    /// the dragged row is, and it used to set that to the slot it had *asked*
+    /// for whether or not `moveCategory` agreed. After one refused move — a task
+    /// dragged down onto a category — the gesture's index named a different row,
+    /// and every crossing after it reordered that row instead: dragging a task
+    /// down past two categories swapped the two categories, and the store kept
+    /// it. So the answer is read back from the list by id after the move, not
+    /// assumed from the request.
+    ///
+    /// An index that names no row returns unchanged and moves nothing.
+    func dragCategory(from current: Int, towards wanted: Int) -> Int {
+        guard settings.categories.indices.contains(current) else { return current }
+        let id = settings.categories[current].id
+        let destination = TaskExpiry.reachableDestination(
+            settings.categories, from: current, towards: wanted)
+        moveCategory(from: current, to: destination)
+        return settings.categories.firstIndex { $0.id == id } ?? current
     }
 
     /// Moves a category one slot up (`-1`) or down (`+1`), for the keyboard and

@@ -508,10 +508,18 @@ struct CategoryList: View {
                     count: model.settings.categories.count)
 
                 if destination != state.currentIndex {
+                    // Where the row *is* afterwards, not where it was sent: a
+                    // task may not be carried below a category nor a category
+                    // above a task, so the model can stop the row short of
+                    // `destination` — and an index that ran ahead of the row
+                    // went on to reorder whichever row it then pointed at. See
+                    // `dragCategory`. Stopped at the boundary, the row keeps
+                    // following the pointer on screen and springs back to its
+                    // slot on release, which is `visualOffset` doing its job.
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
-                        model.moveCategory(from: state.currentIndex, to: destination)
+                        state.currentIndex = model.dragCategory(
+                            from: state.currentIndex, towards: destination)
                     }
-                    state.currentIndex = destination
                 }
                 drag = state
             }
