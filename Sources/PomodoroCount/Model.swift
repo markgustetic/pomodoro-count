@@ -83,7 +83,13 @@ final class AppModel: ObservableObject {
     /// Drives the timer to completion immediately. Used by tests, and by
     /// `PreviewRenderer` under `--preview --armed-break` — both need a
     /// finished session without sitting out the real 50 minutes.
-    func forceCompleteForTesting() {
+    ///
+    /// `endedAt` stands in for a clock that ran out earlier than now: the Mac
+    /// slept through the end of the session and this is the tick after the
+    /// wake. A test cannot put the machine to sleep, and `endDate` is private
+    /// to this file, so this is the one way to reach that path.
+    func forceCompleteForTesting(endedAt: Date? = nil) {
+        if let endedAt { endDate = endedAt }
         clock.remaining = 0
         complete()
     }
@@ -459,24 +465,60 @@ final class AppModel: ObservableObject {
     /// pure because `notify` returns early unless the app is bundled, so this
     /// wording posts nothing under test — and with auto-start off it is the
     /// only news a user with the panel closed gets.
-    static func completionBody(count: Int, breakArmed: Bool) -> String {
-        breakArmed
+    ///
+    /// `countedToday` is false for a session whose clock ran out on an earlier
+    /// day — see `sessionEnd`. Today's count does not include it, so quoting
+    /// that count under "Pomodoro complete" would announce a finished
+    /// pomodoro and "that's 0 today" in one breath; it says where the
+    /// pomodoro went instead.
+    static func completionBody(count: Int, breakArmed: Bool,
+                               countedToday: Bool = true) -> String {
+        guard countedToday else {
+            return breakArmed
+                ? "Counted for the day it finished — break's ready when you are."
+                : "Counted for the day it finished."
+        }
+        return breakArmed
             ? "That's \(count) today — break's ready when you are."
             : "Nice — that's \(count) today."
+    }
+
+    /// When a focus session that has just been found complete actually ended.
+    ///
+    /// The countdown is a wall-clock end date checked on a half-second tick,
+    /// and a sleeping Mac does not tick: a session whose clock ran out at
+    /// 23:50 with the lid shut is not *noticed* until the first tick after
+    /// the wake, hours later and possibly on another day. Stamping the record
+    /// at the moment of noticing put it on the wrong day — this morning
+    /// opened with a pomodoro already on it, yesterday lost one, and a
+    /// one-time task carried past midnight for the sake of this very record
+    /// was credited on a day it no longer existed. The session ended when its
+    /// clock ran out, so that is its date.
+    ///
+    /// Never later than `now`: a completion forced by a test, or a tick that
+    /// lands a hair early, has an end date still ahead, and a record dated in
+    /// the future would sort above everything logged after it. No scheduled
+    /// end at all reads as now, which is the old behaviour.
+    nonisolated static func sessionEnd(scheduled: Date?, now: Date) -> Date {
+        min(scheduled ?? now, now)
     }
 
     private func complete() {
         stopTimer()
         isRunning = false
         let finished = phase
+        // Read before it is cleared: this is when the clock ran out, which
+        // after a sleep is not when this is running. See `sessionEnd`.
+        let endedAt = Self.sessionEnd(scheduled: endDate, now: Date())
         endDate = nil
 
         if finished == .work {
-            logFinishedFocusSession()
+            logFinishedFocusSession(at: endedAt)
             play(.sessionDone)
             notify("Pomodoro complete",
                    Self.completionBody(count: todayCount,
-                                       breakArmed: !settings.autoStartBreak))
+                                       breakArmed: !settings.autoStartBreak,
+                                       countedToday: Calendar.current.isDateInToday(endedAt)))
             if settings.autoStartBreak {
                 startBreak()
             } else {
@@ -503,14 +545,18 @@ final class AppModel: ObservableObject {
     ///
     /// Expects the countdown already stopped (`isRunning == false`): the task
     /// sweep skips a running session, and the realign is suppressed by one.
-    private func logFinishedFocusSession() {
+    ///
+    /// `endedAt` is the record's date — when the session ended, which the two
+    /// callers know differently: the countdown from the clock that ran out
+    /// (`sessionEnd`), the cup from the press.
+    private func logFinishedFocusSession(at endedAt: Date) {
         focusSessionsThisCycle += 1
         // The record and the target it may have just moved are one change
         // as far as the store is concerned, so they cost one write rather
         // than two. The append comes first: this session credits the target
         // it actually ran against, and only the next one moves.
         suspendSaves()
-        records.append(Record(at: Date(), source: "timer",
+        records.append(Record(at: endedAt, source: "timer",
                               category: resolve(sessionTarget)))
         // After the append, before the realign: a session that ran across
         // midnight kept its task through the day change (the sweep skips
@@ -537,7 +583,8 @@ final class AppModel: ObservableObject {
             stopTimer()
             isRunning = false
             endDate = nil
-            logFinishedFocusSession()
+            // Ended early, so no clock ran out: the session ended at the press.
+            logFinishedFocusSession(at: Date())
             // `.countUp`, not `.sessionDone`, and no banner: the user is in
             // the panel watching the count change, so the quiet log sound is
             // the honest one.

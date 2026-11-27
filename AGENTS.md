@@ -151,6 +151,13 @@ that one fact:
   `settings.categories`.
 - `pomodorocount://log[?category=Name]` logs externally; a URL may not invent
   categories — unknown names land in the bucket.
+- A timer record is dated **when the session ended, not when the app noticed**
+  (`AppModel.sessionEnd(scheduled:now:)`). The countdown is a wall-clock end
+  date checked on a tick, and a sleeping Mac does not tick, so a session that
+  ran out overnight is only found on wake. `complete()` reads `endDate` before
+  clearing it and stamps the record with that, clamped to now; the cup stamps
+  the press. Anything that reports on a just-finished session must not assume
+  it counts toward today — the completion banner branches on exactly that.
 - Every record-appending path also calls `realignTarget()` — append first, so
   the record credits the target it ran against, then realign. It holds two
   automatic triggers: a met target hands off to the **highest-ranked** category

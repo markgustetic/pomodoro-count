@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   global shortcut, so every capital P in every app logged a pomodoro instead
   of appearing. A shortcut now needs ⌘ or ⌃; function keys still work with any
   modifier. A shortcut you already have is left as it is.
+- **A session that ends while the Mac is asleep is dated when it ended.** Close
+  the lid on a running session and it used to be recorded at the moment you
+  opened it again — so a session that ran out at 23:50 landed on the next
+  morning, giving today a pomodoro before any work and taking one from
+  yesterday. It now counts for the day its clock ran out, and the banner says
+  so instead of quoting today's count.
 
 ## [1.6.0] - 2026-11-10
 
