@@ -3,7 +3,8 @@ import AppKit
 import Carbon.HIToolbox
 
 /// A click-to-record control for a global shortcut. Click it, then press the
-/// combo. Requires at least one modifier (so a bare key can't hijack typing).
+/// combo. Requires ⌘ or ⌃ — or any modifier on a function key — so the hotkey
+/// can't hijack typing; see `Shortcut.canBeGlobal`.
 /// Esc cancels; the event monitor consumes keys only while recording.
 struct ShortcutRecorder: View {
     @Binding var shortcut: Shortcut
@@ -51,14 +52,19 @@ struct ShortcutRecorder: View {
         }
 
         let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
-        guard !flags.isEmpty else {
-            NSSound.beep()   // needs at least one modifier
+        let modifiers = carbonModifiers(from: flags)
+        // Not just "has a modifier": ⇧P is a modifier and a key, and as a
+        // global hotkey it eats every capital P typed anywhere. The rule, and
+        // why function keys are let off, is `Shortcut.canBeGlobal`. Still
+        // recording after the beep, so the next press can be a better one.
+        guard Shortcut.canBeGlobal(keyCode: UInt32(event.keyCode), carbonModifiers: modifiers) else {
+            NSSound.beep()
             return nil
         }
 
         shortcut = Shortcut(
             keyCode: UInt32(event.keyCode),
-            carbonModifiers: carbonModifiers(from: flags),
+            carbonModifiers: modifiers,
             label: keyLabel(for: event))
         stop()
         return nil

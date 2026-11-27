@@ -28,6 +28,37 @@ struct Shortcut: Codable, Equatable {
         carbonModifiers: UInt32(controlKey | optionKey | cmdKey),
         label: "P")
 
+    /// Whether a combo is safe to register as a system-wide hotkey.
+    ///
+    /// A registered hotkey swallows its keystroke in every app, so the rule is
+    /// about what the combo would take away from typing. The recorder used to
+    /// ask only for "some modifier", which let ⇧P through — and ⇧ and ⌥ are how
+    /// ordinary characters are typed (a capital P, a π), so every capital P on
+    /// the machine logged a pomodoro instead of appearing. ⌘ or ⌃ is what makes
+    /// a combo a command rather than a character.
+    ///
+    /// Function keys are the exception that keeps this from being a blunt
+    /// instrument: they type nothing, so ⇧F5 or ⌥F13 costs nobody a character,
+    /// and those are the combos a keypad or a Stream Deck is likeliest to send
+    /// — external hardware being this app's whole reason to exist. A bare key
+    /// with no modifier at all stays refused, as it always was.
+    ///
+    /// Pure and here rather than in `ShortcutRecorder` so it is tested, and so
+    /// "what may be a shortcut" has one answer. It guards recording only: a
+    /// combo already saved in data.json is left to load as it is.
+    static func canBeGlobal(keyCode: UInt32, carbonModifiers: UInt32) -> Bool {
+        if carbonModifiers & UInt32(cmdKey | controlKey) != 0 { return true }
+        guard carbonModifiers & UInt32(shiftKey | optionKey) != 0 else { return false }
+        return functionKeys.contains(Int(keyCode))
+    }
+
+    /// F1–F20. Listed, not a range: the virtual key codes are not contiguous.
+    private static let functionKeys: Set<Int> = [
+        kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6, kVK_F7, kVK_F8, kVK_F9, kVK_F10,
+        kVK_F11, kVK_F12, kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19,
+        kVK_F20,
+    ]
+
     var display: String {
         var s = ""
         if carbonModifiers & UInt32(controlKey) != 0 { s += "⌃" }

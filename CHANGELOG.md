@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   finish a session at 23:55 and the break vanished at 00:00, silently. A break
   still counting down now runs to its end; one left overnight is cleared as
   before.
+- **The shortcut recorder no longer accepts a combo that would eat your
+  typing.** Shift or Option alone on a letter — ⇧P, say — registered as a
+  global shortcut, so every capital P in every app logged a pomodoro instead
+  of appearing. A shortcut now needs ⌘ or ⌃; function keys still work with any
+  modifier. A shortcut you already have is left as it is.
 
 ## [1.6.0] - 2026-11-10
 

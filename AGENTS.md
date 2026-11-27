@@ -278,7 +278,8 @@ strands every existing install permanently. One-time Apple-side setup is in
   `TooltipPlacement.origin`, `DayRollover.action(phase:breakEnteredOn:newDay:countingDown:)`,
   `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`,
   `TaskExpiry.surviving(_:today:)`, `TaskExpiry.moveKeepsTasksOnTop(_:from:to:)`
-  and `TaskExpiry.reachableDestination(_:from:towards:)`
+  `TaskExpiry.reachableDestination(_:from:towards:)` and
+  `Shortcut.canBeGlobal(keyCode:carbonModifiers:)`
   are pure and unit-tested; views are thin over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`
   (swift-testing, not XCTest). The glyph is the clearest case for why: it was
