@@ -55,8 +55,11 @@ gh secret set SPARKLE_PRIVATE_KEY < sparkle-private-key.txt
 rm sparkle-private-key.txt        # do not commit this, ever
 ```
 
-Until `SPARKLE_PRIVATE_KEY` exists the release workflow skips appcast generation
-and releases publish normally, just without updates.
+A tag build **fails** without `SPARKLE_PRIVATE_KEY`. The app reads its feed from
+`releases/latest/download/appcast.xml`, so a release published without an
+appcast would become "latest" and every installed copy's update check would
+start returning 404. Dispatching the workflow by hand still skips appcast
+generation when the key is missing, for rehearsing the pipeline.
 
 ## Losing the private key
 

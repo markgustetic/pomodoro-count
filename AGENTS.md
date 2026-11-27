@@ -242,7 +242,10 @@ keychain, and hands it to the script — it does no signing of its own, and
 
 Local builds stay ad-hoc; **releases are signed and notarized, and a tag build
 fails outright without the signing secrets** rather than publishing an unsigned
-app that README.md and the cask both promise is signed. `workflow_dispatch`
+app that README.md and the cask both promise is signed. A tag build likewise
+fails without `SPARKLE_PRIVATE_KEY`: the feed URL is
+`releases/latest/download/appcast.xml`, so one release published without an
+appcast 404s the update check of every existing install. `workflow_dispatch`
 stays permissive — that is how to rehearse the pipeline or cut an unsigned build
 deliberately, and it is why the release-notes footer branches on `HAS_SIGNING`
 rather than asserting.

@@ -160,4 +160,7 @@ A tag build **fails** if the signing secrets are missing rather than quietly
 publishing an unsigned app — the README promises a signed one, and a release
 that silently isn't is worse than a release that doesn't happen. To build
 without signing on purpose, dispatch the workflow instead of pushing a tag.
+The same goes for the Sparkle private key: without it a tag build would publish
+no `appcast.xml`, and since installed copies read the feed from the *latest*
+release, that would break update checks for everyone.
 `packaging/signing/README.md` covers the one-time Apple-side setup.

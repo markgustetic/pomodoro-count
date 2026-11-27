@@ -45,6 +45,28 @@ jobs:
           echo "To build unsigned on purpose, dispatch this workflow instead of pushing a tag."
           exit 1
 
+      # The same gate for the other secret a real release cannot do without.
+      # Every installed copy reads its feed from
+      # releases/latest/download/appcast.xml, and "latest" is whatever was
+      # published last — so a tag build that skips the appcast step does not
+      # merely ship one release without updates, it takes the feed away from
+      # every existing install: their checks 404 until some later release
+      # carries an appcast again. The step used to be skipped silently when
+      # SPARKLE_PRIVATE_KEY was missing, which is exactly how a deleted or
+      # renamed secret would have looked like a green release.
+      #
+      # Here rather than at the appcast step for the reason given above: seconds,
+      # not after the build and a notarytool round trip. workflow_dispatch stays
+      # permissive, as it does for signing.
+      - name: Require the Sparkle key for a tag build
+        if: github.ref_type == 'tag' && env.HAS_SPARKLE_KEY != 'true'
+        run: |
+          echo "SPARKLE_PRIVATE_KEY is not set, so this tag build would publish without appcast.xml"
+          echo "and every installed copy's update check would start failing."
+          echo "Set the secret — see packaging/sparkle/README.md."
+          echo "To publish without an appcast on purpose, dispatch this workflow instead of pushing a tag."
+          exit 1
+
       - name: Resolve version
         id: version
         env:
@@ -274,7 +296,9 @@ jobs:
 
       # Sparkle verifies every update against the public key baked into the app,
       # so an unsigned appcast means clients correctly refuse to install. Skipped
-      # when the key isn't configured — see packaging/sparkle/README.md.
+      # when the key isn't configured — which only a dispatch can reach; a tag
+      # build without it has already failed at the gate at the top of this job.
+      # See packaging/sparkle/README.md.
       - name: Build the Sparkle appcast
         if: env.HAS_SPARKLE_KEY == 'true'
         env:
