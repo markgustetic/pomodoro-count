@@ -66,12 +66,18 @@ import Foundation
         #expect(abs(m.remaining - before) <= 1)
     }
 
-    @Test func breaksPauseToo() {
+    /// This asserted the opposite once (`breaksPauseToo`). The setting means
+    /// "focus is time at this keyboard", and a break is the reverse of that:
+    /// locking the screen and walking away is what taking one looks like. A
+    /// break that paused on the lock never ended — no "Break over", and ten
+    /// minutes later a paused timer with nearly all its time still on it.
+    @Test func aBreakKeepsRunningThroughALock() {
         let (m, _) = makeModel()
         m.settings.pausesOnScreenLock = true
         m.startBreak()
         m.handleScreenLocked()
-        #expect(!m.isRunning)
+        #expect(m.isRunning, "walking away is the break, not an interruption of it")
         #expect(m.phase == .breakTime)
+        m.reset()
     }
 }

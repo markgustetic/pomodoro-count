@@ -103,7 +103,8 @@ a completion sound and a notification. Every 4th completed session earns a
 longer break (15 minutes, adjustable). It keeps running while your Mac is locked
 or asleep — a pomodoro you finish away from this keyboard is exactly the kind
 this counts — but turn on **Pause when the screen locks** in Settings if you'd
-rather the timer meant time at this Mac.
+rather a focus session meant time at this Mac. A break runs through a lock
+either way.
 
 **The break waits for you.** When a focus session ends, the Focus tab holds the
 break ready rather than dropping back to idle: the big button becomes **Start

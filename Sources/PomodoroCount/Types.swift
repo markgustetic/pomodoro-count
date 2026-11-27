@@ -96,10 +96,11 @@ struct Settings: Codable {
     /// the classic pomodoro rhythm.
     var longBreakMinutes = 15
     var autoStartBreak = true
-    /// Whether a running session pauses when the screen locks or the displays
-    /// sleep. Off by default: this app exists to count pomodoros finished
-    /// somewhere else, so an unattended Mac is not evidence that focus stopped.
-    /// On, the timer means time at this keyboard and a lock stops the clock.
+    /// Whether a running focus session pauses when the screen locks or the
+    /// displays sleep. Off by default: this app exists to count pomodoros
+    /// finished somewhere else, so an unattended Mac is not evidence that focus
+    /// stopped. On, focus means time at this keyboard and a lock stops the
+    /// clock. A break runs through a lock either way — see `handleScreenLocked`.
     var pausesOnScreenLock = false
     var soundEnabled = true
     var globalShortcutEnabled = true

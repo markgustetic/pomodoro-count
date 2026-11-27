@@ -188,8 +188,15 @@ extension AppModel {
     /// Deliberately no auto-resume on unlock — only the user knows whether the
     /// time away should count, and `pause()` already preserves what's on the
     /// clock.
+    ///
+    /// Focus only. The setting says a focus session is time at this keyboard,
+    /// so a lock stops that clock — and a break is the opposite claim: locking
+    /// the screen and walking away is what taking one looks like. This used to
+    /// pause either phase, and with no auto-resume a break paused on the lock
+    /// simply never ended: no "Break over", and a paused timer with nearly all
+    /// of its time left waiting at the unlock.
     func handleScreenLocked() {
-        guard settings.pausesOnScreenLock, isRunning else { return }
+        guard settings.pausesOnScreenLock, isRunning, phase == .work else { return }
         pause()
     }
 

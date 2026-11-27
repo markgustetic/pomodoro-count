@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   morning, giving today a pomodoro before any work and taking one from
   yesterday. It now counts for the day its clock ran out, and the banner says
   so instead of quoting today's count.
+- **Pause when the screen locks no longer pauses your break.** With the
+  setting on, locking the Mac to step away for a break stopped the break's
+  clock too, so it never finished and no "Break over" arrived. The setting now
+  pauses focus sessions only; a break runs through a lock.
 
 ## [1.6.0] - 2026-11-10
 
