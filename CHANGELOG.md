@@ -46,6 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   left of a day that had just started. Open the Mac later the same day and you
   still get it, late; once the date has changed it is dropped and that
   evening's is set instead.
+- **`pomodorocount://log` is no longer lost when macOS picks another copy of
+  the app to open it.** With more than one copy on the Mac — the installed one
+  and a build folder, say — the system sometimes starts a different copy to
+  handle the URL. That copy stepped aside for the one already running, as it
+  should, but took the URL with it: nothing was logged, and the panel opened
+  instead. It now passes the URL on, the pomodoro is counted, and the panel
+  stays shut.
 
 ## [1.6.0] - 2026-11-10
 

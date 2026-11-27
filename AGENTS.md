@@ -122,6 +122,17 @@ that one fact:
   lives it holds the activation it launched with, and the panel it just asked
   for loses key status and dismisses. The waiting belongs on the other side,
   where `showPanelOnceAlone` polls until it is the only copy left.
+  "Promptly" means one step into AppKit's launch, not zero: the newcomer runs
+  a bare `NSApplication` (`Courier` — no scene, no `AppModel`, it must never
+  open the store) as far as `applicationDidFinishLaunching`, because that is
+  the first moment it can know what it was launched *for*. A launch's URLs
+  reach `application(_:open:)` before that callback (measured on 27.2), so a
+  copy started to open `pomodorocount://log` forwards the URL
+  (`openURLsNotification`, payload in `object`) and asks for no panel; exiting
+  from `main` dropped the pomodoro and opened a panel instead. Reproduce with
+  two bundled copies on a scratch store: `open -n -a <copy A> --args --store
+  <scratch>`, then `open -a <copy B> "pomodorocount://log"` — and quit the
+  installed app first, or it is the elder and takes the handoff.
 - **Synthetic mouse events cannot drive the panel's gestures** (clicks work,
   gestures never fire — XCUITest and raw CGEvent streams alike). The
   `--reorder-window` harness exists for automated gesture work, with one rule,
@@ -300,7 +311,8 @@ strands every existing install permanently. One-time Apple-side setup is in
   `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`,
   `TaskExpiry.surviving(_:today:)`, `TaskExpiry.moveKeepsTasksOnTop(_:from:to:)`
   `TaskExpiry.reachableDestination(_:from:towards:)`,
-  `NudgeDue.action(due:now:)` and
+  `NudgeDue.action(due:now:)`,
+  `SingleInstance.request(for:)`, `SingleInstance.urls(fromPayload:)` and
   `Shortcut.canBeGlobal(keyCode:carbonModifiers:)`
   are pure and unit-tested; views are thin over them. Follow that shape: new
   behavior gets a failing test first, in `Tests/PomodoroCountTests`

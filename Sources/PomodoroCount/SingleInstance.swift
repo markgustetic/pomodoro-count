@@ -65,6 +65,59 @@ enum SingleInstance {
     }
 }
 
+// MARK: - What the launch was for
+
+extension SingleInstance {
+
+    /// Posted app-to-app by a copy standing down from a launch that carried
+    /// `pomodorocount://` URLs, with those URLs as the notification's object.
+    ///
+    /// In `object` rather than `userInfo` because the object is a plain string
+    /// and crosses between processes under any signing setup; a `userInfo`
+    /// dictionary is dropped for a sandboxed sender.
+    static let openURLsNotification = Notification.Name("com.markg.pomodorocount.openURLs")
+
+    /// What a copy standing down asks of the copy that is staying.
+    enum Request: Equatable {
+        case showPanel
+        case open(String)
+    }
+
+    /// A launch stands down for one of two reasons, and they want opposite
+    /// things. Launch Services picked this copy to answer a notification click
+    /// — show the panel. Or it picked this copy to open a `pomodorocount://log`
+    /// URL — log the pomodoro, and show nothing: the sender is a Stream Deck
+    /// button or a script, by definition not looking at the menu bar.
+    ///
+    /// The second used to be handled as the first. The copy exited before
+    /// AppKit could hand it the URL, so the pomodoro was never counted and the
+    /// button press opened a panel instead — the app's headline input, failing
+    /// on exactly the machines with a second copy registered.
+    static func request(for urls: [URL]) -> Request {
+        urls.isEmpty ? .showPanel : .open(payload(for: urls))
+    }
+
+    /// One URL per line. A URL cannot contain a raw newline, so the separator
+    /// can never be mistaken for part of one.
+    static func payload(for urls: [URL]) -> String {
+        urls.map(\.absoluteString).joined(separator: "\n")
+    }
+
+    static func urls(fromPayload payload: String?) -> [URL] {
+        (payload ?? "").split(separator: "\n").compactMap { URL(string: String($0)) }
+    }
+
+    /// Carries out forwarded URLs on the copy that stayed.
+    ///
+    /// Straight into `handle(_:)`, the same door `application(_:open:)` uses.
+    /// Any process on the machine can post the notification, so that matters:
+    /// it can do nothing here that `open "pomodorocount://log"` could not.
+    @MainActor
+    static func deliver(payload: String?, to model: AppModel) {
+        for url in urls(fromPayload: payload) { model.handle(url) }
+    }
+}
+
 // MARK: - Standing down
 
 @MainActor
@@ -74,13 +127,16 @@ extension SingleInstance {
     /// true when it did, in which case the caller must return without starting
     /// the app.
     ///
-    /// Nothing is waited for here. An earlier version held this process open for
-    /// a couple of seconds to be sure the other copy was staying, and that was a
-    /// mistake with a visible symptom: a newcomer still alive is still holding
-    /// the activation it took to launch, so the panel it had just asked for lost
-    /// key status and dismissed itself a few hundred milliseconds after opening.
-    /// Standing down promptly *is* the cooperation. The waiting that does need
-    /// doing happens on the other side, in `showPanelOnceAlone`.
+    /// The handoff itself happens in `Courier`, one step into AppKit's launch,
+    /// because that is the first moment this process can know what it was
+    /// launched *for* — see `Request`. Nothing is waited for beyond that. An
+    /// earlier version held this process open for a couple of seconds to be
+    /// sure the other copy was staying, and that was a mistake with a visible
+    /// symptom: a newcomer still alive is still holding the activation it took
+    /// to launch, so the panel it had just asked for lost key status and
+    /// dismissed itself a few hundred milliseconds after opening. Standing
+    /// down promptly *is* the cooperation. The waiting that does need doing
+    /// happens on the other side, in `showPanelOnceAlone`.
     static func handOffIfAlreadyRunning() -> Bool {
         let bundleID = Bundle.main.bundleIdentifier
         let running = bundleID.map {
@@ -105,22 +161,81 @@ extension SingleInstance {
               !other.isTerminated
         else { return false }
 
-        other.activate()
-        DistributedNotificationCenter.default().postNotificationName(
-            showPanelNotification, object: nil, userInfo: nil, deliverImmediately: true)
+        // A backstop, off the main thread so a launch that hangs cannot starve
+        // it. A copy that never reached `applicationDidFinishLaunching` would
+        // otherwise sit here invisible — no scene, no menu bar item — and as
+        // the eldest copy on the machine it would be handed every later launch,
+        // including the real app's own relaunch.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { exit(0) }
+
+        let courier = Courier(elder: other)
+        let app = NSApplication.shared
+        app.delegate = courier
+        app.run()   // `Courier` exits the process; this does not return.
         return true
     }
 
-    /// Listens for a newcomer standing down, and shows the panel on its behalf.
+    /// The whole app, for a copy that is standing down: enough of AppKit's
+    /// launch to be told what the launch was for, and nothing else. No scene,
+    /// no menu bar item, and no `AppModel` — this process must never open the
+    /// store the other copy is writing.
+    ///
+    /// AppKit delivers a launch's URLs to `application(_:open:)` *before*
+    /// `applicationDidFinishLaunching`. Measured on macOS 27.2 with a bare
+    /// delegate like this one, not assumed: `open` then `did` in the same
+    /// millisecond for a URL launch, `did` alone for a plain one, 60–230ms
+    /// after `main` either way. So by `didFinishLaunching` the URLs are either
+    /// in hand or were never coming, and that is where the request is sent.
+    private final class Courier: NSObject, NSApplicationDelegate {
+        private let elder: NSRunningApplication
+        private var urls: [URL] = []
+
+        init(elder: NSRunningApplication) { self.elder = elder }
+
+        func application(_ application: NSApplication, open urls: [URL]) {
+            self.urls += urls
+        }
+
+        func applicationDidFinishLaunching(_ notification: Notification) {
+            let center = DistributedNotificationCenter.default()
+            switch SingleInstance.request(for: urls) {
+            case .showPanel:
+                elder.activate()
+                center.postNotificationName(
+                    showPanelNotification, object: nil, userInfo: nil, deliverImmediately: true)
+            case .open(let payload):
+                // No `activate()`: a logged pomodoro should not pull the other
+                // copy in front of whatever the user is doing. And
+                // `deliverImmediately` is what gets it there regardless —
+                // AppKit holds distributed notifications back from an app that
+                // is not active.
+                center.postNotificationName(
+                    openURLsNotification, object: payload, userInfo: nil, deliverImmediately: true)
+            }
+            exit(0)
+        }
+    }
+
+    /// Listens for a newcomer standing down, and does on its behalf what its
+    /// launch was for: shows the panel, or logs the URLs it was started with.
     ///
     /// `DistributedNotificationCenter` rather than the URL scheme: a
     /// `pomodorocount://` URL would go back through Launch Services and could be
     /// handed to the very copy we are trying not to start.
     static func startHandoffMonitoring() {
-        DistributedNotificationCenter.default().addObserver(
+        let center = DistributedNotificationCenter.default()
+        center.addObserver(
             forName: showPanelNotification, object: nil, queue: .main
         ) { _ in
             MainActor.assumeIsolated { showPanelOnceAlone() }
+        }
+        center.addObserver(
+            forName: openURLsNotification, object: nil, queue: .main
+        ) { note in
+            // Read out here: a Notification may not cross into
+            // `assumeIsolated`; a String may.
+            let payload = note.object as? String
+            MainActor.assumeIsolated { deliver(payload: payload, to: .shared) }
         }
     }
 

@@ -135,4 +135,61 @@ import Foundation
         #expect(a == b)
         #expect(a == 99)
     }
+
+    // MARK: What the copy standing down was launched for
+
+    /// The other reason Launch Services starts a second copy: it chose that
+    /// copy to open a `pomodorocount://log` URL. Standing down used to mean
+    /// "show the panel" whatever the launch was for, so the pomodoro was never
+    /// logged and a hardware button press opened a panel instead.
+
+    private let log = URL(string: "pomodorocount://log")!
+    private let deepWork = URL(string: "pomodorocount://log?category=Deep%20Work")!
+
+    @Test func aLaunchWithNoURLAsksForThePanel() {
+        #expect(SingleInstance.request(for: []) == .showPanel)
+    }
+
+    @Test func aLaunchForAURLAsksForThatURLAndNotThePanel() {
+        #expect(SingleInstance.request(for: [log]) == .open(SingleInstance.payload(for: [log])))
+    }
+
+    @Test func aURLSurvivesTheTripBetweenProcesses() {
+        let sent = SingleInstance.payload(for: [deepWork])
+        #expect(SingleInstance.urls(fromPayload: sent) == [deepWork])
+    }
+
+    @Test func severalURLsArriveInOrder() {
+        let sent = SingleInstance.payload(for: [log, deepWork, log])
+        #expect(SingleInstance.urls(fromPayload: sent) == [log, deepWork, log])
+    }
+
+    /// The notification is one any process on the machine can post.
+    @Test func aMissingOrEmptyPayloadCarriesNothing() {
+        #expect(SingleInstance.urls(fromPayload: nil).isEmpty)
+        #expect(SingleInstance.urls(fromPayload: "").isEmpty)
+        #expect(SingleInstance.urls(fromPayload: "\n\n").isEmpty)
+    }
+
+    @MainActor @Test func aForwardedURLIsLoggedByTheCopyThatStayed() {
+        let (m, _) = makeModel()
+        SingleInstance.deliver(payload: SingleInstance.payload(for: [log]), to: m)
+        #expect(m.totalCount == 1)
+    }
+
+    @MainActor @Test func aForwardedCategoryIsHonoured() {
+        let (m, _) = makeModel()
+        m.settings.categoriesEnabled = true
+        _ = m.addCategory(name: "Deep Work", dailyGoal: 0)
+        SingleInstance.deliver(payload: SingleInstance.payload(for: [deepWork]), to: m)
+        #expect(m.records.first?.category == "Deep Work")
+    }
+
+    /// Forwarding grants nothing the URL scheme does not: the payload goes
+    /// through the same `handle(_:)`, so only a `log` command does anything.
+    @MainActor @Test func aForwardedPayloadCanOnlyDoWhatAURLCan() {
+        let (m, _) = makeModel()
+        SingleInstance.deliver(payload: "pomodorocount://reset\nhttps://log\nnot a url at all", to: m)
+        #expect(m.totalCount == 0)
+    }
 }
