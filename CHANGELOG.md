@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   been, and went on to move whichever row was sitting where it thought it was.
   Dragging a task down past two categories swapped the two categories. The row
   now stops at the line and everything else stays put.
+- **A break in progress at midnight keeps running.** The rule that clears a
+  break left over from yesterday also caught one that had only just started:
+  finish a session at 23:55 and the break vanished at 00:00, silently. A break
+  still counting down now runs to its end; one left overnight is cleared as
+  before.
 
 ## [1.6.0] - 2026-11-10
 

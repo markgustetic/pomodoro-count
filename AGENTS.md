@@ -188,8 +188,13 @@ that one fact:
   truthful source); once the break is *running*, `currentBreakIsLong` is, because
   `startBreak()` has already zeroed `focusSessionsThisCycle`. A calendar-day
   change is the third way a break ends: `handleDayChange` clears it and
-  restarts the long-break cycle, exempting only a break armed on the new day
-  itself — `breakEnteredOn` is the stamp that tells the two apart. The cycle
+  restarts the long-break cycle, with two exemptions. A break armed on the new
+  day itself survives — `breakEnteredOn` is the stamp that tells the two apart.
+  And a break *still counting down* when the date changes keeps running
+  (`isCountingDown(at:)`: running, with time left as of the moment of asking):
+  it was merely in progress at midnight, not left overnight, though its cycle
+  restarts like idle's. `isRunning` alone can't make that call — it stays true
+  for a countdown that ran out during a sleep until the first tick after wake. The cycle
   also restarts on a day change found at `.idle`
   (`DayRollover.Action.restartCycle`: no timer to stop, just the counter), but
   deliberately not at `.work` — the wake that reports the new day is the same
@@ -270,7 +275,7 @@ strands every existing install permanently. One-time Apple-side setup is in
   `HeatmapLayout.center(of:)`, `PanelMetrics.tabHeightCap(visibleHeight:)`,
   `CategoryAdvance.next(after:in:pinned:)`, `CountAdjust.newestTodayIndex`,
   `StatusIcon.glyph(phase:running:)`, `HistoryReadout.tooltip`,
-  `TooltipPlacement.origin`, `DayRollover.action(phase:breakEnteredOn:newDay:)`
+  `TooltipPlacement.origin`, `DayRollover.action(phase:breakEnteredOn:newDay:countingDown:)`,
   `TargetPick.action(isAlreadyTarget:pinned:autoAdvance:)`,
   `TaskExpiry.surviving(_:today:)`, `TaskExpiry.moveKeepsTasksOnTop(_:from:to:)`
   and `TaskExpiry.reachableDestination(_:from:towards:)`

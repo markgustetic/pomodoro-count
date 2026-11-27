@@ -38,11 +38,35 @@ enum DayRollover {
     /// A nil stamp on a break phase reads as a leftover. Every path into
     /// `.breakReady` and `.breakTime` sets it, so nil is unreachable — and if
     /// a new path ever forgets, clearing a stale break is the safer failure.
-    static func action(phase: Phase, breakEnteredOn: Date?, newDay: Date) -> Action {
+    ///
+    ///   - countingDown: the timer is running with time still on its clock at
+    ///     the moment of asking — `AppModel.isCountingDown(at:)`.
+    ///
+    /// `countingDown` separates the two breaks a stamp from yesterday can
+    /// mean. One was left overnight: paused, or running with its time up hours
+    /// before anything looked — a leftover, cleared as before. The other was
+    /// simply in progress when the date changed, begun at 23:55 and five
+    /// minutes in at 00:00. That one is nobody's leftover, it ends by itself
+    /// within the hour, and stopping it on the stroke of midnight took the
+    /// break away with no sound and no banner. It keeps running.
+    ///
+    /// It answers `.restartCycle` rather than `.none`, which is what `.idle`
+    /// answers and for the same reason: the new day must not open owing
+    /// yesterday's sessions. It also keeps the wake-time race honest. A break
+    /// that runs out during a sleep is not counting down by the time this is
+    /// asked, so it is cleared here or completed by its own overdue tick,
+    /// whichever the run loop schedules first — and both leave an idle timer
+    /// on a fresh cycle.
+    static func action(phase: Phase, breakEnteredOn: Date?, newDay: Date,
+                       countingDown: Bool) -> Action {
         switch phase {
         case .breakReady, .breakTime:
             guard let began = breakEnteredOn else { return .resetToIdle }
-            return began < newDay ? .resetToIdle : .none
+            guard began < newDay else { return .none }
+            // `.breakTime` spelled out: an armed break has no countdown, and
+            // the flag is computed from the timer rather than from the phase,
+            // so it must not be able to rescue one.
+            return phase == .breakTime && countingDown ? .restartCycle : .resetToIdle
         case .idle:
             // The commonest overnight state, and the one the cycle counter is
             // actually lost in: the last break was taken or skipped hours ago,

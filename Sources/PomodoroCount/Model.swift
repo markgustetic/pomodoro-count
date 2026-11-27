@@ -396,6 +396,21 @@ final class AppModel: ObservableObject {
         breakEnteredOn = nil
     }
 
+    /// Whether the timer is running with time still on its clock at `now`.
+    ///
+    /// Not `isRunning`, which stays true for a countdown that ran out while
+    /// the Mac slept until the first tick after the wake notices. The day
+    /// rollover needs the difference: a break left running overnight is a
+    /// leftover, a break five minutes in at midnight is not — see
+    /// `DayRollover.action`. `now` is passed in because `handleDayChange`
+    /// takes an injected one, and the two must agree about what time it is.
+    ///
+    /// Lives here because `endDate` is private to this file.
+    func isCountingDown(at now: Date) -> Bool {
+        guard isRunning, let endDate else { return false }
+        return endDate > now
+    }
+
     /// Starts the day's rhythm over: the timer back to idle and the long-break
     /// cycle back to zero, so a new day doesn't open owing yesterday's long
     /// break.

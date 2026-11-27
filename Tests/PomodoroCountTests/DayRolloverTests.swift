@@ -14,28 +14,47 @@ import Foundation
     private var yesterday: Date { newDay.addingTimeInterval(-3600) }
 
     @Test func anArmedBreakIsClearedByANewDay() {
-        #expect(DayRollover.action(phase: .breakReady,
-                                   breakEnteredOn: yesterday, newDay: newDay) == .resetToIdle)
+        #expect(DayRollover.action(phase: .breakReady, breakEnteredOn: yesterday,
+                                   newDay: newDay, countingDown: false) == .resetToIdle)
     }
 
-    @Test func aRunningBreakIsClearedByANewDay() {
-        #expect(DayRollover.action(phase: .breakTime,
-                                   breakEnteredOn: yesterday, newDay: newDay) == .resetToIdle)
+    /// Left overnight: paused, or running with its time long since up by the
+    /// moment anything looks. Either way there is no break left to protect.
+    @Test func aBreakWithNoTimeLeftIsClearedByANewDay() {
+        #expect(DayRollover.action(phase: .breakTime, breakEnteredOn: yesterday,
+                                   newDay: newDay, countingDown: false) == .resetToIdle)
+    }
+
+    /// The break that was simply in progress when the date changed: begun at
+    /// 23:55, five minutes in at 00:00. It is not a leftover — it ends on its
+    /// own in a few minutes — and it used to vanish on the stroke of midnight
+    /// with no sound and no banner. The cycle still restarts, as it does from
+    /// idle: the new day owes nothing to yesterday's count.
+    @Test func aBreakStillCountingDownSurvivesAndTheCycleRestarts() {
+        #expect(DayRollover.action(phase: .breakTime, breakEnteredOn: yesterday,
+                                   newDay: newDay, countingDown: true) == .restartCycle)
+    }
+
+    /// An armed break has no countdown at all, so the flag cannot rescue it —
+    /// pinned because the caller computes the flag from the timer, not the phase.
+    @Test func anArmedBreakIsClearedWhateverTheFlagSays() {
+        #expect(DayRollover.action(phase: .breakReady, breakEnteredOn: yesterday,
+                                   newDay: newDay, countingDown: true) == .resetToIdle)
     }
 
     /// Nothing to stop, but the cycle counter behind an idle timer is still
     /// yesterday's.
     @Test func idleRestartsTheCycle() {
-        #expect(DayRollover.action(phase: .idle,
-                                   breakEnteredOn: nil, newDay: newDay) == .restartCycle)
+        #expect(DayRollover.action(phase: .idle, breakEnteredOn: nil,
+                                   newDay: newDay, countingDown: false) == .restartCycle)
     }
 
     /// A focus session in progress at midnight is real work about to become a
     /// record. Ending it would destroy that — and its cycle counter is left
     /// alone too, so the wake-time race resolves the same way in either order.
     @Test func aFocusSessionIsLeftAlone() {
-        #expect(DayRollover.action(phase: .work,
-                                   breakEnteredOn: nil, newDay: newDay) == .none)
+        #expect(DayRollover.action(phase: .work, breakEnteredOn: nil,
+                                   newDay: newDay, countingDown: true) == .none)
     }
 
     /// The wake-time race: a session running across a sleep that crosses
@@ -45,12 +64,12 @@ import Foundation
     @Test func aBreakArmedOnTheNewDayItselfSurvives() {
         #expect(DayRollover.action(phase: .breakReady,
                                    breakEnteredOn: newDay.addingTimeInterval(60),
-                                   newDay: newDay) == .none)
+                                   newDay: newDay, countingDown: false) == .none)
     }
 
     @Test func aBreakWithNoStampIsTreatedAsALeftover() {
-        #expect(DayRollover.action(phase: .breakTime,
-                                   breakEnteredOn: nil, newDay: newDay) == .resetToIdle)
+        #expect(DayRollover.action(phase: .breakTime, breakEnteredOn: nil,
+                                   newDay: newDay, countingDown: false) == .resetToIdle)
     }
 }
 
@@ -90,6 +109,50 @@ import Foundation
 
         #expect(m.phase == .idle)
         #expect(!m.isRunning)
+    }
+
+    /// The other running break: not one left overnight, whose time ran out
+    /// hours before `now`, but one in progress as the date changes. The stamp
+    /// and the last-seen day are set by hand because `startBreak()` reads the
+    /// real clock, which a test cannot move to 23:55.
+    @Test func aBreakStillCountingDownAtMidnightKeepsRunning() {
+        let (m, _) = makeModel()
+        m.startBreak()
+        let today = Calendar.current.startOfDay(for: Date())
+        m.breakEnteredOn = today.addingTimeInterval(-300)
+        m.lastSeenDay = Calendar.current.date(byAdding: .day, value: -1, to: today)!
+
+        m.handleDayChange(now: Date())
+
+        #expect(m.phase == .breakTime)
+        #expect(m.isRunning, "midnight must not cut a break short")
+        #expect(m.breakEnteredOn != nil)
+        m.reset()
+    }
+
+    /// Surviving the rollover must not carry yesterday's count with it: three
+    /// sessions before midnight and one after would otherwise earn the long
+    /// break on the first pomodoro of the day — the same thing the idle case
+    /// restarts the cycle to prevent.
+    @Test func aBreakThatSurvivesMidnightStillRestartsTheCycle() {
+        let (m, _) = makeModel()
+        m.settings.autoStartBreak = false
+        for _ in 0..<3 {
+            m.startWork()
+            m.forceCompleteForTesting()
+            m.reset()
+        }
+        m.startBreak()
+        let today = Calendar.current.startOfDay(for: Date())
+        m.breakEnteredOn = today.addingTimeInterval(-300)
+        m.lastSeenDay = Calendar.current.date(byAdding: .day, value: -1, to: today)!
+
+        m.handleDayChange(now: Date())
+        m.reset()
+        m.startWork()
+        m.forceCompleteForTesting()
+
+        #expect(!m.nextBreakIsLong)
     }
 
     @Test func aNewDayLeavesARunningFocusSessionAlone() {

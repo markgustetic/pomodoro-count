@@ -237,7 +237,8 @@ extension AppModel {
             lastSeenDay = day
             switch DayRollover.action(phase: phase,
                                       breakEnteredOn: breakEnteredOn,
-                                      newDay: day) {
+                                      newDay: day,
+                                      countingDown: isCountingDown(at: now)) {
             case .resetToIdle: resetForNewDay()
             case .restartCycle: restartLongBreakCycle()
             case .none: break
