@@ -35,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   setting on, locking the Mac to step away for a break stopped the break's
   clock too, so it never finished and no "Break over" arrived. The setting now
   pauses focus sessions only; a break runs through a lock.
+- **A history file the app can't open is no longer replaced.** If `data.json`
+  was there but couldn't be read — wrong permissions, a disk error — the app
+  started empty and the first thing you logged wrote a fresh file over it. The
+  original is now moved aside as `data-unreadable-…-backup.json` first, the
+  same as a file that won't parse, and nothing is saved until it has been.
 
 ## [1.6.0] - 2026-11-10
 

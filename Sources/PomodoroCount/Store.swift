@@ -45,10 +45,43 @@ extension AppModel {
         return base.appendingPathComponent("data.json")
     }
 
+    /// Whether a failed read means "there is no file", as opposed to "there is
+    /// one and it could not be read". Only the first is a new install.
+    ///
+    /// Both spellings, because which one arrives depends on the call:
+    /// `Data(contentsOf:)` reports a Cocoa error, and the POSIX one is what
+    /// sits underneath it and what lower-level calls surface directly.
+    nonisolated static func isMissingFile(_ error: Error) -> Bool {
+        let error = error as NSError
+        switch error.domain {
+        case NSCocoaErrorDomain:
+            return error.code == NSFileReadNoSuchFileError || error.code == NSFileNoSuchFileError
+        case NSPOSIXErrorDomain:
+            return error.code == Int(ENOENT)
+        default:
+            return false
+        }
+    }
+
     func load() {
         isLoading = true
         defer { isLoading = false }
-        guard let data = try? Data(contentsOf: storeURL) else { return }
+        let data: Data
+        do {
+            data = try Data(contentsOf: storeURL)
+        } catch {
+            // No file is a new install, and the one quiet way out of here.
+            guard !Self.isMissingFile(error) else { return }
+            // Anything else means there is a file and this process has not
+            // seen inside it — permissions, an I/O error. This used to read as
+            // "no file" too, via `try?`, and the next save then replaced
+            // history nobody had loaded. A rename needs no read access, so
+            // move it out of the way of that save; if even that fails the
+            // rescue stays owed, and `save()` will not write until it is paid.
+            NSLog("data.json exists but could not be read: \(error)")
+            unreadStoreNeedsRescue = !setAsideUnreadStore()
+            return
+        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let persisted = try? decoder.decode(Persisted.self, from: data) else {
@@ -130,13 +163,49 @@ extension AppModel {
         save()
     }
 
+    /// Moves a store this process could not read out of the path of the next
+    /// save, keeping it beside the store under the same name a file that would
+    /// not decode gets. Returns false while the file is still in the way.
+    ///
+    /// A file that has gone in the meantime counts as done: there is nothing
+    /// left to protect, and treating it as a failure would stop the app saving
+    /// for good.
+    private func setAsideUnreadStore() -> Bool {
+        let backup = storeURL.deletingLastPathComponent()
+            .appendingPathComponent("data-unreadable-\(Int(Date().timeIntervalSince1970))-backup.json")
+        do {
+            try FileManager.default.moveItem(at: storeURL, to: backup)
+            NSLog("data.json set aside unread as \(backup.lastPathComponent)")
+            return true
+        } catch {
+            if Self.isMissingFile(error) { return true }
+            NSLog("data.json could not be set aside, so nothing will be saved over it: \(error)")
+            return false
+        }
+    }
+
     func save() {
         guard !isLoading else { return }
         guard !savesSuspended else { savePending = true; return }
+        // An unread store is still sitting at `storeURL`. Try the rescue again
+        // — whatever blocked it at launch may have cleared — and write nothing
+        // until it succeeds: losing this session's changes is the cheaper of
+        // the two losses on offer.
+        if unreadStoreNeedsRescue {
+            guard setAsideUnreadStore() else { return }
+            unreadStoreNeedsRescue = false
+        }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted]
         guard let data = try? encoder.encode(Persisted(records: records, settings: settings)) else { return }
-        try? data.write(to: storeURL, options: .atomic)
+        do {
+            try data.write(to: storeURL, options: .atomic)
+        } catch {
+            // Said out loud rather than swallowed: a store that has stopped
+            // saving looks exactly like one that is saving until the next
+            // launch comes up short, and the log is the only witness.
+            NSLog("data.json could not be saved: \(error)")
+        }
     }
 }

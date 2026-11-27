@@ -112,6 +112,10 @@ final class AppModel: ObservableObject {
     var lastSeenDay = Calendar.current.startOfDay(for: Date())
     let customStoreURL: URL?
     var isLoading = false
+    /// True while a store that `load()` could not read is still at `storeURL`
+    /// because it could not be moved aside either. `save()` refuses to write
+    /// over it — see `load()`.
+    var unreadStoreNeedsRescue = false
 
     /// How many bursts of related changes are in flight, so they cost one store
     /// write between them instead of one each. Bursts nest, so this counts

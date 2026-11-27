@@ -144,7 +144,12 @@ that one fact:
   **field-by-field with defaults** so old files always load — new fields must
   follow that pattern. A newer-schema file and an unreadable file are both
   backed up before the next save can overwrite them; history must never be
-  silently lost.
+  silently lost. "Unreadable" covers two failures: bytes that won't decode
+  (copied aside), and a file that is there but whose *read* failed (moved
+  aside — a rename needs no read access). Only file-not-found means a new
+  install (`AppModel.isMissingFile`); `try?` on the read once made every
+  failure look like one. If the move fails too, `unreadStoreNeedsRescue`
+  stops `save()` writing until a later attempt succeeds.
 - Categories are keyed by **normalized name**, archived rather than deleted
   (records keep their labels; re-adding a name reunites it with its history).
   The fallback bucket always exists. Order is array order in

@@ -211,6 +211,86 @@ import Foundation
         #expect(preserved == contents, "the backup must be the original bytes, not a re-encode")
     }
 
+    // MARK: A file that is there but cannot be read
+
+    /// The other way to arrive at an empty model with history still on disk:
+    /// the file exists and the read itself fails — permissions, an I/O error.
+    /// `load()` used to treat every read failure as "no file yet", and the next
+    /// save replaced the file it had never seen. `chmod 000` stands in for all
+    /// of them; root reads through it, hence the trait.
+    @Test(.enabled(if: getuid() != 0))
+    func aStoreThatCannotBeReadIsSetAsideBeforeTheNextSave() throws {
+        let contents = "{\"clue\":\"history nobody has read yet\"}"
+        let url = try storeURL(containing: contents)
+        try setPermissions(0o000, on: url)
+        let m = AppModel(storeURL: url)
+        m.settings.soundEnabled = false
+
+        m.logExternal()   // fires save()
+
+        let kept = try setAsideStore(beside: url)
+        #expect(kept == contents, "the file set aside must be the original, untouched")
+        #expect(AppModel(storeURL: url).totalCount == 1, "and the app still saves")
+    }
+
+    /// When it cannot be moved either — here the folder is read-only at launch
+    /// — the rescue is owed, not abandoned: a save that later becomes possible
+    /// must move the original out of the way before it writes.
+    @Test(.enabled(if: getuid() != 0))
+    func aStoreThatCouldNotBeSetAsideIsRescuedBeforeALaterSave() throws {
+        let contents = "{\"clue\":\"history nobody has read yet\"}"
+        let url = try storeURL(containing: contents)
+        let dir = url.deletingLastPathComponent()
+        try setPermissions(0o000, on: url)
+        try setPermissions(0o555, on: dir)
+        let m = AppModel(storeURL: url)
+        m.settings.soundEnabled = false   // a save that cannot land
+        try setPermissions(0o755, on: dir)
+
+        m.logExternal()   // the first save that can
+
+        let kept = try setAsideStore(beside: url)
+        #expect(kept == contents)
+        #expect(AppModel(storeURL: url).totalCount == 1)
+    }
+
+    /// The guard on the fix above: a brand-new install has no file, and that
+    /// must stay the quiet case — nothing to set aside, nothing left behind.
+    @Test func aMissingStoreLeavesNothingBehindButTheStore() throws {
+        let (m, url) = makeModel()
+        m.logExternal()
+        let files = try FileManager.default.contentsOfDirectory(
+            atPath: url.deletingLastPathComponent().path)
+        #expect(files == ["data.json"])
+    }
+
+    @Test func aMissingFileIsToldApartFromOneThatCannotBeRead() throws {
+        let missing = temporaryStoreURL()
+        #expect(throws: (any Error).self) { try Data(contentsOf: missing) }
+        do { _ = try Data(contentsOf: missing) } catch {
+            #expect(AppModel.isMissingFile(error))
+        }
+        #expect(!AppModel.isMissingFile(CocoaError(.fileReadNoPermission)))
+        #expect(!AppModel.isMissingFile(POSIXError(.EIO)))
+        #expect(AppModel.isMissingFile(POSIXError(.ENOENT)))
+    }
+
+    private func setPermissions(_ mode: Int, on url: URL) throws {
+        try FileManager.default.setAttributes([.posixPermissions: mode], ofItemAtPath: url.path)
+    }
+
+    /// The contents of the one file the app set aside next to `url`.
+    private func setAsideStore(beside url: URL) throws -> String {
+        let dir = url.deletingLastPathComponent()
+        let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0.contains("unreadable") }
+        let name = try #require(names.first, "the unread store was not set aside")
+        #expect(names.count == 1)
+        let kept = dir.appendingPathComponent(name)
+        try setPermissions(0o644, on: kept)
+        return try String(contentsOf: kept, encoding: .utf8)
+    }
+
     @Test func settingsChangesArePersistedImmediately() {
         let (m, url) = makeModel()
         m.settings.autoStartBreak = false
