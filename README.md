@@ -199,7 +199,7 @@ Turn off **Launch at login** in Settings first, or macOS keeps a stale login ite
 
 ```bash
 just            # list every recipe
-just dev        # run from source
+just dev        # run from source, on a scratch store
 just test       # run the test suite
 just preview    # render all three tabs to a PNG, no menu bar needed
 just build      # build the .app into ./build

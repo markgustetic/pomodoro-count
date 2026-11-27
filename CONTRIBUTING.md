@@ -13,7 +13,7 @@ Tools (`xcode-select --install`).
 git clone https://github.com/markgustetic/pomodoro-count.git
 cd pomodoro-count
 just            # list every recipe
-just dev        # run straight from source
+just dev        # run straight from source, on a scratch store
 just test       # run the test suite
 just install    # build and install into /Applications
 ```
@@ -129,7 +129,11 @@ swift run PomodoroCount --seed-store /tmp/s.json   # known categories, then exit
 just preview /tmp/s.json                           # render it after editing
 ```
 
-`just dev` takes no arguments, so the seed step calls `swift run` directly. A
+The seed step calls `swift run` directly because `--seed-store` writes and
+exits; `just dev /tmp/s.json` then runs the app itself against that store. Bare
+`just dev` uses a scratch store under `.build/dev-store`, never your real
+history — the installed app is usually running on that file, and two processes
+saving one `data.json` overwrite each other. A
 `--store` path that doesn't exist is an error rather than a silent fall back to
 the demo data — that distinction matters, because three renders against three
 different stores coming back identical looks like an answer.

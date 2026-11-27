@@ -10,7 +10,7 @@ with deliberate AppKit reach-ins, macOS 14+.
 just test        # full suite (swift-testing; borrows Xcode's toolchain if the CLT is active)
 just build       # release .app into ./build (build-app.sh: compile, bundle, icon, ad-hoc sign)
 just install     # build, replace /Applications copy, relaunch
-just dev         # run from source, no bundle
+just dev         # run from source, no bundle, on a scratch store (.build/dev-store); `just dev <path>` for another
 just preview     # render the whole panel (all three tabs) to a PNG, headless
 just uitest      # both UI bundles: reorder dynamics, then XCUITest against the real menu bar item
 just uitest-dynamics  # only the harness-driven reorder tests — unattended, no Automation Mode prompt

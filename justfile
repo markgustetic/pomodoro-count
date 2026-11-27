@@ -49,9 +49,20 @@ install: build
 run: build
     open "{{bundle}}"
 
-# Run straight from source for development (no bundle; notifications disabled)
-dev:
-    swift run {{exe}}
+# `dev` runs on a scratch store, never the real one. An unbundled build is
+# allowed to run beside the installed app on purpose (see `SingleInstance`), and
+# the installed app is usually running — so without `--store` this was a second
+# process saving the same data.json, each overwriting the other's history, which
+# is the exact hazard the single-instance guard exists to prevent. The scratch
+# store lives under .build so it survives between runs and `just clean` removes
+# it. Pass a path to run against another store:  just dev /tmp/s.json
+#
+# (The line directly above a recipe is what `just --list` prints, so the summary
+# goes last.)
+
+# Run from source on a scratch store (no bundle; notifications disabled)
+dev store=".build/dev-store/data.json":
+    swift run {{exe}} --store "{{store}}"
 
 # Run the test suite
 test:
